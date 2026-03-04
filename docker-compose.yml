@@ -1,0 +1,93 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    container_name: bugbounty-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bug_bounty_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bugbounty-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Backend
+  backend:
+    build: 
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: bugbounty-backend
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ./Backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DJANGO_SETTINGS_MODULE=Backend.settings
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/bug_bounty_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bug_bounty_db
+      - RECAPTCHA_SECRET_KEY=6Ld5sg8sAAAAAE64h6JQLMn-JXDN7dzecPg7KqKJ
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
+  # React Frontend
+  frontend:
+    build: 
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: bugbounty-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true  # For hot reload in Docker
+      - WATCHPACK_POLLING=true    # For hot reload in Docker
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
+  # ClamAV for virus scanning
+  clamav:
+    image: clamav/clamav:latest
+    container_name: bugbounty-clamav
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
+networks:
+  bugbounty-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  clamav_data:

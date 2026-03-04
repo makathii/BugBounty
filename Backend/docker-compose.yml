@@ -1,0 +1,43 @@
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bug_bounty_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: django-backend
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=Backend.settings
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/bug_bounty_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bug_bounty_db
+      - RECAPTCHA_SECRET_KEY=6Ld5sg8sAAAAAE64h6JQLMn-JXDN7dzecPg7KqKJ
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+
+    restart: on-failure
+
+volumes:
+  postgres_data:
