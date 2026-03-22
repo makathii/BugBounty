@@ -14,6 +14,7 @@ class BugReport(models.Model):
         ("triaged", "Triaged"),
         ("accepted", "Accepted"),
         ("rejected", "Rejected"),
+        ("duplicate", "Duplicate"),
         ("resolved", "Resolved"),
         ("closed", "Closed"),
     ]
@@ -26,6 +27,15 @@ class BugReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     bounty_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    #Prevents duplicate submissions
+    duplicate_of = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="duplicates"
+    )
+    duplicate_reason = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} ({self.status})"
