@@ -18,14 +18,21 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Assign to Researcher group by default
+        # Get role from validated data (default to researcher)
+        role = serializer.validated_data.get('role', 'researcher')
+
+        # Assign to appropriate group
+        if role == 'company':
+            group_name = 'ProgramOwner'
+        else:
+            group_name = 'Researcher'
+
         try:
-            researcher_group = Group.objects.get(name='Researcher')
-            user.groups.add(researcher_group)
+            group = Group.objects.get(name=group_name)
         except Group.DoesNotExist:
-            # Create the group if it doesn't exist
-            researcher_group = Group.objects.create(name='Researcher')
-            user.groups.add(researcher_group)
+            group = Group.objects.create(name=group_name)
+
+        user.groups.add(group)
 
         return Response(
             {

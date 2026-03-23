@@ -19,6 +19,25 @@ def test_register_creates_user_and_assigns_default_group(api_client, user_payloa
 
 
 @pytest.mark.django_db
+def test_register_company_assigns_program_owner_group(api_client):
+    company_payload = {
+        "username": "testcompany",
+        "email": "company@example.com",
+        "password": "SafePass123!",
+        "password2": "SafePass123!",
+        "first_name": "Test",
+        "last_name": "Company",
+        "role": "company",
+    }
+    response = api_client.post("/api/users/register/", company_payload, format="json")
+
+    assert response.status_code == 201
+    created_user = User.objects.get(username="testcompany")
+    assert created_user.groups.filter(name="ProgramOwner").exists()
+    assert not created_user.groups.filter(name="Researcher").exists()
+
+
+@pytest.mark.django_db
 def test_register_rejects_invalid_payload(api_client, user_payload):
     bad_payload = {**user_payload, "password2": "different-pass"}
 

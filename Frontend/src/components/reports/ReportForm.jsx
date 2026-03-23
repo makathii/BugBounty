@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { reportAPI } from '../../services/api';
 
-const ReportForm = ({ onSuccess, onCancel }) => {
+const ReportForm = ({ onSuccess, onCancel, programId }) => {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        severity: 'medium'
+        severity: 'medium',
+        program: programId || ''
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
@@ -35,7 +36,8 @@ const ReportForm = ({ onSuccess, onCancel }) => {
             setFormData({
                 title: '',
                 description: '',
-                severity: 'medium'
+                severity: 'medium',
+                program: programId || ''
             });
         } catch (error) {
             if (error.response?.data) {
@@ -57,6 +59,13 @@ const ReportForm = ({ onSuccess, onCancel }) => {
             )}
 
             <form onSubmit={handleSubmit}>
+                {programId && (
+                    <div className="form-group">
+                        <label>Program ID</label>
+                        <input type="text" value={programId} disabled className="form-control" />
+                        <input type="hidden" name="program" value={formData.program} />
+                    </div>
+                )}
                 <div className="form-group">
                     <label htmlFor="title">Title *</label>
                     <input

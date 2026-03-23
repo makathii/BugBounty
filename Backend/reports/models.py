@@ -22,6 +22,13 @@ class BugReport(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reports")
+    program = models.ForeignKey(
+        "programs.Program",
+        on_delete=models.CASCADE,
+        related_name="reports",
+        null=True,
+        blank=True
+    )
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default="low")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="open")
     created_at = models.DateTimeField(auto_now_add=True)

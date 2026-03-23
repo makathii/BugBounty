@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group, User
 from rest_framework.test import APIClient
 from users.models import Profile
 from reports.models import BugReport
+from programs.models import Program
 
 
 @pytest.fixture
@@ -77,29 +78,48 @@ def triager_user(db, triager_group):
 
 
 @pytest.fixture
-def report_payload():
+def program(db):
+    """Create a test program for bug reports"""
+    company = User.objects.create_user(
+        username="test_company",
+        email="company@example.com",
+        password="CompanyPass123!",
+    )
+    return Program.objects.create(
+        name="Test Bug Bounty Program",
+        company=company,
+        description="A test program for bug bounty submissions",
+        status="active",
+    )
+
+
+@pytest.fixture
+def report_payload(program):
     return {
         "title": "Stored XSS in profile preview",
         "description": "A sufficiently long description that explains the bug, impact, reproduction steps, and expected behavior.",
         "severity": "medium",
+        "program": program.id,
     }
 
 
 @pytest.fixture
-def own_report(db, verified_user):
+def own_report(db, verified_user, program):
     return BugReport.objects.create(
         title="Reporter owned issue",
         description="A long enough description to represent a realistic report owned by the main test user.",
         severity="low",
         reporter=verified_user,
+        program=program,
     )
 
 
 @pytest.fixture
-def other_report(db, second_verified_user):
+def other_report(db, second_verified_user, program):
     return BugReport.objects.create(
         title="Someone else's issue",
         description="A long enough description to represent a realistic report owned by another user.",
         severity="high",
         reporter=second_verified_user,
+        program=program,
     )

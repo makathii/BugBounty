@@ -75,6 +75,7 @@ services:
   # ClamAV for virus scanning
   clamav:
     image: clamav/clamav:latest
+    platform: linux/amd64
     container_name: bugbounty-clamav
     ports:
       - "3310:3310"

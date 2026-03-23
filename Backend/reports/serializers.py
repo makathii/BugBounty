@@ -23,28 +23,28 @@ class BugReportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BugReport
-        fields = ("id","title","description","reporter","severity","status","bounty_amount","created_at","updated_at","comments","attachments")
+        fields = ("id","title","description","reporter","program","severity","status","bounty_amount","created_at","updated_at","comments","attachments")
         read_only_fields = ("status","reporter","created_at","updated_at")
 
-        def validate_title(self, value):
-            if len(value)<10:
-                raise serializers.ValidationError("Title is too short, must be at least 10 characters.")
-            if len(value)>200:
-                raise serializers.ValidationError("Title is too long, must be no more than 200 characters.")
-            return value
+    def validate_title(self, value):
+        if len(value)<10:
+            raise serializers.ValidationError("Title is too short, must be at least 10 characters.")
+        if len(value)>200:
+            raise serializers.ValidationError("Title is too long, must be no more than 200 characters.")
+        return value
 
-        def validate_description(self, value):
-            if len(value)<50:
-                raise serializers.ValidationError("Description is too short, must be no more than 50 characters.")
-            if len(value)>5000:
-                raise serializers.ValidationError("Description is too long, must be no more than 5000 characters.")
-            return value
+    def validate_description(self, value):
+        if len(value)<50:
+            raise serializers.ValidationError("Description is too short, must be at least 50 characters.")
+        if len(value)>5000:
+            raise serializers.ValidationError("Description is too long, must be no more than 5000 characters.")
+        return value
 
-        def validate_severity(self, value):
-            validate_severities=[choice[0] for choice in BugReport.SEVERITY_CHOICES]
-            if value not in validate_severities:
-                raise serializers.ValidationError("Severity must be one of {}".format(validate_severities))
-            return value
+    def validate_severity(self, value):
+        validate_severities=[choice[0] for choice in BugReport.SEVERITY_CHOICES]
+        if value not in validate_severities:
+            raise serializers.ValidationError("Severity must be one of {}".format(validate_severities))
+        return value
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
