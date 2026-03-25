@@ -77,7 +77,7 @@ const Register = ({ onRegister, switchToLogin }) => {
         setIsLoading(true);
         try {
             console.log('captcha token:', token);
-            const response = await api.post('/users/register/', {
+            const response = await api.post('/api/users/register/', {
                 ...formData,
                 captcha: token,
             });

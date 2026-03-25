@@ -17,15 +17,14 @@ class AttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 class BugReportSerializer(serializers.ModelSerializer):
-    reporter = serializers.StringRelatedField(read_only=True)
-    comments = CommentSerializer(many=True, read_only=True)
-    attachments = AttachmentSerializer(many=True, read_only=True)
-
     class Meta:
         model = BugReport
-        fields = ("id","title","description","reporter","program","severity","status","bounty_amount","created_at","updated_at","comments","attachments")
-        read_only_fields = ("status","reporter","created_at","updated_at")
-
+        fields = '__all__'
+        read_only_fields = [
+            'severity_score', 'time_to_triage', 'time_to_resolution',
+            'created_at', 'updated_at', 'reporter'  # reporter is set in perform_create
+        ]
+        
     def validate_title(self, value):
         if len(value)<10:
             raise serializers.ValidationError("Title is too short, must be at least 10 characters.")
