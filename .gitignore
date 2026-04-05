@@ -125,7 +125,8 @@ backup/
 .ipynb_checkpoints
 
 # PyCharm
-.idea/
+.idea/*
+!.idea/runConfigurations/
 
 # VS Code
 .vscode/
