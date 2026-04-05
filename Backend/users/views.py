@@ -91,6 +91,7 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         from django.contrib.auth import authenticate
         from django.contrib.auth.models import User
+        from rest_framework.exceptions import AuthenticationFailed
 
         # Get credentials
         username = attrs[self.username_field]
@@ -103,11 +104,11 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
             try:
                 user = User.objects.get(email=username)
             except User.DoesNotExist:
-                raise serializers.ValidationError('No active account found with the given credentials')
+                raise AuthenticationFailed('No active account found with the given credentials')
 
         # Check password manually
         if not user.check_password(password):
-            raise serializers.ValidationError('No active account found with the given credentials')
+            raise AuthenticationFailed('No active account found with the given credentials')
 
         # Check if email is verified
         if not user.profile.email_verified:
