@@ -109,10 +109,10 @@ class BugReportViewSet(viewsets.ModelViewSet):
             'recent_reports': report_serializer.data
         })
 
-    def perform_create(self, serializer):
-        if not self.request.user.is_superuser:
-            if not getattr(self.request.user, "profile", None) or not self.request.user.profile.email_verified:
-                raise PermissionDenied("Please verify your email before submitting a report.")
+    def perform_create(self, serializer):   
+        # if not self.request.user.is_superuser:        # TODO: when emails are implemented, require email verification before allowing report submission
+        #     if not getattr(self.request.user, "profile", None) or not self.request.user.profile.email_verified:
+        #         raise PermissionDenied("Please verify your email before submitting a report.")
 
         report=serializer.save(reporter=self.request.user)
         self.send_submission_notification(report)

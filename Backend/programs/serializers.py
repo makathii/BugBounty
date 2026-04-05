@@ -1,342 +1,347 @@
-from django.db import models
-from django.conf import settings
-from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
+from .models import (
+    Program, Scope, ProgramInvitation, ProgramApplication,
+    ProgramStats, ProgramFavorite, ProgramNotification
+)
+
+User = get_user_model()
 
 
-class Program(models.Model):
-    SCOPE_TYPE_CHOICES = [
-        ('public', 'Public'),
-        ('private', 'Private'),
-        ('vdp', 'VDP - Vulnerability Disclosure Program'),
-    ]
+class UserSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+        read_only_fields = fields
 
-    STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('active', 'Active'),
-        ('paused', 'Paused'),
-        ('closed', 'Closed'),
-    ]
 
-    company = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='programs'
-    )
+# ---------------------------------------------------------------------------
+# Scope
+# ---------------------------------------------------------------------------
 
-    name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, unique=True, blank=True)
-    description = models.TextField()
-    short_description = models.CharField(max_length=300, blank=True)
-
-    scope_type = models.CharField(max_length=20, choices=SCOPE_TYPE_CHOICES, default='public')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-
-    # Bounty information
-    bounty_policy = models.TextField(blank=True)
-    min_bounty = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)]
-    )
-    max_bounty = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)]
-    )
-
-    # Program dates
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
-
-    # Program settings
-    allow_anonymous = models.BooleanField(default=False)
-    require_ndas = models.BooleanField(default=False)
-    invitation_only = models.BooleanField(default=False)
-    requires_application = models.BooleanField(default=False)
-
-    # Guidelines
-    testing_guidelines = models.TextField(blank=True)
-    report_guidelines = models.TextField(blank=True)
-    disclosure_policy = models.TextField(blank=True)
-
-    # Stats (cached for performance)
-    total_reports = models.IntegerField(default=0)
-    total_bounties = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    avg_severity_score = models.FloatField(default=0)
-    avg_time_to_triage = models.FloatField(default=0)  # in hours
-    avg_time_to_resolution = models.FloatField(default=0)  # in hours
-
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    published_at = models.DateTimeField(null=True, blank=True)
+class ScopeSerializer(serializers.ModelSerializer):
+    target_type_display = serializers.CharField(source='get_target_type_display', read_only=True)
 
     class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['status', 'scope_type']),
-            models.Index(fields=['company', 'status']),
+        model = Scope
+        fields = [
+            'id', 'target', 'target_type', 'target_type_display',
+            'is_in_scope', 'description', 'notes', 'bounty_multiplier',
+            'created_at', 'updated_at',
         ]
+        read_only_fields = ['created_at', 'updated_at']
 
-    def __str__(self):
-        return f"{self.name} ({self.company.username})"
 
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            from django.utils.text import slugify
-            self.slug = slugify(self.name)
-            # Ensure slug is unique
-            counter = 1
-            original_slug = self.slug
-            while Program.objects.filter(slug=self.slug).exclude(id=self.id).exists():
-                self.slug = f"{original_slug}-{counter}"
-                counter += 1
+# ---------------------------------------------------------------------------
+# Program
+# ---------------------------------------------------------------------------
 
-        # Set published_at when status changes to active
-        if self.status == 'active' and not self.published_at:
-            self.published_at = timezone.now()
+class ProgramListSerializer(serializers.ModelSerializer):
+    company = UserSummarySerializer(read_only=True)
+    bounty_range = serializers.ReadOnlyField()
+    is_active = serializers.ReadOnlyField()
+    can_accept_submissions = serializers.ReadOnlyField()
+    scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    favorites_count = serializers.SerializerMethodField()
 
-        super().save(*args, **kwargs)
+    class Meta:
+        model = Program
+        fields = [
+            'id', 'name', 'slug', 'short_description',
+            'scope_type', 'scope_type_display',
+            'status', 'status_display',
+            'company',
+            'min_bounty', 'max_bounty', 'bounty_range',
+            'is_active', 'can_accept_submissions',
+            'total_reports', 'total_bounties', 'avg_severity_score',
+            'favorites_count',
+            'created_at', 'published_at',
+        ]
+        read_only_fields = fields
 
-    @property
-    def is_active(self):
-        return self.status == 'active'
+    def get_favorites_count(self, obj):
+        return obj.favorites.count()
 
-    @property
-    def can_accept_submissions(self):
-        if not self.is_active:
+
+class ProgramDetailSerializer(serializers.ModelSerializer):
+    company = UserSummarySerializer(read_only=True)
+    scopes = ScopeSerializer(many=True, read_only=True)
+    bounty_range = serializers.ReadOnlyField()
+    is_active = serializers.ReadOnlyField()
+    can_accept_submissions = serializers.ReadOnlyField()
+    scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    favorites_count = serializers.SerializerMethodField()
+    in_scope_count = serializers.SerializerMethodField()
+    out_of_scope_count = serializers.SerializerMethodField()
+    user_has_access = serializers.SerializerMethodField()   # ← new
+
+    class Meta:
+        model = Program
+        fields = [
+            'id', 'name', 'slug', 'description', 'short_description',
+            'scope_type', 'scope_type_display',
+            'status', 'status_display',
+            'company',
+            'bounty_policy', 'min_bounty', 'max_bounty', 'bounty_range',
+            'start_date', 'end_date',
+            'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
+            'testing_guidelines', 'report_guidelines', 'disclosure_policy',
+            'total_reports', 'total_bounties', 'avg_severity_score',
+            'avg_time_to_triage', 'avg_time_to_resolution',
+            'scopes', 'in_scope_count', 'out_of_scope_count',
+            'is_active', 'can_accept_submissions',
+            'user_has_access',                              # ← new
+            'favorites_count',
+            'created_at', 'updated_at', 'published_at',
+        ]
+        read_only_fields = fields
+
+    def get_favorites_count(self, obj):
+        return obj.favorites.count()
+
+    def get_in_scope_count(self, obj):
+        return obj.scopes.filter(is_in_scope=True).count()
+
+    def get_out_of_scope_count(self, obj):
+        return obj.scopes.filter(is_in_scope=False).count()
+
+    def get_user_has_access(self, obj):              # ← new
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
             return False
+        from .permissions import CanAccessProgram
+        return CanAccessProgram().has_object_permission(request, None, obj)
 
-        # Check if program has ended
-        if self.end_date and self.end_date < timezone.now().date():
-            return False
-
-        return True
-
-    @property
-    def bounty_range(self):
-        if self.min_bounty and self.max_bounty:
-            return f"${self.min_bounty} - ${self.max_bounty}"
-        elif self.min_bounty:
-            return f"From ${self.min_bounty}"
-        elif self.max_bounty:
-            return f"Up to ${self.max_bounty}"
-        else:
-            return "Not specified"
-
-
-class Scope(models.Model):
-    TARGET_TYPE_CHOICES = [
-        ('web_application', 'Web Application'),
-        ('mobile_app', 'Mobile Application'),
-        ('api', 'API/Web Service'),
-        ('iot', 'IoT Device'),
-        ('network', 'Network Infrastructure'),
-        ('hardware', 'Hardware'),
-        ('source_code', 'Source Code'),
-        ('social_engineering', 'Social Engineering'),
-        ('physical_security', 'Physical Security'),
-        ('other', 'Other'),
-    ]
-
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='scopes')
-    target = models.CharField(max_length=500)
-    target_type = models.CharField(max_length=50, choices=TARGET_TYPE_CHOICES, default='web_application')
-    is_in_scope = models.BooleanField(default=True)
-    description = models.TextField(blank=True)
-    notes = models.TextField(blank=True)
-    bounty_multiplier = models.FloatField(
-        default=1.0,
-        validators=[MinValueValidator(0.1), MaxValueValidator(10.0)]
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+class ProgramCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        ordering = ['-is_in_scope', 'target_type', 'target']
-        indexes = [
-            models.Index(fields=['program', 'is_in_scope']),
+        model = Program
+        fields = [
+            'name', 'description', 'short_description', 'scope_type',
+            'bounty_policy', 'min_bounty', 'max_bounty',
+            'start_date', 'end_date',
+            'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
+            'testing_guidelines', 'report_guidelines', 'disclosure_policy',
         ]
 
-    def __str__(self):
-        status = "IN" if self.is_in_scope else "OUT"
-        return f"{status} Scope: {self.target}"
+    def validate(self, data):
+        min_b = data.get('min_bounty')
+        max_b = data.get('max_bounty')
+        if min_b is not None and max_b is not None and min_b > max_b:
+            raise serializers.ValidationError(
+                {'max_bounty': 'Maximum bounty must be greater than or equal to minimum bounty.'}
+            )
+        start = data.get('start_date')
+        end = data.get('end_date')
+        if start and end and start > end:
+            raise serializers.ValidationError(
+                {'end_date': 'End date must be after start date.'}
+            )
+        scope_type = data.get('scope_type', 'public')
+        if scope_type != 'private':
+            if data.get('invitation_only'):
+                raise serializers.ValidationError(
+                    {'invitation_only': 'invitation_only can only be set on private programs.'}
+                )
+            if data.get('requires_application'):
+                raise serializers.ValidationError(
+                    {'requires_application': 'requires_application can only be set on private programs.'}
+                )
+        return data
 
 
-class ProgramInvitation(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('rejected', 'Rejected'),
-        ('revoked', 'Revoked'),
-    ]
+class ProgramUpdateSerializer(ProgramCreateSerializer):
+    status = serializers.ChoiceField(choices=Program.STATUS_CHOICES, required=False)
 
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='invitations')
-    researcher = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='program_invitations'
-    )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    invited_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='sent_invitations'
-    )
-    message = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    class Meta(ProgramCreateSerializer.Meta):
+        fields = ProgramCreateSerializer.Meta.fields + ['status']
+        extra_kwargs = {field: {'required': False} for field in fields}
 
-    class Meta:
-        unique_together = ['program', 'researcher']
-        indexes = [
-            models.Index(fields=['program', 'status']),
-            models.Index(fields=['researcher', 'status']),
-        ]
-
-    def __str__(self):
-        return f"{self.researcher.username} -> {self.program.name} ({self.status})"
+    def validate_status(self, value):
+        instance = self.instance
+        if instance is None:
+            return value
+        invalid_transitions = {
+            'closed': ['draft', 'active', 'paused'],
+            'draft': ['closed'],
+        }
+        blocked = invalid_transitions.get(instance.status, [])
+        if value in blocked:
+            raise serializers.ValidationError(
+                f"Cannot transition from '{instance.status}' to '{value}'."
+            )
+        return value
 
 
-class ProgramApplication(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
-        ('withdrawn', 'Withdrawn'),
-    ]
-
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='applications')
-    researcher = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='program_applications'
-    )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    message = models.TextField(blank=True)
-    experience = models.TextField(blank=True)
-    qualifications = models.TextField(blank=True)
-
-    reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='reviewed_applications'
-    )
-    review_notes = models.TextField(blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class PublicProgramSerializer(serializers.ModelSerializer):
+    company_username = serializers.CharField(source='company.username', read_only=True)
+    bounty_range = serializers.ReadOnlyField()
+    scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
 
     class Meta:
-        unique_together = ['program', 'researcher']
-        indexes = [
-            models.Index(fields=['program', 'status']),
-            models.Index(fields=['researcher', 'status']),
+        model = Program
+        fields = [
+            'id', 'name', 'slug', 'short_description',
+            'scope_type', 'scope_type_display',
+            'company_username',
+            'min_bounty', 'max_bounty', 'bounty_range',
+            'total_reports', 'avg_severity_score',
+            'published_at',
         ]
-
-    def __str__(self):
-        return f"{self.researcher.username} applied to {self.program.name} ({self.status})"
+        read_only_fields = fields
 
 
-class ProgramStats(models.Model):
-    """Periodic stats snapshot for programs"""
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='stats_snapshots')
-    date = models.DateField()
+# ---------------------------------------------------------------------------
+# Invitation
+# ---------------------------------------------------------------------------
 
-    # Report counts
-    total_reports = models.IntegerField(default=0)
-    new_reports = models.IntegerField(default=0)
-    resolved_reports = models.IntegerField(default=0)
-
-    # Bounty statistics
-    total_bounties = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    avg_bounty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    # Time metrics (in hours)
-    avg_time_to_triage = models.FloatField(default=0)
-    avg_time_to_resolution = models.FloatField(default=0)
-    avg_time_to_bounty = models.FloatField(default=0)
-
-    # Severity distribution
-    critical_count = models.IntegerField(default=0)
-    high_count = models.IntegerField(default=0)
-    medium_count = models.IntegerField(default=0)
-    low_count = models.IntegerField(default=0)
-    info_count = models.IntegerField(default=0)
-
-    # Researcher engagement
-    active_researchers = models.IntegerField(default=0)
-    new_researchers = models.IntegerField(default=0)
-
-    class Meta:
-        unique_together = ['program', 'date']
-        ordering = ['-date']
-        indexes = [
-            models.Index(fields=['program', 'date']),
-        ]
-
-    def __str__(self):
-        return f"{self.program.name} stats on {self.date}"
-
-    @property
-    def total_vulnerabilities(self):
-        return self.critical_count + self.high_count + self.medium_count + self.low_count + self.info_count
-
-
-class ProgramFavorite(models.Model):
-    """Allow researchers to favorite programs"""
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='favorites')
-    researcher = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='favorite_programs'
+class ProgramInvitationSerializer(serializers.ModelSerializer):
+    researcher = UserSummarySerializer(read_only=True)
+    invited_by = UserSummarySerializer(read_only=True)
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    researcher_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source='researcher', write_only=True
     )
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['program', 'researcher']
-        indexes = [
-            models.Index(fields=['researcher', 'created_at']),
+        model = ProgramInvitation
+        fields = [
+            'id', 'program', 'program_name',
+            'researcher', 'researcher_id',
+            'invited_by',
+            'status', 'status_display',
+            'message',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'program', 'program_name',
+            'researcher', 'invited_by',
+            'status', 'status_display',
+            'created_at', 'updated_at',
         ]
 
-    def __str__(self):
-        return f"{self.researcher.username} favorites {self.program.name}"
+    def validate_researcher_id(self, user):
+        if not user.groups.filter(name='Researcher').exists():
+            raise serializers.ValidationError("Invitations can only be sent to Researcher accounts.")
+        return user
 
 
-class ProgramNotification(models.Model):
-    NOTIFICATION_TYPES = [
-        ('new_report', 'New Report'),
-        ('report_status_change', 'Report Status Change'),
-        ('program_update', 'Program Update'),
-        ('new_scope', 'New Scope Added'),
-        ('bounty_paid', 'Bounty Paid'),
-        ('application_update', 'Application Status Update'),
-        ('invitation', 'New Invitation'),
-    ]
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
 
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='notifications')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='program_notifications')
-    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
-    title = models.CharField(max_length=200)
-    message = models.TextField()
-    data = models.JSONField(default=dict, blank=True)
-    read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+class ProgramApplicationSerializer(serializers.ModelSerializer):
+    researcher = UserSummarySerializer(read_only=True)
+    reviewed_by = UserSummarySerializer(read_only=True)
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['user', 'read', 'created_at']),
-            models.Index(fields=['program', 'created_at']),
+        model = ProgramApplication
+        fields = [
+            'id', 'program', 'program_name',
+            'researcher',
+            'status', 'status_display',
+            'message', 'experience', 'qualifications',
+            'reviewed_by', 'review_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'program', 'program_name',
+            'researcher',
+            'status', 'status_display',
+            'reviewed_by', 'review_notes',
+            'created_at', 'updated_at',
         ]
 
-    def __str__(self):
-        return f"{self.title} - {self.user.username}"
+
+# ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+
+class ProgramStatsSerializer(serializers.ModelSerializer):
+    total_vulnerabilities = serializers.ReadOnlyField()
+
+    class Meta:
+        model = ProgramStats
+        fields = [
+            'id', 'program', 'date',
+            'total_reports', 'new_reports', 'resolved_reports',
+            'total_bounties', 'avg_bounty',
+            'avg_time_to_triage', 'avg_time_to_resolution', 'avg_time_to_bounty',
+            'critical_count', 'high_count', 'medium_count', 'low_count', 'info_count',
+            'total_vulnerabilities',
+            'active_researchers', 'new_researchers',
+        ]
+        read_only_fields = fields
+
+
+# ---------------------------------------------------------------------------
+# Favorite
+# ---------------------------------------------------------------------------
+
+class ProgramFavoriteSerializer(serializers.ModelSerializer):
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    program_slug = serializers.CharField(source='program.slug', read_only=True)
+
+    class Meta:
+        model = ProgramFavorite
+        fields = ['id', 'program', 'program_name', 'program_slug', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate_program(self, program):
+        request = self.context.get('request')
+        if request and ProgramFavorite.objects.filter(
+            program=program, researcher=request.user
+        ).exists():
+            raise serializers.ValidationError("You have already favorited this program.")
+        return program
+
+
+# ---------------------------------------------------------------------------
+# Notification
+# ---------------------------------------------------------------------------
+
+class ProgramNotificationSerializer(serializers.ModelSerializer):
+    notification_type_display = serializers.CharField(
+        source='get_notification_type_display', read_only=True
+    )
+    program_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProgramNotification
+        fields = [
+            'id', 'program', 'program_name',
+            'notification_type', 'notification_type_display',
+            'title', 'message', 'data',
+            'read', 'created_at',
+        ]
+        read_only_fields = [
+            'id', 'program', 'program_name',
+            'notification_type', 'notification_type_display',
+            'title', 'message', 'data',
+            'created_at',
+        ]
+
+    def get_program_name(self, obj):
+        return obj.program.name if obj.program else None
+
+
+# ---------------------------------------------------------------------------
+# Report — avoids circular import with reports app
+# ---------------------------------------------------------------------------
+
+class ProgramReportSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    severity = serializers.CharField(read_only=True)
+    bounty_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True, read_only=True
+    )
+    reporter_username = serializers.CharField(source='reporter.username', read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)

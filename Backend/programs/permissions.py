@@ -1,109 +1,112 @@
 from rest_framework import permissions
-from django.contrib.auth.models import Group
+from django.utils import timezone
+
+
+def _is_admin(user):
+    return user.is_superuser or user.groups.filter(name='Admin').exists()
+
+def _is_company_owner(user, program):
+    return program.company == user
+
+def _can_manage(user, program):
+    return _is_company_owner(user, program) or _is_admin(user)
+
+def _researcher_has_private_access(user, program):
+    invited = program.invitations.filter(researcher=user, status='accepted').exists()
+    applied = program.applications.filter(researcher=user, status='approved').exists()
+    return invited or applied
 
 
 class IsProgramOwnerOrAdmin(permissions.BasePermission):
-    """Permission to allow only program owners or admins to edit/delete"""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        # Read permissions are allowed to any request
         if request.method in permissions.SAFE_METHODS:
             return True
-
-        # Write permissions are only allowed to the program owner or admin
-        return obj.company == request.user or request.user.groups.filter(name='Admin').exists()
+        program = obj if hasattr(obj, 'company') else getattr(obj, 'program', None)
+        if program is None:
+            return False
+        return _can_manage(request.user, program)
 
 
 class IsResearcher(permissions.BasePermission):
-    """Permission to allow only researchers"""
-
     def has_permission(self, request, view):
-        return request.user.groups.filter(name='Researcher').exists()
+        return bool(
+            request.user and request.user.is_authenticated and
+            request.user.groups.filter(name='User').exists()
+        )
+
+
+class IsCompany(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and
+            request.user.groups.filter(name='ProgramOwner').exists()
+        )
+
+
+class IsTriager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and
+            request.user.groups.filter(name='Admin').exists()
+        )
 
 
 class CanAccessProgram(permissions.BasePermission):
-    """Permission to check if user can access a program"""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-
-        # Admins can access everything
-        if user.is_superuser or user.groups.filter(name='Admin').exists():
+        if _is_admin(user):
             return True
-
-        # Program owner can access
-        if obj.company == user:
+        if _is_company_owner(user, obj):
             return True
-
-        # Triagers can access active programs
-        if user.groups.filter(name='Triager').exists() and obj.status == 'active':
-            return True
-
-        # Check if program is public and active
-        if obj.scope_type == 'public' and obj.status == 'active':
-            return True
-
-        # Check if user is a researcher with access to private program
+        if user.groups.filter(name='Triager').exists():
+            return obj.status == 'active'
         if user.groups.filter(name='Researcher').exists():
-            # Check if invited and accepted
-            invited = obj.invitations.filter(
-                researcher=user,
-                status='accepted'
-            ).exists()
-
-            # Check if applied and approved
-            applied = obj.applications.filter(
-                researcher=user,
-                status='approved'
-            ).exists()
-
-            return invited or applied
-
+            if obj.scope_type in ('public', 'vdp') and obj.status == 'active':
+                return True
+            if obj.scope_type == 'private' and obj.status == 'active':
+                return _researcher_has_private_access(user, obj)
         return False
 
 
 class CanSubmitToProgram(permissions.BasePermission):
-    """Permission to check if user can submit reports to a program"""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-
-        # Check if program is active
         if not obj.is_active:
             return False
-
-        # Check if program has ended
         if obj.end_date and obj.end_date < timezone.now().date():
             return False
-
-        # Admins and triagers can submit
-        if user.groups.filter(name__in=['Admin', 'Triager']).exists():
+        if _is_admin(user):
             return True
-
-        # Program owner can submit
-        if obj.company == user:
+        if user.groups.filter(name='Admin').exists():
             return True
-
-        # Check if user is a researcher with access
-        if user.groups.filter(name='Researcher').exists():
-            # Public programs allow all researchers
-            if obj.scope_type == 'public':
+        if _is_company_owner(user, obj):
+            return True
+        if user.groups.filter(name='User').exists():
+            if obj.scope_type in ('public', 'vdp'):
                 return True
-
-            # Private programs require invitation or application
             if obj.scope_type == 'private':
-                # Check if invited and accepted
-                invited = obj.invitations.filter(
-                    researcher=user,
-                    status='accepted'
-                ).exists()
-
-                # Check if applied and approved
-                applied = obj.applications.filter(
-                    researcher=user,
-                    status='approved'
-                ).exists()
-
-                return invited or applied
-
+                return _researcher_has_private_access(user, obj)
         return False
+
+
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """Generic permission for Invitation, Application, Favorite, Notification."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        if _is_admin(request.user):
+            return True
+        owner = getattr(obj, 'researcher', None) or getattr(obj, 'user', None)
+        if owner == request.user:
+            return True
+        return request.method in permissions.SAFE_METHODS

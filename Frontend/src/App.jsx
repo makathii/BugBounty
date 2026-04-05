@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from 'react';
 import {
     BrowserRouter as Router,
@@ -12,8 +11,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 import Navbar from './components/layout/Navbar';
 import RoleBasedDashboard from './components/common/RoleBasedDashboard';
-import ProgramBrowser from "./components/researcher/ProgramBrowser";
-import ProgramDetailResearcher from "./components/researcher/ProgramDetailResearcher";
+import ProgramBrowser from './components/researcher/ProgramBrowser';
+import ProgramDetailResearcher from './components/researcher/ProgramDetailResearcher';
 
 // Pages
 import Home from './pages/Home';
@@ -28,83 +27,79 @@ import VerifyEmail from './components/auth/VerifyEmail';
 // Reports
 import SubmitReport from './pages/reports/SubmitReport';
 import Reports from './pages/reports/Reports';
+import ReportDetail from './pages/reports/ReportDetail';
 
 // Company
 import CompanyRegistration from './components/company/CompanyRegistration';
 import CompanyDashboard from './pages/company/CompanyDashboard';
+import CompanyPrograms from './pages/company/CompanyPrograms';
+import CreateProgram from './pages/company/CreateProgram';
 
 import './App.css';
-import ReportDetail from "./pages/reports/ReportDetail";
+
 
 /* =========================
-   Protected Route Components
+   Route guards
    ========================= */
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
-    if (loading) return <div>Loading...</div>;
+    if (loading) return <div className="loading-screen">Loading...</div>;
     return user ? children : <Navigate to="/login" />;
 };
 
 const TriagerRoute = ({ children }) => {
     const { user, isTriager, loading } = useAuth();
-    if (loading) return <div>Loading...</div>;
+    if (loading) return <div className="loading-screen">Loading...</div>;
     return user && isTriager() ? children : <Navigate to="/dashboard" />;
 };
 
 const CompanyRoute = ({ children }) => {
     const { user, loading, isCompany, hasCompanyProfile } = useAuth();
-
-    if (loading) return <div>Loading...</div>;
+    if (loading) return <div className="loading-screen">Loading...</div>;
     if (!user) return <Navigate to="/login" />;
-
-    if (isCompany() && !hasCompanyProfile) {
-        return <Navigate to="/company-registration" />;
-    }
-
+    if (isCompany() && !hasCompanyProfile) return <Navigate to="/company-registration" />;
     return isCompany() ? children : <Navigate to="/dashboard" />;
 };
 
+const ResearcherRoute = ({ children }) => {
+    const { user, loading, isResearcher } = useAuth();
+    if (loading) return <div className="loading-screen">Loading...</div>;
+    if (!user) return <Navigate to="/login" />;
+    return isResearcher() ? children : <Navigate to="/dashboard" />;
+};
+
+
 /* =========================
-   Login Wrapper
+   Login wrapper
    ========================= */
 
 const LoginWrapper = () => {
     const navigate = useNavigate();
-
-    const handleLogin = () => {
-        navigate('/dashboard');
-    };
-
-    const switchToRegister = () => {
-        navigate('/register');
-    };
-
     return (
         <Login
-            onLogin={handleLogin}
-            switchToRegister={switchToRegister}
+            onLogin={() => navigate('/dashboard')}
+            switchToRegister={() => navigate('/register')}
         />
     );
 };
 
+
 /* =========================
-   App Content
+   App content
    ========================= */
 
 function AppContent() {
     const { loading } = useAuth();
 
-    if (loading) {
-        return <div className="loading-screen">Loading...</div>;
-    }
+    if (loading) return <div className="loading-screen">Loading...</div>;
 
     return (
         <div className="App">
             <Navbar />
             <main>
                 <Routes>
-                    {/* Public routes */}
+                    {/* Public */}
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<LoginWrapper />} />
                     <Route path="/register" element={<Navigate to="/register/researcher" />} />
@@ -112,91 +107,50 @@ function AppContent() {
                     <Route path="/register/company" element={<CompanyRegister />} />
                     <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
-                    {/* Company registration */}
-                    <Route
-                        path="/company-registration"
-                        element={
-                            <ProtectedRoute>
-                                <CompanyRegistration />
-                            </ProtectedRoute>
-                        }
-                    />
-
                     {/* Dashboard */}
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <ProtectedRoute>
-                                <RoleBasedDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
+                    <Route path="/dashboard" element={
+                        <ProtectedRoute><RoleBasedDashboard /></ProtectedRoute>
+                    } />
 
-                    {/* Researcher routes */}
-                    <Route
-                        path="/submit"
-                        element={
-                            <ProtectedRoute>
-                                <SubmitReport />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Company registration */}
+                    <Route path="/company-registration" element={
+                        <ProtectedRoute><CompanyRegistration /></ProtectedRoute>
+                    } />
 
-                    <Route
-                        path="/reports"
-                        element={
-                            <ProtectedRoute>
-                                <Reports />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Company */}
+                    <Route path="/company-dashboard" element={
+                        <CompanyRoute><CompanyDashboard /></CompanyRoute>
+                    } />
+                    <Route path="/company/programs" element={
+                        <CompanyRoute><CompanyPrograms /></CompanyRoute>
+                    } />
+                    <Route path="/company/programs/create" element={
+                        <CompanyRoute><CreateProgram /></CompanyRoute>
+                    } />
 
-                    <Route
-                        path="/reports/:id"
-                        element={
-                            <ProtectedRoute>
-                                <ReportDetail />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Programs — researchers */}
+                    <Route path="/programs" element={
+                        <ResearcherRoute><ProgramBrowser /></ResearcherRoute>
+                    } />
+                    <Route path="/programs/:id" element={
+                        <ProtectedRoute><ProgramDetailResearcher /></ProtectedRoute>
+                    } />
 
-                    <Route
-                        path="/programs"
-                        element={
-                            <ProtectedRoute>
-                                <ProgramBrowser />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Reports */}
+                    <Route path="/reports" element={
+                        <ProtectedRoute><Reports /></ProtectedRoute>
+                    } />
+                    <Route path="/reports/:id" element={
+                        <ProtectedRoute><ReportDetail /></ProtectedRoute>
+                    } />
+                    <Route path="/submit" element={
+                        <ProtectedRoute><SubmitReport /></ProtectedRoute>
+                    } />
 
-                    <Route
-                        path="/programs/:id"
-                        element={
-                            <ProtectedRoute>
-                                <ProgramDetailResearcher />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Company dashboard */}
-                    <Route
-                        path="/company-dashboard"
-                        element={
-                            <CompanyRoute>
-                                <CompanyDashboard />
-                            </CompanyRoute>
-                        }
-                    />
-
-                    {/* Triager/Admin */}
-                    <Route
-                        path="/triage"
-                        element={
-                            <TriagerRoute>
-                                <Triage />
-                            </TriagerRoute>
-                        }
-                    />
+                    {/* Triage */}
+                    <Route path="/triage" element={
+                        <TriagerRoute><Triage /></TriagerRoute>
+                    } />
 
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" />} />
@@ -206,8 +160,9 @@ function AppContent() {
     );
 }
 
+
 /* =========================
-   App Root
+   App root
    ========================= */
 
 function App() {

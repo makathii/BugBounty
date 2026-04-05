@@ -44,9 +44,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 
-    'users',
-    'reports',
-    'programs',
+    'users.apps.UsersConfig',
+    'reports.apps.ReportsConfig',
+    'programs.apps.ProgramsConfig',
+
     'django_filters',
 ]
 
@@ -101,7 +102,7 @@ ROOT_URLCONF = 'Backend.urls'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=40),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
