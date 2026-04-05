@@ -4,6 +4,27 @@ from rest_framework.test import APIClient
 from users.models import Profile
 from reports.models import BugReport
 from programs.models import Program
+from unittest.mock import MagicMock
+
+
+# Disable throttling for all tests by mocking the throttle classes
+@pytest.fixture(autouse=True)
+def disable_throttling(monkeypatch):
+    """Disable REST framework throttling for all tests"""
+    # Import throttle classes and replace them with no-op versions
+    from rest_framework import throttling
+    from users import throttles
+
+    # Create a no-op throttle that always allows requests
+    class NoOpThrottle:
+        def allow_request(self, request, view):
+            return True
+
+    # Replace all throttle classes
+    monkeypatch.setattr(throttles, 'LoginThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'RegisterThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'SubmissionThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'BurstRateThrottle', NoOpThrottle)
 
 
 @pytest.fixture
@@ -44,6 +65,7 @@ def verified_user(db, researcher_group):
         username="verified_user",
         email="verified@example.com",
         password="SafePass123!",
+        is_active=True,
     )
     user.groups.add(researcher_group)
     Profile.objects.filter(user=user).update(email_verified=True)
@@ -57,6 +79,7 @@ def second_verified_user(db, researcher_group):
         username="another_user",
         email="another@example.com",
         password="SafePass123!",
+        is_active=True,
     )
     user.groups.add(researcher_group)
     Profile.objects.filter(user=user).update(email_verified=True)
@@ -70,6 +93,7 @@ def triager_user(db, triager_group):
         username="triager_user",
         email="triager@example.com",
         password="SafePass123!",
+        is_active=True,
     )
     user.groups.add(triager_group)
     Profile.objects.filter(user=user).update(email_verified=True)
