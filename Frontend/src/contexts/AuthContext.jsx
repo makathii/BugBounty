@@ -70,9 +70,21 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true };
         } catch (error) {
+            const errorDetail = error.response?.data?.detail || '';
+            let errorMessage = 'Login failed';
+
+            // Check if it's an email verification error
+            if (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('email not verified')) {
+                errorMessage = 'Please verify your email address before logging in. Check your inbox for the verification link.';
+            } else if (errorDetail) {
+                errorMessage = errorDetail;
+            } else if (error.response?.data) {
+                errorMessage = JSON.stringify(error.response.data);
+            }
+
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Login failed'
+                error: errorMessage
             };
         }
     };
@@ -84,26 +96,8 @@ export const AuthProvider = ({ children }) => {
             const response = await authAPI.register(userData);
             console.log('AuthContext: Registration API response:', response.data);
 
-            if (response.data) {
-                console.log('AuthContext: Attempting auto-login...');
-                const tokenResponse = await authAPI.login({
-                    username: userData.username,
-                    password: userData.password
-                });
-                console.log('AuthContext: Auto-login successful');
-
-                localStorage.setItem('access_token', tokenResponse.data.access);
-                localStorage.setItem('refresh_token', tokenResponse.data.refresh);
-
-                console.log('AuthContext: Getting user profile...');
-                const profileResponse = await authAPI.getProfile();
-                console.log('AuthContext: Profile loaded:', profileResponse.data);
-
-                setUser(profileResponse.data);
-                setUserGroups(profileResponse.data.groups || []);
-
-                console.log('AuthContext: User state updated');
-            }
+            // Note: No auto-login anymore - user must verify email first
+            // The user is created but is_active=False until email is verified
 
             return { success: true, data: response.data };
         } catch (error) {

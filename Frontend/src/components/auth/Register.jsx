@@ -15,7 +15,7 @@ const Register = ({ onRegister, switchToLogin }) => {
     const [isLoading, setIsLoading] = useState(false);
     const captchaRef = useRef(null);
     const widgetIdRef = useRef(null);
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
+    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6Ld5sg8sAAAAAM4xrWvRtC6kcgogyg7MPxnoq7Tt";
 
     useEffect(() => {
         if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
@@ -62,6 +62,9 @@ const Register = ({ onRegister, switchToLogin }) => {
         return Object.keys(newErrors).length === 0;
     };
 
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -86,22 +89,9 @@ const Register = ({ onRegister, switchToLogin }) => {
                 window.grecaptcha.reset();
             }
 
-            // Auto-login after successful registration
-            try {
-                const loginResponse = await api.post('/token/', {
-                    username: formData.username,
-                    password: formData.password
-                });
-
-                localStorage.setItem('access_token', loginResponse.data.access);
-                localStorage.setItem('refresh_token', loginResponse.data.refresh);
-
-                onRegister(); // Notify parent component
-            } catch (loginError) {
-                console.error('Auto-login failed:', loginError);
-                // Still consider registration successful, just redirect to login
-                switchToLogin();
-            }
+            // Show success message - email verification required
+            setRegisteredEmail(formData.email);
+            setRegistrationSuccess(true);
 
         } catch (error) {
             console.error('Registration failed:', error);
@@ -125,6 +115,51 @@ const Register = ({ onRegister, switchToLogin }) => {
             setIsLoading(false);
         }
     };
+
+    const handleResendEmail = async () => {
+        setIsLoading(true);
+        try {
+            await api.post('/users/resend-verification/', { email: registeredEmail });
+            setErrors({ general: 'Verification email sent! Please check your inbox.' });
+        } catch (error) {
+            if (error.response?.status === 429) {
+                setErrors({ general: 'Please wait before requesting another email.' });
+            } else {
+                setErrors({ general: 'Failed to resend email. Please try again later.' });
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (registrationSuccess) {
+        return (
+            <div className="register-container">
+                <h2>Verify Your Email</h2>
+                <div className="success-message">
+                    <p>Registration successful! We've sent a verification email to:</p>
+                    <p><strong>{registeredEmail}</strong></p>
+                    <p>Please check your inbox and click the verification link to complete your registration.</p>
+                </div>
+                <div className="verification-actions">
+                    <button
+                        type="button"
+                        onClick={handleResendEmail}
+                        disabled={isLoading}
+                        className="submit-btn"
+                    >
+                        {isLoading ? 'Sending...' : 'Resend Verification Email'}
+                    </button>
+                    <p className="switch-auth">
+                        Already verified?{' '}
+                        <button type="button" onClick={switchToLogin} className="link-btn">
+                            Login here
+                        </button>
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="register-container">

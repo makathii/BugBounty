@@ -12,7 +12,7 @@ const CompanyDashboard = () => {
         if (!authLoading && user) {
             if (!hasCompanyProfile) {
                 console.log('Company user needs to complete profile, redirecting...');
-                navigate('/company/setup-profile');
+                navigate('/company-registration');
                 return;
             }
 

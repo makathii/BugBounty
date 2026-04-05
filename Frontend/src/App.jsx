@@ -23,6 +23,7 @@ import Triage from './pages/Triage';
 import Login from './components/auth/Login';
 import ResearcherRegister from './pages/researcher/ResearcherRegister';
 import CompanyRegister from './pages/company/CompanyRegister';
+import VerifyEmail from './components/auth/VerifyEmail';
 
 // Reports
 import SubmitReport from './pages/reports/SubmitReport';
@@ -109,6 +110,7 @@ function AppContent() {
                     <Route path="/register" element={<Navigate to="/register/researcher" />} />
                     <Route path="/register/researcher" element={<ResearcherRegister />} />
                     <Route path="/register/company" element={<CompanyRegister />} />
+                    <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
                     {/* Company registration */}
                     <Route
