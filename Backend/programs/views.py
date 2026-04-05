@@ -532,7 +532,7 @@ class CompanyProgramListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if not self.request.user.groups.filter(name='Company').exists():
+        if not self.request.user.groups.filter(name='ProgramOwner').exists():
             return Program.objects.none()
         return Program.objects.filter(
             company=self.request.user

@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(response.data);
                 setUserGroups(response.data.groups || []);
 
-                if (response.data.groups?.includes('Company')) {
+                if (response.data.groups?.includes('ProgramOwner')) {
                     const hasProfile = await checkCompanyProfile();
                     setHasCompanyProfile(hasProfile);
                 }
@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }) => {
     const isTriager = () => userGroups.includes('Triager') || userGroups.includes('Admin');
     const isAdmin = () => userGroups.includes('Admin');
     const isResearcher = () => userGroups.includes('Researcher');
-    const isCompany = () => userGroups.includes('Company');
+    const isCompany = () => userGroups.includes('ProgramOwner');
 
     const value = {
         user,

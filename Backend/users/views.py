@@ -35,7 +35,7 @@ class UserRegistrationView(generics.CreateAPIView):
         user = serializer.save()
 
         role = serializer.validated_data.get('role', 'researcher')
-        group_name = 'Company' if role == 'company' else 'Researcher'
+        group_name = 'ProgramOwner' if role == 'company' else 'Researcher'
 
         group, _ = Group.objects.get_or_create(name=group_name)
         user.groups.add(group)
@@ -72,7 +72,8 @@ def user_groups(request):
     return Response({
         "groups": groups,
         "is_researcher": 'Researcher' in groups,
-        "is_company": 'Company' in groups,
+        "is_company": 'ProgramOwner' in groups,
+        "is_program_owner": 'ProgramOwner' in groups,
         "is_triager": 'Triager' in groups,
         "is_admin": request.user.is_superuser or 'Admin' in groups,
     })
