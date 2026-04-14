@@ -71,6 +71,64 @@ class BugReport(models.Model):
     def __str__(self):
         return f"{self.title} ({self.status})"
 
+    def find_potential_duplicates(self, threshold=0.7):
+        """
+        Find potential duplicate reports based on:
+        - Similar title (using simple word overlap)
+        - Similar description
+        - Same affected URL
+        - Same program
+        Returns list of (report, similarity_score) tuples
+        """
+        from django.db.models import Q
+        from difflib import SequenceMatcher
+
+        potential_duplicates = []
+
+        # Build query: same program + not self + not already a duplicate
+        queryset = BugReport.objects.filter(
+            Q(program=self.program) | Q(affected_url=self.affected_url)
+        ).exclude(
+            id=self.id
+        ).exclude(
+            status='duplicate'
+        ).exclude(
+            duplicate_of__isnull=False
+        )
+
+        if self.id:
+            queryset = queryset.exclude(id=self.id)
+
+        for report in queryset[:50]:  # Limit to recent 50 for performance
+            scores = []
+
+            # Compare titles
+            title_sim = SequenceMatcher(None, self.title.lower(), report.title.lower()).ratio()
+            scores.append(title_sim)
+
+            # Compare descriptions (first 500 chars for performance)
+            desc_sim = SequenceMatcher(
+                None,
+                (self.description or "")[:500].lower(),
+                (report.description or "")[:500].lower()
+            ).ratio()
+            scores.append(desc_sim)
+
+            # Exact URL match is a strong signal
+            if self.affected_url and report.affected_url:
+                if self.affected_url.lower() == report.affected_url.lower():
+                    scores.append(1.0)  # Boost score for exact URL match
+
+            # Calculate average similarity
+            avg_similarity = sum(scores) / len(scores) if scores else 0
+
+            if avg_similarity >= threshold:
+                potential_duplicates.append((report, avg_similarity))
+
+        # Sort by similarity score descending
+        potential_duplicates.sort(key=lambda x: x[1], reverse=True)
+        return potential_duplicates[:5]  # Return top 5
+
     # --- Permissions / status helpers ---
     def can_be_accepted(self):
         return self.status in ['triaged', 'accepted']
@@ -92,6 +150,7 @@ class ActivityLog(models.Model):
         ('accept', 'Accept'),
         ('reject', 'Reject'),
         ('reopen', 'Reopen'),
+        ('mark_duplicate', 'Mark as Duplicate'),
     ]
 
     report = models.ForeignKey(BugReport, on_delete=models.CASCADE, related_name="activity_logs")

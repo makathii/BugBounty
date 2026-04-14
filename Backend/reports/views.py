@@ -77,6 +77,47 @@ class BugReportViewSet(viewsets.ModelViewSet):
         # Regular user → only their reports
         return queryset.filter(reporter=user)
 
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def check_duplicates(self, request):
+        """Check for potential duplicates without creating the report"""
+        # Extract data from request
+        title = request.data.get('title', '')
+        description = request.data.get('description', '')
+        affected_url = request.data.get('affected_url', '')
+        program_id = request.data.get('program')
+
+        if not title or not description:
+            return Response(
+                {"error": "Title and description are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create temporary instance to check duplicates
+        temp_report = BugReport(
+            title=title,
+            description=description,
+            affected_url=affected_url,
+            program_id=program_id
+        )
+
+        duplicates = temp_report.find_potential_duplicates(threshold=0.7)
+
+        return Response({
+            "has_duplicates": len(duplicates) > 0,
+            "potential_duplicates": [
+                {
+                    "id": dup.id,
+                    "title": dup.title,
+                    "severity": dup.severity,
+                    "status": dup.status,
+                    "similarity": round(score, 2),
+                    "created_at": dup.created_at.isoformat() if dup.created_at else None,
+                    "reporter": dup.reporter.username if dup.reporter else None,
+                }
+                for dup, score in duplicates
+            ]
+        })
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def triage_dashboard(self, request):
         """Specialized endpoint for triage dashboard with counts"""
@@ -460,6 +501,70 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
             "status": report.status
         })
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def mark_as_duplicate(self, request, pk=None):
+        """Mark a report as duplicate of another report"""
+        report = self.get_object()
+
+        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+            return Response(
+                {"error": "Only Triagers and Admins can mark reports as duplicates"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        duplicate_of_id = request.data.get('duplicate_of')
+        duplicate_reason = request.data.get('duplicate_reason', '')
+
+        if not duplicate_of_id:
+            return Response(
+                {"error": "duplicate_of field is required (report ID this is a duplicate of)"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get the original report
+        try:
+            original_report = BugReport.objects.get(id=duplicate_of_id)
+        except BugReport.DoesNotExist:
+            return Response(
+                {"error": "Original report not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Prevent marking as duplicate of itself
+        if str(report.id) == str(duplicate_of_id):
+            return Response(
+                {"error": "A report cannot be marked as duplicate of itself"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Prevent circular duplicates
+        if original_report.duplicate_of:
+            return Response(
+                {"error": "Cannot mark as duplicate of a report that is itself a duplicate"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update report
+        report.status = 'duplicate'
+        report.duplicate_of = original_report
+        report.duplicate_reason = duplicate_reason
+        report.save()
+
+        # Log activity
+        ActivityLogger.log_verification(
+            report,
+            request.user,
+            'mark_duplicate',
+            f"Marked as duplicate of report #{original_report.id}. Reason: {duplicate_reason}"
+        )
+
+        return Response({
+            "message": f"Report marked as duplicate of #{original_report.id}",
+            "status": report.status,
+            "duplicate_of": original_report.id,
+            "original_report_title": original_report.title
+        })
+
     @action(detail=True, methods=['get'])
     def activity_logs(self, request, pk=None):
         """Get activity logs for a report"""
@@ -484,79 +589,3 @@ class CommentViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             # Researchers see comments only on their own reports
             return Comment.objects.filter(report__reporter=user).order_by("-created_at")
-        
-
-
-parser_classes = (MultiPartParser, FormParser)
-
-def _can_access_report(self, report):
-    u = self.request.user
-    return u.is_superuser or u == report.reporter or u.groups.filter(name__in=['Triager','Admin']).exists()
-
-@action(detail=True, methods=["GET"])
-def attachments(self, request, pk=None):
-    report = self.get_object()
-    if not self._can_access_report(report):
-        return Response(status=status.HTTP_403_FORBIDDEN)
-    qs = report.attachments.order_by("-created_at")
-    return Response(AttachmentSerializer(qs, many=True).data)
-
-@action(detail=True, methods=["POST"])
-def upload_attachment(self, request, pk=None):
-    report = self.get_object()
-    if not self._can_access_report(report):
-        return Response(status=status.HTTP_403_FORBIDDEN)
-    f = request.data.get("file")
-    if not f:
-        return Response({"detail":"No file"}, status=400)
-    try:
-        validate_extension(f.name); validate_size(f.size)
-    except ValidationError as e:
-        return Response({"detail": str(e)}, status=400)
-
-    import tempfile
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        for chunk in f.chunks():
-            tmp.write(chunk)
-        tmp_path = tmp.name
-    try:
-        mime = detect_mime(tmp_path); validate_mime(mime)
-
-        # ClamAV scan
-        from pyclamd import ClamdNetworkSocket
-        cd = ClamdNetworkSocket(host=os.getenv("CLAMAV_HOST","clamav"), port=int(os.getenv("CLAMAV_PORT","3310")))
-        try:
-            scan_result = cd.scan_file(tmp_path)
-        except Exception:
-            scan_result = None
-        if not scan_result:
-            os.unlink(tmp_path)
-            return Response({"detail":"Upload blocked: scan status 'failed'."}, status=400)
-        status_tuple = list(scan_result.values())[0]
-        scan_status = "infected" if status_tuple and status_tuple[0] == "FOUND" else "clean"
-        if scan_status != "clean":
-            os.unlink(tmp_path)
-            return Response({"detail":"Upload blocked: scan status 'infected'."}, status=400)
-
-        f.seek(0)
-        att = Attachment.objects.create(
-            report=report, uploader=request.user, original_name=f.name, file=f,
-            size=f.size, mime=mime, sha256=Attachment.sha256_of(f), scan_status="clean",
-        )
-        return Response(AttachmentSerializer(att).data, status=201)
-    finally:
-        try: os.unlink(tmp_path)
-        except Exception: pass
-
-@action(detail=True, methods=["GET"], url_path="download/(?P<att_id>[^/.]+)")
-def download_attachment(self, request, pk=None, att_id=None):
-    report = self.get_object()
-    if not self._can_access_report(report):
-        return Response(status=status.HTTP_403_FORBIDDEN)
-    try:
-        att = report.attachments.get(id=att_id, scan_status="clean")
-    except Attachment.DoesNotExist:
-        raise Http404()
-    resp = FileResponse(att.file.open("rb"), as_attachment=True, filename=att.original_name)
-    resp["X-Content-Type-Options"] = "nosniff"
-    return resp

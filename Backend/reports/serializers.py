@@ -45,6 +45,28 @@ class BugReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Severity must be one of {}".format(validate_severities))
         return value
 
+    def validate(self, data):
+        """Check for potential duplicates during validation"""
+        # Create a temporary instance to check duplicates
+        temp_report = BugReport(**data)
+        duplicates = temp_report.find_potential_duplicates(threshold=0.8)
+
+        if duplicates:
+            duplicate_info = [
+                {
+                    "id": dup.id,
+                    "title": dup.title,
+                    "similarity": round(score, 2),
+                    "created_at": dup.created_at.isoformat() if dup.created_at else None
+                }
+                for dup, score in duplicates
+            ]
+            raise serializers.ValidationError({
+                "potential_duplicates": duplicate_info,
+                "message": "Potential duplicate reports found. Please review before submitting."
+            })
+        return data
+
 
 class ActivityLogSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
