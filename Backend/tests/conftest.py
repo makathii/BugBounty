@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group, User
 from rest_framework.test import APIClient
 from users.models import Profile
 from reports.models import BugReport
-from programs.models import Program
+from programs.models import Program, Company
 from unittest.mock import MagicMock
 
 
@@ -96,6 +96,24 @@ def triager_user(db, triager_group):
         is_active=True,
     )
     user.groups.add(triager_group)
+    Profile.objects.filter(user=user).update(email_verified=True)
+    user.refresh_from_db()
+    return user
+
+
+@pytest.fixture
+def company_user(db):
+    """Create a verified company user without complete profile"""
+    from django.contrib.auth.models import Group
+    user = User.objects.create_user(
+        username="testcompany",
+        email="testcompany@example.com",
+        password="SafePass123!",
+        is_active=True,
+    )
+    # Assign ProgramOwner group
+    program_owner_group, _ = Group.objects.get_or_create(name="ProgramOwner")
+    user.groups.add(program_owner_group)
     Profile.objects.filter(user=user).update(email_verified=True)
     user.refresh_from_db()
     return user

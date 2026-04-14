@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .views import UserRegistrationView, UserProfileView, user_groups, verify_email, logout, resend_verification_email
+from programs.views import CompanyViewSet
 
 
 @api_view(['GET'])
@@ -23,4 +24,5 @@ urlpatterns = [
     path('logout/', logout, name='logout'),
     path('verify-email/<str:token>/', verify_email, name='verify-email'),
     path('resend-verification/', resend_verification_email, name='resend-verification'),
+    path('companies/', CompanyViewSet.as_view({'post': 'create', 'get': 'list'}), name='user-companies'),
 ]

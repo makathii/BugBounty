@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProgramViewSet, ScopeViewSet, ProgramInvitationViewSet,
     ProgramApplicationViewSet, ProgramFavoriteViewSet,
-    ProgramNotificationViewSet,
+    ProgramNotificationViewSet, CompanyViewSet,
     ResearcherProgramListView, CompanyProgramListView,
     PublicProgramListView, ProgramDashboardView, program_api_root
 )
@@ -13,6 +13,7 @@ router = DefaultRouter()
 router.register(r'programs', ProgramViewSet, basename='program')
 router.register(r'notifications', ProgramNotificationViewSet, basename='notification')
 router.register(r'favorites', ProgramFavoriteViewSet, basename='favorite')
+router.register(r'companies', CompanyViewSet, basename='company')
 
 program_router = DefaultRouter()
 program_router.register(r'scopes', ScopeViewSet, basename='scope')

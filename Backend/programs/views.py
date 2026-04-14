@@ -11,13 +11,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
     Program, Scope, ProgramInvitation, ProgramApplication,
-    ProgramFavorite, ProgramNotification
+    ProgramFavorite, ProgramNotification, Company
 )
 from .serializers import (
     ProgramListSerializer, ProgramDetailSerializer, ProgramCreateSerializer,
     ProgramUpdateSerializer, ScopeSerializer, ProgramInvitationSerializer,
     ProgramApplicationSerializer, ProgramFavoriteSerializer,
-    ProgramNotificationSerializer, ProgramReportSerializer, PublicProgramSerializer
+    ProgramNotificationSerializer, ProgramReportSerializer, PublicProgramSerializer,
+    CompanySerializer
 )
 from reports.models import BugReport
 from .permissions import (
@@ -571,7 +572,7 @@ class ProgramDashboardView(APIView):
                 )
             return self._program_dashboard(program, request)  
 
-        if not request.user.groups.filter(name='Company').exists():
+        if not request.user.groups.filter(name='ProgramOwner').exists():
             return Response(
                 {"error": "Only company users can access this dashboard."},
                 status=status.HTTP_403_FORBIDDEN
@@ -599,22 +600,66 @@ class ProgramDashboardView(APIView):
         })
 
     def _company_dashboard(self, user, request):
+        # Check if user has completed company profile
+        try:
+            company_profile = Company.objects.get(user=user)
+            profile_complete = True
+        except Company.DoesNotExist:
+            company_profile = None
+            profile_complete = False
+
         programs = Program.objects.filter(company=user)
         all_reports = BugReport.objects.filter(program__in=programs)
-        return Response({
+
+        response_data = {
             'total_programs': programs.count(),
             'active_programs': programs.filter(status='active').count(),
             'total_reports': all_reports.count(),
             'total_bounties': all_reports.aggregate(total=Sum('bounty_amount'))['total'] or 0,
             'programs': ProgramListSerializer(
-                programs, many=True, context={'request': request}   
+                programs, many=True, context={'request': request}
             ).data,
             'recent_activity': list(
                 all_reports.order_by('-created_at')[:20]
                 .values('id', 'title', 'program__name', 'status', 'severity', 'created_at')
             ),
-     })
+            'profile_completion_required': not profile_complete,
+            'profile_complete': profile_complete,
+        }
 
+        if not profile_complete:
+            response_data['message'] = "Please complete your company profile to continue."
+            response_data['redirect'] = "/company-registration"
+        else:
+            response_data['redirect'] = None
+            response_data['message'] = "Welcome to your company dashboard."
+
+        return Response(response_data)
+
+
+
+# ---------------------------------------------------------------------------
+# Company
+# ---------------------------------------------------------------------------
+
+class CompanyViewSet(viewsets.ModelViewSet):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return Company.objects.all()
+        return Company.objects.filter(user=user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"companies": serializer.data})
 
 
 # ---------------------------------------------------------------------------

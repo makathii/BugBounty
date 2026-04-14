@@ -3,10 +3,30 @@ from django.contrib.auth import get_user_model
 
 from .models import (
     Program, Scope, ProgramInvitation, ProgramApplication,
-    ProgramStats, ProgramFavorite, ProgramNotification
+    ProgramStats, ProgramFavorite, ProgramNotification, Company
 )
 
 User = get_user_model()
+
+
+# ---------------------------------------------------------------------------
+# Company
+# ---------------------------------------------------------------------------
+
+class CompanySerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Company
+        fields = [
+            'id', 'user_id', 'username',
+            'company_name', 'website', 'description',
+            'contact_email', 'industry', 'country',
+            'is_verified', 'can_create_program',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user_id', 'username', 'is_verified', 'can_create_program', 'created_at', 'updated_at']
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
