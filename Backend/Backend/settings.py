@@ -21,10 +21,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-@j0md9c!fn2v3r^ro2qis1y_x-gl0-*q#+bpm^buop*exz@xl6'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-@j0md9c!fn2v3r^ro2qis1y_x-gl0-*q#+bpm^buop*exz@xl6')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# Ensure SECRET_KEY is set in production
+if not DEBUG and not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY environment variable must be set in production")
 
 ALLOWED_HOSTS = []
 
@@ -39,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'csp',
 
     'rest_framework',
     'rest_framework_simplejwt',
@@ -47,6 +52,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'reports.apps.ReportsConfig',
     'programs.apps.ProgramsConfig',
+    'audit.apps.AuditConfig',
 
     'django_filters',
 ]
@@ -73,16 +79,19 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'login': '5/min',
-        'register': '3/min',
-        'submission': '100/hour',
-        'anon': '30/min',
-        'user': '120/min',
-        'burst': '200/minute',
+        'login': '3/min',      # Reduced from 5/min
+        'register': '2/min',   # Reduced from 3/min
+        'password_reset': '2/hour',     # New: Password reset requests
+        'password_reset_confirm': '5/hour',  # New: Password reset confirmations
+        'submission': '50/hour',  # Reduced from 100/hour
+        'anon': '20/min',      # Reduced from 30/min
+        'user': '60/min',      # Reduced from 120/min
+        'burst': '100/minute', # Reduced from 200/minute
     }
 }
 
 MIDDLEWARE = [
+    'csp.middleware.CSPMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -91,6 +100,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'audit.middleware.AuditLogMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -168,6 +178,39 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
+
+# =============================================================================
+# Security Headers
+# =============================================================================
+# Enable in production by setting environment variable
+SECURE_SSL_REDIRECT = os.environ.get('DJANGO_SECURE_SSL', 'False') == 'True'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookie Security
+SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+CSRF_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+
+# XSS Protection
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# HSTS (only in production)
+if os.environ.get('DJANGO_HSTS', 'False') == 'True':
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "data:", "blob:")
+CSP_FONT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'",)
+CSP_MEDIA_SRC = ("'self'",)
+CSP_FRAME_SRC = ("'none'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
