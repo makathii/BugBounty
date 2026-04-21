@@ -32,7 +32,7 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
     volumes:
-      - ./Backend:/app
+      - ./Backend:/app:delegated
     ports:
       - "8000:8000"
     depends_on:
@@ -65,7 +65,7 @@ services:
       - CHOKIDAR_USEPOLLING=true  # For hot reload in Docker
       - WATCHPACK_POLLING=true    # For hot reload in Docker
     volumes:
-      - ./Frontend:/app
+      - ./Frontend:/app:delegated
       - /app/node_modules
     depends_on:
       - backend
