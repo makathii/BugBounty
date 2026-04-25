@@ -47,6 +47,10 @@ class BugReport(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     bounty_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # CVSS v3.1 fields (populated via the /cvss_score/ endpoint)
+    cvss_vector = models.CharField(max_length=100, blank=True, default='', help_text="CVSS v3.1 vector string")
+    cvss_score = models.FloatField(null=True, blank=True, help_text="CVSS v3.1 base score (0.0–10.0)")
+    cvss_severity = models.CharField(max_length=20, blank=True, default='', help_text="CVSS severity label")
 
     # Prevents duplicate submissions
     duplicate_of = models.ForeignKey(

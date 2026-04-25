@@ -6,9 +6,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User, Group
 
-from .serializers import UserSerializer, UserRegistrationSerializer
-from .throttles import LoginThrottle, RegisterThrottle
-from .models import Profile
+from .serializers import UserSerializer, UserRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from .throttles import LoginThrottle, RegisterThrottle, PasswordResetThrottle, PasswordResetConfirmThrottle
+from .models import Profile, PasswordResetToken, AccountLockout, UserSession, UserMFA, BackupCode
 from reports.captcha import verify_recaptcha
 
 
@@ -106,9 +106,53 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
             except User.DoesNotExist:
                 raise AuthenticationFailed('No active account found with the given credentials')
 
-        # Check password manually
+        # Check password manually — record failure if wrong
         if not user.check_password(password):
+            lockout = AccountLockout.get_or_create_for_user(user)
+            lockout.record_failure()
             raise AuthenticationFailed('No active account found with the given credentials')
+
+        # ---- 2FA enforcement for privileged roles ----
+        user_groups_set = set(user.groups.values_list('name', flat=True))
+        if UserMFA.REQUIRED_GROUPS & user_groups_set:
+            try:
+                mfa = user.mfa
+                if not mfa.is_enabled:
+                    raise serializers.ValidationError(
+                        '2FA is required for your account role. '
+                        'Please set up two-factor authentication before logging in.'
+                    )
+            except UserMFA.DoesNotExist:
+                raise serializers.ValidationError(
+                    '2FA is required for your account role. '
+                    'Please set up two-factor authentication before logging in.'
+                )
+            # Validate the provided OTP/backup code
+            totp_code = attrs.get('totp_code') or self.context.get('request', {}).data.get('totp_code') if hasattr(self.context.get('request', {}), 'data') else None
+            if not totp_code:
+                raise serializers.ValidationError(
+                    {'totp_code': 'A 2FA code is required to log in to this account.'}
+                )
+            try:
+                mfa = user.mfa
+                if not mfa.verify_code(str(totp_code)):
+                    # Try backup codes
+                    if not BackupCode.use_code(user, str(totp_code)):
+                        raise serializers.ValidationError(
+                            {'totp_code': 'Invalid or expired 2FA code.'}
+                        )
+            except UserMFA.DoesNotExist:
+                raise serializers.ValidationError({'totp_code': 'Invalid or expired 2FA code.'})
+
+        # Check account lockout before any further processing
+        lockout = AccountLockout.get_or_create_for_user(user)
+        if lockout.is_locked():
+            from django.utils import timezone as tz
+            remaining = int((lockout.locked_until - tz.now()).total_seconds() / 60) + 1
+            raise serializers.ValidationError(
+                f'Account is temporarily locked due to too many failed attempts. '
+                f'Please try again in {remaining} minute(s).'
+            )
 
         # Check if email is verified
         if not user.profile.email_verified:
@@ -123,7 +167,33 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
         user.save()
 
         try:
-            return super().validate(attrs)
+            result = super().validate(attrs)
+            # Successful login — clear any lockout state
+            AccountLockout.get_or_create_for_user(user).reset()
+            # Record the session using the access token's JTI
+            try:
+                import jwt as pyjwt
+                from django.conf import settings as djsettings
+                decoded = pyjwt.decode(
+                    result['access'],
+                    djsettings.SECRET_KEY,
+                    algorithms=['HS256'],
+                    options={"verify_exp": False},
+                )
+                jti = decoded.get('jti', '')
+                request = self.context.get('request')
+                ua = request.META.get('HTTP_USER_AGENT', '') if request else ''
+                ip = request.META.get('REMOTE_ADDR') if request else None
+                UserSession.objects.create(
+                    user=user,
+                    jti=jti,
+                    device_name=ua[:100] or 'Unknown device',
+                    ip_address=ip,
+                    user_agent=ua,
+                )
+            except Exception:
+                pass  # Session tracking must never block login
+            return result
         finally:
             # Restore original state (should remain active since they're verified now)
             if not was_active:
@@ -236,3 +306,264 @@ def resend_verification_email(request):
     except User.DoesNotExist:
         # Don't reveal if email exists or not for security
         return Response({"detail": "If an account exists with this email, a verification email has been sent"})
+
+
+# ---------------------------------------------------------------------------
+# Password Reset
+# ---------------------------------------------------------------------------
+
+class PasswordResetRequestView(generics.GenericAPIView):
+    """
+    POST /api/users/password-reset/
+    Accepts an email address and sends a reset link if the account exists.
+    Always returns 200 to prevent email enumeration.
+    """
+    serializer_class = PasswordResetRequestSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        GENERIC_RESPONSE = {
+            "detail": "If an account with that email exists, a password reset link has been sent."
+        }
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Always return 200 — don't leak whether the email is registered
+            return Response(GENERIC_RESPONSE, status=status.HTTP_200_OK)
+
+        from django.core.mail import send_mail
+        from django.conf import settings as django_settings
+
+        reset_token = PasswordResetToken.create_for_user(user)
+        frontend_base = getattr(django_settings, 'FRONTEND_URL', 'http://localhost:3000')
+        reset_url = f"{frontend_base}/reset-password/{reset_token.token}"
+
+        send_mail(
+            subject="Reset your BugBounty password",
+            message=(
+                f"Hi {user.first_name or user.username},\n\n"
+                "We received a request to reset your password. Click the link below:\n\n"
+                f"{reset_url}\n\n"
+                "This link expires in 1 hour and can only be used once.\n\n"
+                "If you didn't request a password reset, you can ignore this email.\n\n"
+                "— BugBounty Team"
+            ),
+            from_email=django_settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+
+        return Response(GENERIC_RESPONSE, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(generics.GenericAPIView):
+    """
+    POST /api/users/password-reset/confirm/
+    Validates the token and sets the new password.
+    """
+    serializer_class = PasswordResetConfirmSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetConfirmThrottle]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        # Audit log the successful reset
+        try:
+            from audit.models import SecurityAuditLog
+            SecurityAuditLog.objects.create(
+                user=user,
+                action=SecurityAuditLog.ACTION_PASSWORD_RESET_COMPLETE,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                severity=SecurityAuditLog.SEVERITY_INFO,
+                details={"method": "token"},
+            )
+        except Exception:
+            pass  # Audit failure must never block a password reset
+
+        return Response(
+            {"detail": "Password has been reset successfully. You can now log in with your new password."},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Session Management
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_sessions(request):
+    """
+    GET /api/users/sessions/
+    Returns all active sessions for the current user.
+    """
+    sessions = UserSession.objects.filter(user=request.user, is_active=True)
+    data = [
+        {
+            'id': s.id,
+            'device_name': s.device_name,
+            'ip_address': s.ip_address,
+            'created_at': s.created_at,
+            'last_active': s.last_active,
+        }
+        for s in sessions
+    ]
+    return Response({'sessions': data})
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def revoke_session(request, session_id):
+    """
+    DELETE /api/users/sessions/<id>/
+    Revokes a specific session belonging to the current user.
+    """
+    try:
+        session = UserSession.objects.get(id=session_id, user=request.user)
+    except UserSession.DoesNotExist:
+        return Response({'detail': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    session.is_active = False
+    session.save(update_fields=['is_active'])
+    return Response({'detail': 'Session revoked.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def revoke_all_sessions(request):
+    """
+    DELETE /api/users/sessions/revoke-all/
+    Revokes all active sessions for the current user (logout everywhere).
+    """
+    count = UserSession.objects.filter(user=request.user, is_active=True).update(is_active=False)
+    return Response({'detail': f'Revoked {count} session(s).'}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Two-Factor Authentication (TOTP)
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mfa_setup(request):
+    """
+    POST /api/users/mfa/setup/
+    Generates a new TOTP secret and provisioning URI (QR code data).
+    Does NOT enable 2FA yet — user must confirm with a valid code first.
+    """
+    mfa, _ = UserMFA.objects.get_or_create(
+        user=request.user,
+        defaults={'secret': UserMFA.generate_secret()},
+    )
+    if not mfa.is_enabled:
+        # (Re)generate secret for fresh setup
+        mfa.secret = UserMFA.generate_secret()
+        mfa.save(update_fields=['secret'])
+
+    return Response({
+        'secret': mfa.secret,
+        'provisioning_uri': mfa.get_provisioning_uri(),
+        'message': 'Scan the QR code with your authenticator app, then confirm with POST /api/users/mfa/confirm/',
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mfa_confirm(request):
+    """
+    POST /api/users/mfa/confirm/  { "code": "123456" }
+    Verifies the first TOTP code and activates 2FA. Also generates backup codes.
+    """
+    code = request.data.get('code')
+    if not code:
+        return Response({'detail': 'code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        mfa = request.user.mfa
+    except UserMFA.DoesNotExist:
+        return Response({'detail': 'Run /api/users/mfa/setup/ first.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not mfa.verify_code(str(code)):
+        return Response({'detail': 'Invalid code. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mfa.is_enabled = True
+    mfa.save(update_fields=['is_enabled'])
+
+    backup_codes = BackupCode.generate_for_user(request.user)
+
+    return Response({
+        'detail': '2FA enabled successfully.',
+        'backup_codes': backup_codes,
+        'warning': 'Save these backup codes securely. They will not be shown again.',
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mfa_disable(request):
+    """
+    POST /api/users/mfa/disable/  { "code": "123456" }
+    Disables 2FA after verifying the current TOTP code (or a backup code).
+    """
+    code = request.data.get('code')
+    if not code:
+        return Response({'detail': 'code is required to disable 2FA.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        mfa = request.user.mfa
+    except UserMFA.DoesNotExist:
+        return Response({'detail': '2FA is not set up on this account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not mfa.is_enabled:
+        return Response({'detail': '2FA is already disabled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Must be a required-group member — they cannot disable 2FA
+    user_groups_set = set(request.user.groups.values_list('name', flat=True))
+    if UserMFA.REQUIRED_GROUPS & user_groups_set:
+        return Response(
+            {'detail': '2FA cannot be disabled for Admin/Triager accounts.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if not mfa.verify_code(str(code)) and not BackupCode.use_code(request.user, str(code)):
+        return Response({'detail': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mfa.is_enabled = False
+    mfa.save(update_fields=['is_enabled'])
+    BackupCode.objects.filter(user=request.user).delete()
+
+    return Response({'detail': '2FA has been disabled.'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def mfa_status(request):
+    """
+    GET /api/users/mfa/status/
+    Returns 2FA setup status for the current user.
+    """
+    try:
+        mfa = request.user.mfa
+        enabled = mfa.is_enabled
+    except UserMFA.DoesNotExist:
+        enabled = False
+
+    user_groups_set = set(request.user.groups.values_list('name', flat=True))
+    required = bool(UserMFA.REQUIRED_GROUPS & user_groups_set)
+
+    return Response({
+        'is_enabled': enabled,
+        'is_required': required,
+        'backup_codes_remaining': BackupCode.objects.filter(
+            user=request.user, used=False
+        ).count() if enabled else 0,
+    })

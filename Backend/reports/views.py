@@ -21,7 +21,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .models_attachment import Attachment
 from .serializers import AttachmentSerializer
 from .services import ActivityLogger
-from .validators import validate_extension, validate_size, validate_mime, detect_mime
+from .validators import validate_extension, validate_size, validate_mime, detect_mime, validate_image_dimensions, strip_exif
 from users.throttles import SubmissionThrottle, BurstRateThrottle
 from .captcha import verify_recaptcha
 from rest_framework.exceptions import ValidationError
@@ -340,8 +340,16 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
                 tmp.write(chunk)
             tmp_path = tmp.name
         try:
-            mime = detect_mime(tmp_path);
+            mime = detect_mime(tmp_path)
             validate_mime(mime)
+
+            # Image-specific checks: reject decompression bombs and strip EXIF
+            try:
+                validate_image_dimensions(tmp_path)
+            except ValidationError as e:
+                os.unlink(tmp_path)
+                return Response({"detail": str(e)}, status=400)
+            strip_exif(tmp_path)  # best-effort; never blocks upload on failure
 
             # ClamAV scan
             from pyclamd import ClamdNetworkSocket
@@ -575,6 +583,86 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         logs = report.activity_logs.order_by('-created_at')
         serializer = ActivityLogSerializer(logs, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='cvss_score')
+    def cvss_score(self, request, pk=None):
+        """
+        POST /api/reports/{id}/cvss_score/
+
+        Calculate and persist a CVSS v3.1 base score for a report.
+        Accepts the 8 base metric fields and returns the score + severity label.
+        Saves the result back to the report (Triager/Admin only for saving).
+
+        Request body:
+        {
+            "attack_vector": "N",        # N|A|L|P
+            "attack_complexity": "L",    # L|H
+            "privileges_required": "N",  # N|L|H
+            "user_interaction": "N",     # N|R
+            "scope": "U",               # U|C
+            "confidentiality": "H",      # N|L|H
+            "integrity": "H",            # N|L|H
+            "availability": "H",         # N|L|H
+            "save": true                 # optional — persist to report
+        }
+        """
+        from core.cvss import CVSSMetrics, CVSSv3Calculator
+
+        fields = {
+            'attack_vector':       request.data.get('attack_vector', '').upper(),
+            'attack_complexity':   request.data.get('attack_complexity', '').upper(),
+            'privileges_required': request.data.get('privileges_required', '').upper(),
+            'user_interaction':    request.data.get('user_interaction', '').upper(),
+            'scope':               request.data.get('scope', '').upper(),
+            'confidentiality':     request.data.get('confidentiality', '').upper(),
+            'integrity':           request.data.get('integrity', '').upper(),
+            'availability':        request.data.get('availability', '').upper(),
+        }
+
+        missing = [k for k, v in fields.items() if not v]
+        if missing:
+            return Response(
+                {'detail': f"Missing required fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            metrics = CVSSMetrics(**fields)
+            result = CVSSv3Calculator(metrics).calculate()
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Persist to the report if requested and user is privileged
+        should_save = str(request.data.get('save', 'false')).lower() in ('true', '1', 'yes')
+        if should_save:
+            if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+                return Response(
+                    {'detail': 'Only Triagers and Admins can save CVSS scores to reports.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            report = self.get_object()
+            report.cvss_vector = result.vector_string
+            report.cvss_score = result.base_score
+            report.cvss_severity = result.severity
+            # Auto-update Django severity to match CVSS if meaningful
+            cvss_to_django = {
+                'Critical': 'critical',
+                'High': 'high',
+                'Medium': 'medium',
+                'Low': 'low',
+                'None': 'low',
+            }
+            report.severity = cvss_to_django.get(result.severity, report.severity)
+            report.save(update_fields=['cvss_vector', 'cvss_score', 'cvss_severity', 'severity'])
+
+        return Response({
+            'base_score':    result.base_score,
+            'severity':      result.severity,
+            'vector_string': result.vector_string,
+            'iss':           result.iss,
+            'ess':           result.ess,
+        })
+
 
 class CommentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CommentSerializer

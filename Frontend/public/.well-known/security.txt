@@ -1,0 +1,5 @@
+Contact: security@bugbounty.example.com
+Expires: 2027-04-23T00:00:00.000Z
+Preferred-Languages: en
+Policy: https://bugbounty.example.com/vdp
+Acknowledgments: https://bugbounty.example.com/hall-of-fame

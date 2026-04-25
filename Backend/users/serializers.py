@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.mail import send_mail
 from django.conf import settings
+from .models import PasswordResetToken
 
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SlugRelatedField(
@@ -57,4 +58,65 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             fail_silently=False,
         )
 
+        return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Step 1: user submits their email address."""
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        # Always return a generic message — never leak whether the email exists
+        return value.lower().strip()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Step 2: user submits token + new password."""
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError({"password": "Passwords do not match."})
+
+        try:
+            reset_token = PasswordResetToken.objects.select_related('user').get(
+                token=attrs['token']
+            )
+        except PasswordResetToken.DoesNotExist:
+            raise serializers.ValidationError({"token": "Invalid or expired reset token."})
+
+        if not reset_token.is_valid():
+            raise serializers.ValidationError({"token": "This reset link has expired. Please request a new one."})
+
+        attrs['reset_token'] = reset_token
+        return attrs
+
+    def save(self):
+        reset_token = self.validated_data['reset_token']
+        user = reset_token.user
+
+        # Consume token before changing password (prevents re-use even if save() errors)
+        reset_token.consume()
+
+        user.set_password(self.validated_data['password'])
+        user.save()
+
+        # Invalidate all other pending reset tokens for this user
+        PasswordResetToken.objects.filter(user=user, used=False).delete()
+
+        # Send confirmation email
+        send_mail(
+            subject="Your BugBounty password has been changed",
+            message=(
+                f"Hi {user.first_name or user.username},\n\n"
+                "Your password was successfully reset.\n\n"
+                "If you did not make this change, please contact support immediately.\n\n"
+                "— BugBounty Team"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
         return user

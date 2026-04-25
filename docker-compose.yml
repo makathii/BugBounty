@@ -31,8 +31,9 @@ services:
         python manage.py migrate &&
         python manage.py runserver 0.0.0.0:8000
       "
-    volumes:
-      - ./Backend:/app:delegated
+    # No bind mount — VirtioFS (Docker Desktop on macOS) causes EDEADLK on Python
+    # imports from bind-mounted directories. Code is baked into the image via COPY.
+    # Run `docker compose up --build` after any backend code changes.
     ports:
       - "8000:8000"
     depends_on:
@@ -48,6 +49,8 @@ services:
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
       - CLAMAV_HOST=clamav
       - CLAMAV_PORT=3310
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     networks:
       - bugbounty-network
     restart: on-failure
@@ -64,8 +67,9 @@ services:
       - REACT_APP_API_URL=http://localhost:8000/api
       - CHOKIDAR_USEPOLLING=true  # For hot reload in Docker
       - WATCHPACK_POLLING=true    # For hot reload in Docker
+      - NODE_OPTIONS=--openssl-legacy-provider  # Required for react-scripts 5 on Node 17+
     volumes:
-      - ./Frontend:/app:delegated
+      - ./Frontend:/app
       - /app/node_modules
     depends_on:
       - backend
@@ -75,7 +79,7 @@ services:
 
   # ClamAV for virus scanning
   clamav:
-    image: clamav/clamav:latest
+    image: clamav/clamav:1.4
     platform: linux/amd64
     container_name: bugbounty-clamav
     ports:

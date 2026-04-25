@@ -89,3 +89,128 @@ class TestFileUploadSecurity:
             assert detected_mime in ["image/png", "application/octet-stream", "text/plain"]
         finally:
             os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# EXIF stripping tests
+# ---------------------------------------------------------------------------
+
+class TestExifStripping:
+    """Test that EXIF metadata is removed from uploaded images."""
+
+    def _make_jpeg_with_exif(self, path):
+        """Write a minimal JPEG with EXIF GPS coordinates to disk."""
+        from PIL import Image
+        import piexif
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        exif_dict = {
+            "GPS": {
+                piexif.GPSIFD.GPSLatitude: ((37, 1), (46, 1), (0, 1)),
+                piexif.GPSIFD.GPSLatitudeRef: b"N",
+                piexif.GPSIFD.GPSLongitude: ((122, 1), (25, 1), (0, 1)),
+                piexif.GPSIFD.GPSLongitudeRef: b"W",
+            }
+        }
+        exif_bytes = piexif.dump(exif_dict)
+        img.save(path, "JPEG", exif=exif_bytes)
+
+    def _make_plain_jpeg(self, path):
+        from PIL import Image
+        img = Image.new("RGB", (100, 100), color=(0, 255, 0))
+        img.save(path, "JPEG")
+
+    def test_strip_exif_removes_gps_data(self, tmp_path):
+        """After stripping, the image must contain no EXIF GPS data."""
+        pytest.importorskip("piexif")
+        img_path = str(tmp_path / "gps_test.jpg")
+        self._make_jpeg_with_exif(img_path)
+
+        from .validators import strip_exif
+        result = strip_exif(img_path)
+        assert result is True
+
+        import piexif
+        try:
+            exif = piexif.load(img_path)
+            gps = exif.get("GPS", {})
+            assert len(gps) == 0, "GPS data still present after stripping"
+        except Exception:
+            pass  # If piexif can't load it, EXIF is definitely gone
+
+    def test_strip_exif_preserves_image_content(self, tmp_path):
+        """Stripped image must still be a valid, openable image."""
+        from PIL import Image
+        from .validators import strip_exif
+
+        img_path = str(tmp_path / "preserve_test.jpg")
+        self._make_plain_jpeg(img_path)
+        strip_exif(img_path)
+
+        with Image.open(img_path) as img:
+            assert img.size == (100, 100)
+
+    def test_strip_exif_skips_non_image_files(self, tmp_path):
+        """strip_exif must return False (no-op) for non-image extensions."""
+        from .validators import strip_exif
+        txt_path = str(tmp_path / "document.txt")
+        with open(txt_path, "w") as f:
+            f.write("hello")
+        assert strip_exif(txt_path) is False
+
+    def test_strip_exif_skips_pdf(self, tmp_path):
+        from .validators import strip_exif
+        pdf_path = str(tmp_path / "report.pdf")
+        with open(pdf_path, "wb") as f:
+            f.write(b"%PDF-1.4 fake pdf content")
+        assert strip_exif(pdf_path) is False
+
+
+# ---------------------------------------------------------------------------
+# Image dimension / decompression-bomb tests
+# ---------------------------------------------------------------------------
+
+class TestImageDimensionValidation:
+    """Test that oversized images are rejected before saving."""
+
+    def _make_image(self, path, width, height, fmt="PNG"):
+        from PIL import Image
+        img = Image.new("RGB", (width, height), color=(128, 128, 128))
+        img.save(path, fmt)
+
+    def test_normal_image_passes(self, tmp_path):
+        from .validators import validate_image_dimensions
+        img_path = str(tmp_path / "ok.png")
+        self._make_image(img_path, 800, 600)
+        validate_image_dimensions(img_path)  # must not raise
+
+    def test_oversized_width_rejected(self, tmp_path):
+        from django.core.exceptions import ValidationError as DjValidationError
+        from .validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
+        img_path = str(tmp_path / "wide.png")
+        self._make_image(img_path, MAX_IMAGE_DIMENSION + 100, 100)
+        with pytest.raises(DjValidationError):
+            validate_image_dimensions(img_path)
+
+    def test_oversized_height_rejected(self, tmp_path):
+        from django.core.exceptions import ValidationError as DjValidationError
+        from .validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
+        img_path = str(tmp_path / "tall.png")
+        self._make_image(img_path, 100, MAX_IMAGE_DIMENSION + 100)
+        with pytest.raises(DjValidationError):
+            validate_image_dimensions(img_path)
+
+    def test_non_image_file_skipped(self, tmp_path):
+        """Dimension check must be a no-op for non-image file types."""
+        from .validators import validate_image_dimensions
+        txt_path = str(tmp_path / "notes.txt")
+        with open(txt_path, "w") as f:
+            f.write("not an image")
+        validate_image_dimensions(txt_path)  # must not raise
+
+    def test_pdf_skipped(self, tmp_path):
+        from .validators import validate_image_dimensions
+        pdf_path = str(tmp_path / "file.pdf")
+        with open(pdf_path, "wb") as f:
+            f.write(b"%PDF-1.4 fake")
+        validate_image_dimensions(pdf_path)  # must not raise

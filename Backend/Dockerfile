@@ -1,6 +1,11 @@
 # Verwende offizielles Python-Image
 FROM python:3.12-slim
 
+# Disable .pyc bytecode files — avoids VirtioFS EDEADLK deadlocks on macOS Docker
+# when Python's import system rapidly reads cached bytecode from bind mounts
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 # Arbeitsverzeichnis im Container
 WORKDIR /app
 

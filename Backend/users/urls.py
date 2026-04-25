@@ -2,7 +2,13 @@ from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .views import UserRegistrationView, UserProfileView, user_groups, verify_email, logout, resend_verification_email
+from .views import (
+    UserRegistrationView, UserProfileView, user_groups,
+    verify_email, logout, resend_verification_email,
+    PasswordResetRequestView, PasswordResetConfirmView,
+    list_sessions, revoke_session, revoke_all_sessions,
+    mfa_setup, mfa_confirm, mfa_disable, mfa_status,
+)
 from programs.views import CompanyViewSet
 
 
@@ -25,4 +31,13 @@ urlpatterns = [
     path('verify-email/<str:token>/', verify_email, name='verify-email'),
     path('resend-verification/', resend_verification_email, name='resend-verification'),
     path('companies/', CompanyViewSet.as_view({'post': 'create', 'get': 'list'}), name='user-companies'),
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('sessions/', list_sessions, name='session-list'),
+    path('sessions/revoke-all/', revoke_all_sessions, name='session-revoke-all'),
+    path('sessions/<int:session_id>/', revoke_session, name='session-revoke'),
+    path('mfa/setup/', mfa_setup, name='mfa-setup'),
+    path('mfa/confirm/', mfa_confirm, name='mfa-confirm'),
+    path('mfa/disable/', mfa_disable, name='mfa-disable'),
+    path('mfa/status/', mfa_status, name='mfa-status'),
 ]

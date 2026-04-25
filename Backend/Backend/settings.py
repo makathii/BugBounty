@@ -24,13 +24,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-@j0md9c!fn2v3r^ro2qis1y_x-gl0-*q#+bpm^buop*exz@xl6')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
 # Ensure SECRET_KEY is set in production
-if not DEBUG and not SECRET_KEY:
-    raise ValueError("DJANGO_SECRET_KEY environment variable must be set in production")
+if not DEBUG and SECRET_KEY == 'django-insecure-@j0md9c!fn2v3r^ro2qis1y_x-gl0-*q#+bpm^buop*exz@xl6':
+    import warnings
+    warnings.warn("DJANGO_SECRET_KEY is using the insecure default — set it in production!", RuntimeWarning)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -212,6 +213,10 @@ CSP_MEDIA_SRC = ("'self'",)
 CSP_FRAME_SRC = ("'none'",)
 CSP_FRAME_ANCESTORS = ("'none'",)
 
+# CSP Report-Only Mode (deploy with report-only first to catch violations without blocking)
+CSP_REPORT_ONLY = os.environ.get('CSP_REPORT_ONLY', 'False') == 'True'
+CSP_REPORT_URI = os.environ.get('CSP_REPORT_URI', '')
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -274,6 +279,19 @@ SECURE_DOWNLOAD_CONTENT_DISPOSITION = 'attachment'
 RECAPTCHA_SECRET_KEY = os.environ.get("RECAPTCHA_SECRET_KEY", "")
 RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
-#Email verfication 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "no-reply@bugbounty.local"
+# Email backend — use SMTP in production, console in development
+_email_backend = os.environ.get('EMAIL_BACKEND', 'console')
+if _email_backend == 'smtp':
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+elif _email_backend == 'locmem':
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+else:
+    # Default: console (dev)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@bugbounty.local')
