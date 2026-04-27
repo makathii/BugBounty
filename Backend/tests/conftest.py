@@ -25,6 +25,8 @@ def disable_throttling(monkeypatch):
     monkeypatch.setattr(throttles, 'RegisterThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'SubmissionThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'BurstRateThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'PasswordResetThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'PasswordResetConfirmThrottle', NoOpThrottle)
 
 
 @pytest.fixture

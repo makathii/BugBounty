@@ -59,7 +59,7 @@ class TestCVSSKnownVectors:
     def test_physical_access_low(self):
         """AV:P/AC:H/PR:H/UI:R/S:U/C:L/I:N/A:N → 1.0 Low"""
         r = self._calc('P', 'H', 'H', 'R', 'U', 'L', 'N', 'N')
-        assert r.base_score == 1.0
+        assert r.base_score == 1.6
         assert r.severity == 'Low'
 
     def test_adjacent_medium(self):

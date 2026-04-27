@@ -27,3 +27,6 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+
+# Disable throttling in tests
+REST_FRAMEWORK = {**REST_FRAMEWORK, 'DEFAULT_THROTTLE_CLASSES': []}

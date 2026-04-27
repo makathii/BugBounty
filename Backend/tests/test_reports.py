@@ -6,7 +6,7 @@ def test_verified_user_can_submit_report(api_client, verified_user, report_paylo
     api_client.force_authenticate(user=verified_user)
     monkeypatch.setattr("reports.views.send_mail", lambda *args, **kwargs: 1)
 
-    response = api_client.post("/api/reports/reports/", report_payload, format="json")
+    response = api_client.post("/api/reports/", report_payload, format="json")
 
     assert response.status_code == 201
     body = response.json()
@@ -27,7 +27,7 @@ def test_unverified_user_cannot_submit_report(api_client, researcher_group, repo
     user.groups.add(researcher_group)
 
     api_client.force_authenticate(user=user)
-    response = api_client.post("/api/reports/reports/", report_payload, format="json")
+    response = api_client.post("/api/reports/", report_payload, format="json")
 
     assert response.status_code == 403
 
@@ -36,7 +36,7 @@ def test_unverified_user_cannot_submit_report(api_client, researcher_group, repo
 def test_regular_user_list_is_scoped_to_their_own_reports(api_client, verified_user, own_report, other_report):
     api_client.force_authenticate(user=verified_user)
 
-    response = api_client.get("/api/reports/reports/")
+    response = api_client.get("/api/reports/")
 
     assert response.status_code == 200
     data = response.json()
@@ -49,7 +49,7 @@ def test_regular_user_list_is_scoped_to_their_own_reports(api_client, verified_u
 def test_triager_can_view_reports_beyond_their_own(api_client, triager_user, own_report, other_report):
     api_client.force_authenticate(user=triager_user)
 
-    response = api_client.get("/api/reports/reports/")
+    response = api_client.get("/api/reports/")
 
     assert response.status_code == 200
     data = response.json()
@@ -63,7 +63,7 @@ def test_regular_user_cannot_change_report_status(api_client, verified_user, own
     api_client.force_authenticate(user=verified_user)
 
     response = api_client.patch(
-        f"/api/reports/reports/{own_report.id}/change_status/",
+        f"/api/reports/{own_report.id}/change_status/",
         {"status": "triaged"},
         format="json",
     )
@@ -76,7 +76,7 @@ def test_triager_can_change_report_status(api_client, triager_user, own_report):
     api_client.force_authenticate(user=triager_user)
 
     response = api_client.patch(
-        f"/api/reports/reports/{own_report.id}/change_status/",
+        f"/api/reports/{own_report.id}/change_status/",
         {"status": "triaged"},
         format="json",
     )

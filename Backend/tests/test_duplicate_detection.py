@@ -170,7 +170,7 @@ class TestDuplicateCheckEndpoint:
         """Test the check_duplicates endpoint returns potential matches"""
         client.force_authenticate(user=regular_user)
 
-        response = client.post('/api/reports/reports/check_duplicates/', {
+        response = client.post('/api/reports/check_duplicates/', {
             'title': 'SQL Injection on Login Page',  # Very similar
             'description': 'SQL injection vulnerability found',
             'affected_url': 'https://example.com/login',
@@ -191,7 +191,7 @@ class TestDuplicateCheckEndpoint:
         """Test the check_duplicates endpoint when no duplicates found"""
         client.force_authenticate(user=regular_user)
 
-        response = client.post('/api/reports/reports/check_duplicates/', {
+        response = client.post('/api/reports/check_duplicates/', {
             'title': 'XSS on Search Page',
             'description': 'Cross site scripting in search functionality',
             'affected_url': 'https://example.com/search',
@@ -204,7 +204,7 @@ class TestDuplicateCheckEndpoint:
 
     def test_check_duplicates_requires_authentication(self, client):
         """Test that unauthenticated users cannot check duplicates"""
-        response = client.post('/api/reports/reports/check_duplicates/', {
+        response = client.post('/api/reports/check_duplicates/', {
             'title': 'Test Title',
             'description': 'Test description'
         }, format='json')
@@ -215,7 +215,7 @@ class TestDuplicateCheckEndpoint:
         """Test validation that title and description are required"""
         client.force_authenticate(user=regular_user)
 
-        response = client.post('/api/reports/reports/check_duplicates/', {
+        response = client.post('/api/reports/check_duplicates/', {
             'title': '',
             'description': ''
         }, format='json')
@@ -283,7 +283,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=triager_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_of': original.id,
                 'duplicate_reason': 'Same vulnerability, reported later'
@@ -312,7 +312,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=regular_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_of': original.id,
                 'duplicate_reason': 'Test'
@@ -327,7 +327,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=triager_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_of': existing_report.id,  # Same ID
                 'duplicate_reason': 'Self reference'
@@ -360,7 +360,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=triager_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_of': middle_report.id,  # This is already a duplicate
                 'duplicate_reason': 'Test'
@@ -376,7 +376,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=triager_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_reason': 'Missing the ID'
             },
@@ -391,7 +391,7 @@ class TestMarkAsDuplicateEndpoint:
         client.force_authenticate(user=triager_user)
 
         response = client.post(
-            f'/api/reports/reports/{existing_report.id}/mark_as_duplicate/',
+            f'/api/reports/{existing_report.id}/mark_as_duplicate/',
             {
                 'duplicate_of': 999999,  # Non-existent
                 'duplicate_reason': 'Test'

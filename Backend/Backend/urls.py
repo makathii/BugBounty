@@ -24,7 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', ThrottledTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/reports/', include('reports.urls')),
+    path('api/', include('reports.urls')),
     path('api/users/', include('users.urls')),
     path('api/programs/', include('programs.urls')),
     # RFC 9116 security contact information
