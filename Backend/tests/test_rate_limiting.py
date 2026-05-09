@@ -61,7 +61,14 @@ class TestRateLimiting:
         assert settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['user'] == '60/min'
 
     def test_throttle_classes_configured(self):
-        """Test throttle classes are in REST_FRAMEWORK settings"""
-        throttle_classes = settings.REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
+        """Test throttle classes are in REST_FRAMEWORK settings.
+
+        Checks the *production* settings module rather than the live
+        `settings.REST_FRAMEWORK` because the test settings module
+        intentionally empties DEFAULT_THROTTLE_CLASSES to disable throttling
+        in tests.
+        """
+        from Backend import settings as prod_settings
+        throttle_classes = prod_settings.REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
         assert "rest_framework.throttling.AnonRateThrottle" in throttle_classes
         assert "rest_framework.throttling.UserRateThrottle" in throttle_classes

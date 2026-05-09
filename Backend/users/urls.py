@@ -8,7 +8,9 @@ from .views import (
     PasswordResetRequestView, PasswordResetConfirmView,
     list_sessions, revoke_session, revoke_all_sessions,
     mfa_setup, mfa_confirm, mfa_disable, mfa_status,
+    CSRFTokenView,
 )
+from .oauth_views import oauth_start, oauth_callback
 from programs.views import CompanyViewSet
 
 
@@ -40,4 +42,10 @@ urlpatterns = [
     path('mfa/confirm/', mfa_confirm, name='mfa-confirm'),
     path('mfa/disable/', mfa_disable, name='mfa-disable'),
     path('mfa/status/', mfa_status, name='mfa-status'),
+    # CSRF token endpoint — React calls this once on app load to seed the
+    # csrftoken cookie before making any state-changing call.
+    path('csrf/', CSRFTokenView.as_view(), name='csrf-token'),
+    # OAuth client login (GitHub / Google / GitLab).
+    path('oauth/<str:provider>/start/', oauth_start, name='oauth-start'),
+    path('oauth/<str:provider>/callback/', oauth_callback, name='oauth-callback'),
 ]

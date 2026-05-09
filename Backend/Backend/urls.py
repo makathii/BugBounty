@@ -1,8 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
-from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import ThrottledTokenObtainPairView
+from users.views import ThrottledTokenObtainPairView, CookieTokenRefreshView
 
 
 def security_txt(request):
@@ -23,7 +22,7 @@ def security_txt(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', ThrottledTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('reports.urls')),
     path('api/users/', include('users.urls')),
     path('api/programs/', include('programs.urls')),

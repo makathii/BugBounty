@@ -213,6 +213,39 @@ class BackupCode(models.Model):
             return False
 
 
+class SocialAccount(models.Model):
+    """
+    Links a Django User to an OAuth provider identity.
+
+    A user can have multiple SocialAccounts (e.g. one for GitHub, one for
+    Google). The (provider, provider_uid) pair is unique — that's the only
+    thing the OAuth callback uses to identify a returning user.
+    """
+    PROVIDER_GITHUB = 'github'
+    PROVIDER_GOOGLE = 'google'
+    PROVIDER_GITLAB = 'gitlab'
+    PROVIDER_CHOICES = [
+        (PROVIDER_GITHUB, 'GitHub'),
+        (PROVIDER_GOOGLE, 'Google'),
+        (PROVIDER_GITLAB, 'GitLab'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='social_accounts')
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider_uid = models.CharField(max_length=128, db_index=True)
+    email = models.EmailField(blank=True, default='')
+    raw_profile = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('provider', 'provider_uid')]
+        ordering = ['-last_login_at']
+
+    def __str__(self):
+        return f"{self.provider}:{self.provider_uid} -> {self.user.username}"
+
+
 class UserSession(models.Model):
     """
     Tracks active JWT sessions per user for visibility and revocation.

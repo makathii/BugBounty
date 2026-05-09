@@ -3,12 +3,23 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.conf import settings
 from django.contrib.auth.models import User, Group
+from django.middleware.csrf import get_token as csrf_get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 
 from .serializers import UserSerializer, UserRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
-from .throttles import LoginThrottle, RegisterThrottle, PasswordResetThrottle, PasswordResetConfirmThrottle
+from .throttles import (
+    LoginThrottle, RegisterThrottle,
+    PasswordResetThrottle, PasswordResetConfirmThrottle,
+    TokenRefreshThrottle,
+)
 from .models import Profile, PasswordResetToken, AccountLockout, UserSession, UserMFA, BackupCode
+from .jwt_cookies import set_jwt_cookies, clear_jwt_cookies
 from reports.captcha import verify_recaptcha
 
 
@@ -202,32 +213,134 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
 
 
 class ThrottledTokenObtainPairView(TokenObtainPairView):
+    """
+    POST /api/token/  -> {access, refresh} JSON body AND HttpOnly cookies.
+
+    The cookies are the security-critical primary auth mechanism. The JSON
+    body is retained for backward compatibility with existing Bearer-token
+    integrations and tests; web clients should ignore it and rely on cookies.
+    """
     throttle_classes = [LoginThrottle]
     serializer_class = EmailVerificationTokenSerializer
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if response.status_code == 200 and isinstance(response.data, dict):
+            access = response.data.get('access')
+            refresh = response.data.get('refresh')
+            if access:
+                set_jwt_cookies(response, access=access, refresh=refresh)
+        return response
+
 
 # ---------------------------------------------------------------------------
-# Logout
+# Refresh — reads refresh token from the HttpOnly cookie, rotates it, and
+# sets fresh cookies. SimpleJWT's ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION
+# already handle blacklisting the old token, so reuse of a stolen refresh
+# token will fail (and the old session is dead).
+# ---------------------------------------------------------------------------
+
+class CookieTokenRefreshView(TokenRefreshView):
+    throttle_classes = [TokenRefreshThrottle]
+
+    def post(self, request, *args, **kwargs):
+        # Pull the refresh token from the cookie if the client didn't send it
+        # in the body. Body is allowed for old clients but the cookie is the
+        # standard path.
+        refresh_cookie = request.COOKIES.get(settings.JWT_AUTH_REFRESH_COOKIE)
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if not data.get('refresh') and refresh_cookie:
+            data['refresh'] = refresh_cookie
+
+        if not data.get('refresh'):
+            return Response(
+                {"detail": "Refresh token not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (InvalidToken, TokenError) as exc:
+            # Clear stale cookies on a bad refresh so the client falls back
+            # to the login flow cleanly.
+            response = Response(
+                {"detail": str(exc) or "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            return clear_jwt_cookies(response)
+
+        validated = serializer.validated_data
+        response = Response(validated, status=status.HTTP_200_OK)
+        # ROTATE_REFRESH_TOKENS=True means validated contains a new refresh
+        # too; BLACKLIST_AFTER_ROTATION=True already blacklisted the old one.
+        set_jwt_cookies(
+            response,
+            access=validated['access'],
+            refresh=validated.get('refresh'),
+        )
+        return response
+
+
+# ---------------------------------------------------------------------------
+# Logout — blacklists the refresh token (so the session is dead immediately)
+# and clears both auth cookies. Accepts the refresh token from either the
+# cookie or the body.
 # ---------------------------------------------------------------------------
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
+    refresh_token = (
+        request.data.get("refresh_token")
+        or request.data.get("refresh")
+        or request.COOKIES.get(settings.JWT_AUTH_REFRESH_COOKIE)
+    )
+
+    blacklisted = False
+    if refresh_token:
+        try:
+            RefreshToken(refresh_token).blacklist()
+            blacklisted = True
+        except Exception:
+            # An invalid token shouldn't break logout — we still clear cookies.
+            pass
+
+    # Also deactivate the matching UserSession row (best-effort — failure
+    # here must never block logout).
     try:
-        refresh_token = request.data.get("refresh_token")
-        if not refresh_token:
-            return Response(
-                {"error": "refresh_token is required"},
-                status=status.HTTP_400_BAD_REQUEST
+        from .models import UserSession
+        if refresh_token and blacklisted:
+            import jwt as pyjwt
+            decoded = pyjwt.decode(
+                refresh_token,
+                settings.SECRET_KEY,
+                algorithms=['HS256'],
+                options={"verify_exp": False},
             )
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-        return Response({"message": "Successfully logged out"})
+            jti = decoded.get('jti')
+            if jti:
+                UserSession.objects.filter(user=request.user, jti=jti).update(is_active=False)
     except Exception:
-        return Response(
-            {"error": "Invalid or expired token"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        pass
+
+    response = Response({"message": "Successfully logged out"})
+    return clear_jwt_cookies(response)
+
+
+# ---------------------------------------------------------------------------
+# CSRF token endpoint — the React app calls this once on app load to get a
+# csrftoken cookie it can read and forward as the X-CSRFToken header on
+# state-changing requests. AllowAny because you need a CSRF token *before*
+# you can log in.
+# ---------------------------------------------------------------------------
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSRFTokenView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        return Response({"csrfToken": csrf_get_token(request)})
 
 
 # ---------------------------------------------------------------------------

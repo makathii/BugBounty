@@ -59,7 +59,11 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
+    # Cookie-based JWT auth is the primary mechanism. The header-based
+    # JWTAuthentication is kept as a fallback so existing tests / integrations
+    # that send `Authorization: Bearer <token>` keep working during migration.
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'users.jwt_cookies.JWTCookieAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PARSER_CLASSES': [
@@ -88,6 +92,11 @@ REST_FRAMEWORK = {
         'anon': '20/min',      # Reduced from 30/min
         'user': '60/min',      # Reduced from 120/min
         'burst': '100/minute', # Reduced from 200/minute
+        # OAuth client login — keep tighter than regular login because each
+        # callback hit is a network round-trip to the provider.
+        'oauth_init': '10/min',
+        'oauth_callback': '10/min',
+        'token_refresh': '30/min',
     }
 }
 
@@ -105,7 +114,16 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    o.strip() for o in os.environ.get(
+        'CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000'
+    ).split(',') if o.strip()
+]
+# Cookies are httpOnly + SameSite=Strict — but we still need the browser to
+# attach them on cross-origin requests (React on :3000 -> API on :8000).
+CORS_ALLOW_CREDENTIALS = True
+# Allow the React app to send the CSRF header with cookie-authenticated calls.
+CORS_ALLOW_HEADERS = list(__import__('corsheaders.defaults', fromlist=['default_headers']).default_headers) + [
+    'x-csrftoken',
 ]
 
 ROOT_URLCONF = 'Backend.urls'
@@ -113,12 +131,68 @@ ROOT_URLCONF = 'Backend.urls'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=40),
+    # Short-lived access tokens — limits the damage of a stolen access token.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    # 7-day refresh window. Refresh tokens are single-use (rotated) and the
+    # old one is blacklisted on every refresh, so the effective exposure window
+    # for any single refresh token is one HTTP round-trip.
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    # `jti` is the claim we already key UserSession off; keep the default.
+    "JTI_CLAIM": "jti",
 }
+
+# =============================================================================
+# JWT cookie configuration
+# =============================================================================
+# These cookies hold the access + refresh tokens. They are HttpOnly (invisible
+# to JavaScript, defeats XSS-based token theft) and SameSite=Strict (defeats
+# most CSRF, though CSRF middleware is also enforced for state-changing
+# requests). Secure is gated on DJANGO_SECURE_COOKIES so dev (http://localhost)
+# still works.
+JWT_AUTH_COOKIE = "bb_access"            # access token cookie name
+JWT_AUTH_REFRESH_COOKIE = "bb_refresh"   # refresh token cookie name
+JWT_AUTH_COOKIE_HTTP_ONLY = True
+JWT_AUTH_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+JWT_AUTH_COOKIE_SAMESITE = "Strict"
+JWT_AUTH_COOKIE_PATH = "/"
+# Refresh cookie is only sent to the refresh + logout endpoints — narrows
+# the attack surface even if some intermediary leaks Cookie headers.
+JWT_AUTH_REFRESH_COOKIE_PATH = "/api/"
+# CSRF protection is enforced on cookie-authenticated state-changing requests.
+JWT_AUTH_CSRF_ENFORCED = True
+
+# =============================================================================
+# OAuth client login (GitHub / Google / GitLab)
+# =============================================================================
+# Read provider credentials from environment so secrets never live in the repo.
+# When client_id / client_secret are empty the provider is treated as disabled
+# and its endpoints return 503.
+OAUTH_PROVIDERS = {
+    "github": {
+        "client_id": os.environ.get("OAUTH_GITHUB_CLIENT_ID", ""),
+        "client_secret": os.environ.get("OAUTH_GITHUB_CLIENT_SECRET", ""),
+        "scope": "read:user user:email",
+    },
+    "google": {
+        "client_id": os.environ.get("OAUTH_GOOGLE_CLIENT_ID", ""),
+        "client_secret": os.environ.get("OAUTH_GOOGLE_CLIENT_SECRET", ""),
+        "scope": "openid email profile",
+    },
+    "gitlab": {
+        "client_id": os.environ.get("OAUTH_GITLAB_CLIENT_ID", ""),
+        "client_secret": os.environ.get("OAUTH_GITLAB_CLIENT_SECRET", ""),
+        "scope": "read_user",
+    },
+}
+# Where the React app lives — used to build callback URLs and to redirect
+# back after a successful OAuth login.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+# Backend public origin (used to construct the redirect_uri the provider
+# echoes back to). Defaults to the dev value.
+BACKEND_PUBLIC_URL = os.environ.get("BACKEND_PUBLIC_URL", "http://localhost:8000")
 
 TEMPLATES = [
     {
@@ -189,7 +263,22 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Cookie Security
 SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# CSRF cookie — readable by JS so the React app can put the value in the
+# X-CSRFToken header. The token is *bound to a session* and useless without it.
 CSRF_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+CSRF_COOKIE_HTTPONLY = False    # must be False so JS can read it
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000'
+    ).split(',') if o.strip()
+]
+# Header the React app must send with state-changing requests when using
+# cookie-based auth. Default Django name; spelled out for clarity.
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
 
 # XSS Protection
 SECURE_BROWSER_XSS_FILTER = True
