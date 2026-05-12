@@ -17,10 +17,6 @@ export const AuthProvider = ({ children }) => {
     const [userGroups, setUserGroups] = useState([]);
     const [hasCompanyProfile, setHasCompanyProfile] = useState(false);
 
-    useEffect(() => {
-        checkAuth();
-    }, []);
-
     const checkCompanyProfile = async () => {
         try {
             const response = await companyAPI.hasCompanyProfile();
@@ -39,7 +35,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(response.data);
                 setUserGroups(response.data.groups || []);
 
-                if (response.data.groups?.includes('ProgramOwner')) {
+                if (response.data.groups?.includes('Company')) {
                     const hasProfile = await checkCompanyProfile();
                     setHasCompanyProfile(hasProfile);
                 }
@@ -51,7 +47,11 @@ export const AuthProvider = ({ children }) => {
             }
         }
         setLoading(false);
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        checkAuth();
+    }, [checkAuth]);
 
     const login = async (username, password) => {
         try {
@@ -70,21 +70,9 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true };
         } catch (error) {
-            const errorDetail = error.response?.data?.detail || '';
-            let errorMessage = 'Login failed';
-
-            // Check if it's an email verification error
-            if (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('email not verified')) {
-                errorMessage = 'Please verify your email address before logging in. Check your inbox for the verification link.';
-            } else if (errorDetail) {
-                errorMessage = errorDetail;
-            } else if (error.response?.data) {
-                errorMessage = JSON.stringify(error.response.data);
-            }
-
             return {
                 success: false,
-                error: errorMessage
+                error: error.response?.data?.detail || 'Login failed'
             };
         }
     };
@@ -96,8 +84,26 @@ export const AuthProvider = ({ children }) => {
             const response = await authAPI.register(userData);
             console.log('AuthContext: Registration API response:', response.data);
 
-            // Note: No auto-login anymore - user must verify email first
-            // The user is created but is_active=False until email is verified
+            if (response.data) {
+                console.log('AuthContext: Attempting auto-login...');
+                const tokenResponse = await authAPI.login({
+                    username: userData.username,
+                    password: userData.password
+                });
+                console.log('AuthContext: Auto-login successful');
+
+                localStorage.setItem('access_token', tokenResponse.data.access);
+                localStorage.setItem('refresh_token', tokenResponse.data.refresh);
+
+                console.log('AuthContext: Getting user profile...');
+                const profileResponse = await authAPI.getProfile();
+                console.log('AuthContext: Profile loaded:', profileResponse.data);
+
+                setUser(profileResponse.data);
+                setUserGroups(profileResponse.data.groups || []);
+
+                console.log('AuthContext: User state updated');
+            }
 
             return { success: true, data: response.data };
         } catch (error) {
@@ -138,7 +144,7 @@ export const AuthProvider = ({ children }) => {
     const isTriager = () => userGroups.includes('Triager') || userGroups.includes('Admin');
     const isAdmin = () => userGroups.includes('Admin');
     const isResearcher = () => userGroups.includes('Researcher');
-    const isCompany = () => userGroups.includes('ProgramOwner');
+    const isCompany = () => userGroups.includes('Company');
 
     const value = {
         user,

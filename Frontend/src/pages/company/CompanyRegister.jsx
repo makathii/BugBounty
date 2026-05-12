@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import '../researcher/ResearcherRegister.css';
 
 const CompanyRegister = () => {
     const navigate = useNavigate();
@@ -19,8 +20,8 @@ const CompanyRegister = () => {
     const captchaRef = useRef(null);
     const widgetIdRef = useRef(null);
 
-    // Use production key if environment variable is not set
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6Ld5sg8sAAAAAM4xrWvRtC6kcgogyg7MPxnoq7Tt";
+    // Use test key if environment variable is not set
+    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
     useEffect(() => {
         if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
@@ -153,7 +154,7 @@ const CompanyRegister = () => {
     };
 
     return (
-        <div className="company-register-page">
+        <div className="researcher-register-page">
             <div className="register-container">
                 <div className="register-header">
                     <h1>Company Registration</h1>

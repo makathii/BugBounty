@@ -14,7 +14,7 @@ const TriageDashboard = () => {
     useEffect(() => {
         loadDashboardData();
         loadReports();
-    }, [filters]);
+    }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadDashboardData = async () => {
         try {

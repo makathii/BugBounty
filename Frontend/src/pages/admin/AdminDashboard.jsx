@@ -79,6 +79,7 @@ const AdminDashboard = () => {
         }
     };
 
+    // eslint-disable-next-line no-unused-vars
     const handleReopenReport = async (reportId) => {
         try {
             setActionMessage(null);

@@ -96,6 +96,12 @@ const Login = () => {
                         {errors.password && <span className="error-text">{errors.password}</span>}
                     </div>
 
+                    <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                        <Link to="/forgot-password" className="link-btn" style={{ fontSize: '0.85rem' }}>
+                            Forgot password?
+                        </Link>
+                    </div>
+
                     <button
                         type="submit"
                         disabled={isLoading}

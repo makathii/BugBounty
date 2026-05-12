@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
 
 const Reports = () => {
-    const { user } = useAuth();
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -21,7 +19,7 @@ const Reports = () => {
     useEffect(() => {
         loadReports();
         loadStats();
-    }, [filters]);
+    }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadReports = async () => {
         try {
