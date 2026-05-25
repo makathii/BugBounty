@@ -170,6 +170,50 @@ class TestComments:
         assert "Own comment" in texts
         assert "Other comment" not in texts
 
+    def test_comment_strips_script_tags(self, api_client, verified_user, own_report):
+        """Stored XSS prevention — <script> tags must be stripped before saving.
+
+        bleach strip=True removes tags but keeps inner text as inert plain text,
+        so "alert('xss')" may survive as text — that is fine because text alone
+        does not execute.  What matters is that the <script> wrapper is gone.
+        """
+        api_client.force_authenticate(user=verified_user)
+        resp = api_client.post(
+            f"/api/reports/{own_report.id}/comment/",
+            {"text": "<script>alert('xss')</script>Found a bug."},
+            format="json",
+        )
+        assert resp.status_code == 201
+        assert "<script>" not in resp.data["text"]
+        assert "</script>" not in resp.data["text"]
+        # Verify the DB row is also clean
+        comment = Comment.objects.get(report=own_report)
+        assert "<script>" not in comment.text
+
+    def test_comment_strips_event_handler_attributes(self, api_client, verified_user, own_report):
+        """Inline event handlers (onerror=, onload=) must not survive sanitization."""
+        api_client.force_authenticate(user=verified_user)
+        resp = api_client.post(
+            f"/api/reports/{own_report.id}/comment/",
+            {"text": '<img src=x onerror="alert(1)"> check this'},
+            format="json",
+        )
+        assert resp.status_code == 201
+        assert "onerror" not in resp.data["text"]
+        assert "<img" not in resp.data["text"]
+
+    def test_comment_preserves_plain_text(self, api_client, verified_user, own_report):
+        """Sanitization must not alter plain text that contains no HTML."""
+        plain = "Steps: 1) open the page 2) click submit — it breaks."
+        api_client.force_authenticate(user=verified_user)
+        resp = api_client.post(
+            f"/api/reports/{own_report.id}/comment/",
+            {"text": plain},
+            format="json",
+        )
+        assert resp.status_code == 201
+        assert resp.data["text"] == plain
+
 
 # ---------------------------------------------------------------------------
 # Submit for review

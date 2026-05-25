@@ -1,6 +1,8 @@
 """
 Audit logging middleware for BugBounty platform.
 """
+from django.conf import settings as django_settings
+from ipware import get_client_ip
 from .models import SecurityAuditLog
 
 
@@ -26,12 +28,22 @@ class AuditLogMiddleware:
         return response
 
     def _get_client_ip(self, request):
-        """Extract client IP from request"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR')
+        """
+        Extract the real client IP using django-ipware.
+
+        ipware walks the X-Forwarded-For chain from right to left, skipping
+        exactly IPWARE_TRUSTED_PROXY_COUNT trusted proxy IPs (configured in
+        settings). This prevents spoofing — an attacker prepending a fake IP
+        to X-Forwarded-For won't land on that IP when proxies=N is set correctly.
+
+        Set IPWARE_TRUSTED_PROXY_COUNT in settings to the number of reverse
+        proxies in front of Django (e.g. 1 for a single nginx, 2 for nginx+LB).
+        """
+        proxy_count = getattr(django_settings, 'IPWARE_TRUSTED_PROXY_COUNT', 0)
+        ip, routable = get_client_ip(request, proxy_count=proxy_count)
+        if ip is None:
+            # Fall back to REMOTE_ADDR if ipware can't determine the IP
+            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
         return ip
 
     def _log_request(self, request, response):

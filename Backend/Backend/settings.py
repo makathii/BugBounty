@@ -86,8 +86,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'login': '3/min',      # Reduced from 5/min
         'register': '2/min',   # Reduced from 3/min
-        'password_reset': '2/hour',     # New: Password reset requests
-        'password_reset_confirm': '5/hour',  # New: Password reset confirmations
+        'password_reset': '2/hour',          # Per-IP: Password reset requests
+        'password_reset_email': '3/hour',    # Per-target-email: blocks inbox flooding with rotating IPs
+        'password_reset_confirm': '5/hour',  # Per-IP: Password reset confirmations
         'submission': '50/hour',  # Reduced from 100/hour
         'anon': '20/min',      # Reduced from 30/min
         'user': '60/min',      # Reduced from 120/min
@@ -291,20 +292,38 @@ if os.environ.get('DJANGO_HSTS', 'False') == 'True':
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# Content Security Policy
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
-CSP_IMG_SRC = ("'self'", "data:", "blob:")
-CSP_FONT_SRC = ("'self'",)
-CSP_CONNECT_SRC = ("'self'",)
-CSP_MEDIA_SRC = ("'self'",)
-CSP_FRAME_SRC = ("'none'",)
-CSP_FRAME_ANCESTORS = ("'none'",)
+# Trusted proxy configuration for X-Forwarded-For validation (django-ipware).
+# Set to the number of reverse proxies in front of Django in production.
+# 0 = direct connection (development), 1 = single nginx proxy, 2 = nginx + LB, etc.
+# Never set this higher than the actual number of trusted proxies you control.
+IPWARE_TRUSTED_PROXY_COUNT = int(os.environ.get('IPWARE_TRUSTED_PROXY_COUNT', '0'))
 
-# CSP Report-Only Mode (deploy with report-only first to catch violations without blocking)
-CSP_REPORT_ONLY = os.environ.get('CSP_REPORT_ONLY', 'False') == 'True'
-CSP_REPORT_URI = os.environ.get('CSP_REPORT_URI', '')
+# Content Security Policy (django-csp 4.x API)
+# Uses CONTENT_SECURITY_POLICY dict — the old CSP_* flat settings are ignored in v4.
+# Templates must render {{ request.csp_nonce }} on every inline <script>/<style> tag.
+# The NONCE sentinel tells django-csp to inject nonce-<value> per request automatically.
+from csp.constants import NONCE  # noqa: E402
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        # NONCE replaces 'unsafe-inline': each response gets a unique nonce injected here.
+        "script-src": ["'self'", NONCE],
+        "style-src":  ["'self'", NONCE],
+        "img-src":    ["'self'", "data:", "blob:"],
+        "font-src":   ["'self'"],
+        "connect-src": ["'self'"],
+        "media-src":  ["'self'"],
+        "frame-src":  ["'none'"],
+        "frame-ancestors": ["'none'"],
+        "report-uri": [os.environ.get("CSP_REPORT_URI", "")] if os.environ.get("CSP_REPORT_URI") else None,
+    },
+}
+
+# Promote to report-only mode during rollout by setting CSP_REPORT_ONLY=True in env.
+if os.environ.get("CSP_REPORT_ONLY", "False") == "True":
+    CONTENT_SECURITY_POLICY_REPORT_ONLY = CONTENT_SECURITY_POLICY
+    CONTENT_SECURITY_POLICY = {}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

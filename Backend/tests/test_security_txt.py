@@ -57,23 +57,37 @@ class TestSecurityTxt:
 # ---------------------------------------------------------------------------
 
 class TestCSPReportOnlyConfig:
+    """django-csp 4.x uses CONTENT_SECURITY_POLICY dict instead of flat CSP_* keys."""
+
     def test_csp_report_only_is_bool(self):
-        assert isinstance(settings.CSP_REPORT_ONLY, bool), (
-            "CSP_REPORT_ONLY must be a Python bool (not the string 'True')."
-        )
+        # Report-only mode is now toggled by populating CONTENT_SECURITY_POLICY_REPORT_ONLY.
+        # When CSP_REPORT_ONLY env var is True, the main policy dict becomes empty and the
+        # report-only dict is populated. Either way, both settings are dicts (or empty dicts).
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', None)
+        csp_ro = getattr(settings, 'CONTENT_SECURITY_POLICY_REPORT_ONLY', None)
+        assert isinstance(csp, (dict, type(None)))
+        assert isinstance(csp_ro, (dict, type(None)))
 
     def test_csp_report_uri_is_string(self):
-        assert isinstance(settings.CSP_REPORT_URI, str), (
-            "CSP_REPORT_URI must be a string (empty string is fine for dev)."
-        )
+        # report-uri now lives inside the DIRECTIVES dict, not as a top-level setting.
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', {}) or {}
+        directives = csp.get('DIRECTIVES', {})
+        report_uri = directives.get('report-uri', None)
+        # Must be None (unset) or a list of strings
+        assert report_uri is None or isinstance(report_uri, list)
 
     def test_csp_default_src_is_set(self):
-        assert hasattr(settings, 'CSP_DEFAULT_SRC'), "CSP_DEFAULT_SRC must be configured."
-        assert settings.CSP_DEFAULT_SRC, "CSP_DEFAULT_SRC must not be empty."
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', {}) or {}
+        directives = csp.get('DIRECTIVES', {})
+        assert 'default-src' in directives, "default-src directive must be configured."
+        assert directives['default-src'], "default-src must not be empty."
 
     def test_csp_frame_ancestors_blocks_framing(self):
         """Clickjacking protection — frames must be denied."""
-        assert hasattr(settings, 'CSP_FRAME_ANCESTORS')
-        assert "'none'" in settings.CSP_FRAME_ANCESTORS, (
-            "CSP_FRAME_ANCESTORS should include \"'none'\" to prevent clickjacking."
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', {}) or {}
+        directives = csp.get('DIRECTIVES', {})
+        frame_ancestors = directives.get('frame-ancestors', [])
+        assert frame_ancestors, "frame-ancestors directive must be configured."
+        assert "'none'" in frame_ancestors, (
+            "frame-ancestors should include \"'none'\" to prevent clickjacking."
         )

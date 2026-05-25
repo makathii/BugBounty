@@ -26,6 +26,7 @@ def disable_throttling(monkeypatch):
     monkeypatch.setattr(throttles, 'SubmissionThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'BurstRateThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'PasswordResetThrottle', NoOpThrottle)
+    monkeypatch.setattr(throttles, 'PasswordResetEmailThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'PasswordResetConfirmThrottle', NoOpThrottle)
 
 

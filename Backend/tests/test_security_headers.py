@@ -52,9 +52,9 @@ class TestSecurityHeaders:
         # Browser XSS Filter
         assert settings.SECURE_BROWSER_XSS_FILTER is True
 
-        # CSP is configured
-        assert hasattr(settings, 'CSP_DEFAULT_SRC')
-        assert "'self'" in settings.CSP_DEFAULT_SRC
+        # CSP is configured (django-csp 4.x uses CONTENT_SECURITY_POLICY dict)
+        assert hasattr(settings, 'CONTENT_SECURITY_POLICY')
+        assert "'self'" in settings.CONTENT_SECURITY_POLICY["DIRECTIVES"]["default-src"]
 
     def test_no_server_header_leakage(self, api_client, verified_user):
         """Test that server version info is not leaked in headers"""

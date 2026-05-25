@@ -98,12 +98,27 @@ class TestEmailBackendConfig:
 
 
 class TestCSPReportConfig:
+    """django-csp 4.x uses CONTENT_SECURITY_POLICY dict instead of flat CSP_* keys."""
+
     def test_csp_report_only_is_a_bool(self):
-        """CSP_REPORT_ONLY must be a boolean — a string 'True' would be truthy but wrong."""
-        assert isinstance(settings.CSP_REPORT_ONLY, bool), (
-            "CSP_REPORT_ONLY must be a bool, not a string."
+        """Report-only mode is toggled by populating CONTENT_SECURITY_POLICY_REPORT_ONLY.
+        Both CONTENT_SECURITY_POLICY and CONTENT_SECURITY_POLICY_REPORT_ONLY must be
+        dicts (or None) — never a bare boolean or string."""
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', None)
+        csp_ro = getattr(settings, 'CONTENT_SECURITY_POLICY_REPORT_ONLY', None)
+        assert isinstance(csp, (dict, type(None))), (
+            "CONTENT_SECURITY_POLICY must be a dict (django-csp 4.x API)."
+        )
+        assert isinstance(csp_ro, (dict, type(None))), (
+            "CONTENT_SECURITY_POLICY_REPORT_ONLY must be a dict (django-csp 4.x API)."
         )
 
     def test_csp_report_uri_is_a_string(self):
-        """CSP_REPORT_URI must be a string (empty string is fine for dev)."""
-        assert isinstance(settings.CSP_REPORT_URI, str)
+        """report-uri now lives inside DIRECTIVES, not as a top-level CSP_REPORT_URI.
+        It must be None (unset) or a list of URI strings."""
+        csp = getattr(settings, 'CONTENT_SECURITY_POLICY', {}) or {}
+        directives = csp.get('DIRECTIVES', {})
+        report_uri = directives.get('report-uri', None)
+        assert report_uri is None or isinstance(report_uri, list), (
+            "report-uri directive must be None or a list of strings."
+        )

@@ -2,6 +2,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
 from users.views import ThrottledTokenObtainPairView, CookieTokenRefreshView
+from .admin_site import MFARequiredAdminSite
+
+# Replace the default admin site with our MFA-gated version.
+# All app-level admin.py registrations (admin.register) attach to the
+# global django.contrib.admin.site, so we sync those registrations over.
+admin.site.__class__ = MFARequiredAdminSite
 
 
 def security_txt(request):

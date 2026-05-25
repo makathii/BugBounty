@@ -97,22 +97,45 @@ class TestAuditLogging:
 class TestAuditMiddleware:
     """Test audit logging middleware"""
 
-    def test_middleware_get_client_ip(self):
-        """Test IP extraction from request"""
+    def test_middleware_get_client_ip(self, settings):
+        """Test IP extraction from request using django-ipware.
+
+        With proxy_count=0 (default/dev) ipware ignores X-Forwarded-For and
+        returns REMOTE_ADDR — this prevents spoofed XFF headers from reaching
+        the audit log.  When proxy_count=1 is configured (nginx in front),
+        ipware trusts the rightmost XFF entry.
+        """
+        from unittest.mock import patch
         factory = RequestFactory()
         middleware = AuditLogMiddleware(lambda r: r)
 
-        # Test with X-Forwarded-For
+        # --- proxy_count=0 (default dev): XFF is ignored, REMOTE_ADDR wins ---
+        settings.IPWARE_TRUSTED_PROXY_COUNT = 0
         request = factory.get('/')
         request.META['HTTP_X_FORWARDED_FOR'] = '10.0.0.1, 10.0.0.2'
+        # RequestFactory sets REMOTE_ADDR='127.0.0.1'
         ip = middleware._get_client_ip(request)
-        assert ip == '10.0.0.1'
+        assert ip == '127.0.0.1', (
+            "With proxy_count=0, ipware must ignore XFF and return REMOTE_ADDR."
+        )
 
-        # Test with REMOTE_ADDR only
+        # --- proxy_count=1: rightmost XFF entry (the proxy-added one) is trusted ---
+        settings.IPWARE_TRUSTED_PROXY_COUNT = 1
         request2 = factory.get('/')
-        request2.META['REMOTE_ADDR'] = '192.168.1.1'
+        request2.META['HTTP_X_FORWARDED_FOR'] = '10.0.0.1, 10.0.0.2'
+        request2.META['REMOTE_ADDR'] = '10.0.0.2'  # the trusted proxy
         ip2 = middleware._get_client_ip(request2)
-        assert ip2 == '192.168.1.1'
+        assert ip2 == '10.0.0.1', (
+            "With proxy_count=1, ipware should return the client IP from XFF."
+        )
+
+        # --- REMOTE_ADDR only (no XFF) ---
+        settings.IPWARE_TRUSTED_PROXY_COUNT = 0
+        request3 = factory.get('/')
+        request3.META['REMOTE_ADDR'] = '192.168.1.1'
+        request3.META.pop('HTTP_X_FORWARDED_FOR', None)
+        ip3 = middleware._get_client_ip(request3)
+        assert ip3 == '192.168.1.1'
 
     def test_middleware_skips_static_files(self):
         """Test that static files are not logged"""

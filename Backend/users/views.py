@@ -15,7 +15,7 @@ from django.utils.decorators import method_decorator
 from .serializers import UserSerializer, UserRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 from .throttles import (
     LoginThrottle, RegisterThrottle,
-    PasswordResetThrottle, PasswordResetConfirmThrottle,
+    PasswordResetThrottle, PasswordResetEmailThrottle, PasswordResetConfirmThrottle,
     TokenRefreshThrottle,
 )
 from .models import Profile, PasswordResetToken, AccountLockout, UserSession, UserMFA, BackupCode
@@ -324,6 +324,21 @@ def logout(request):
     except Exception:
         pass
 
+    # Audit log the logout event so security analysts can track session ends.
+    # Best-effort — a logging failure must never block the logout response.
+    try:
+        from audit.models import SecurityAuditLog
+        audit_info = getattr(request, 'audit_info', {})
+        SecurityAuditLog.log_event(
+            action=SecurityAuditLog.ACTION_LOGOUT,
+            user=request.user,
+            ip_address=audit_info.get('ip_address') or request.META.get('REMOTE_ADDR'),
+            user_agent=audit_info.get('user_agent') or request.META.get('HTTP_USER_AGENT', ''),
+            success=True,
+        )
+    except Exception:
+        pass
+
     response = Response({"message": "Successfully logged out"})
     return clear_jwt_cookies(response)
 
@@ -433,7 +448,10 @@ class PasswordResetRequestView(generics.GenericAPIView):
     """
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [AllowAny]
-    throttle_classes = [PasswordResetThrottle]
+    # Two independent throttle axes:
+    # 1. PasswordResetThrottle   — per source IP (blocks mass requests from one attacker IP)
+    # 2. PasswordResetEmailThrottle — per target email (blocks inbox flooding via rotating IPs)
+    throttle_classes = [PasswordResetThrottle, PasswordResetEmailThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

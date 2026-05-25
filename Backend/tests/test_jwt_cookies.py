@@ -163,3 +163,22 @@ def test_logout_after_blacklist_cannot_refresh(api_client, verified_user):
     refresh = api_client.post("/api/token/refresh/")
     # Without a refresh cookie, the endpoint returns 401.
     assert refresh.status_code == 401
+
+
+@pytest.mark.django_db
+def test_logout_writes_audit_log(api_client, verified_user):
+    """Logout must create a SecurityAuditLog entry so session ends are traceable."""
+    from audit.models import SecurityAuditLog
+
+    _login(api_client, verified_user.username)
+    resp = api_client.post("/api/users/logout/")
+    assert resp.status_code == 200
+
+    log = SecurityAuditLog.objects.filter(
+        user=verified_user,
+        action=SecurityAuditLog.ACTION_LOGOUT,
+    ).first()
+    assert log is not None, (
+        "Logout must create a SecurityAuditLog(ACTION_LOGOUT) entry."
+    )
+    assert log.success is True

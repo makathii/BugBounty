@@ -1,14 +1,25 @@
 from rest_framework import serializers
 from .models import BugReport, Comment, ActivityLog
 from .models_attachment import Attachment
-from rest_framework import serializers
+from .sanitizers import sanitize_html
+
 
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Comment
-        fields = ("id","author","text","created_at")
+        fields = ("id", "author", "text", "created_at")
+
+    def validate_text(self, value):
+        """Strip all HTML tags to prevent stored XSS attacks.
+
+        A researcher could submit a comment containing <script>...</script> or
+        event-handler attributes (e.g. onerror=) that would execute in a
+        triager's browser when the comment is rendered.  Running the text
+        through bleach before saving ensures no markup survives to the DB.
+        """
+        return sanitize_html(value, allowed_tags=[])
 
 class AttachmentSerializer(serializers.ModelSerializer):
     class Meta:
