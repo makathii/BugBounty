@@ -19,7 +19,16 @@ def _researcher_has_private_access(user, program):
 
 class IsProgramOwnerOrAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated)
+        if not (request.user and request.user.is_authenticated):
+            return False
+        # Read-only actions are open to all authenticated users; write actions
+        # (create, update, delete) require ProgramOwner or Admin/superuser.
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return (
+            request.user.is_superuser or
+            request.user.groups.filter(name__in=['ProgramOwner', 'Admin']).exists()
+        )
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
@@ -34,7 +43,7 @@ class IsResearcher(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user and request.user.is_authenticated and
-            request.user.groups.filter(name='User').exists()
+            request.user.groups.filter(name='Researcher').exists()
         )
 
 
@@ -50,7 +59,7 @@ class IsTriager(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user and request.user.is_authenticated and
-            request.user.groups.filter(name='Admin').exists()
+            request.user.groups.filter(name='Triager').exists()
         )
 
 

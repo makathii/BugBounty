@@ -64,7 +64,7 @@ class ProgramViewSet(viewsets.ModelViewSet):
         if user.groups.filter(name='ProgramOwner').exists():
             return qs.filter(company=user)
 
-        if user.groups.filter(name='User').exists():
+        if user.groups.filter(name='Researcher').exists():
             public = qs.filter(scope_type__in=['public', 'vdp'], status='active')
             invited = qs.filter(
                 scope_type='private', status='active',
@@ -82,8 +82,11 @@ class ProgramViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def get_object(self):
-        return get_object_or_404(
-            Program.objects
+        # Use get_queryset() so visibility rules (researcher/owner/admin scoping)
+        # are respected for individual object retrieval, not just list views.
+        # Then check object-level permissions for ownership/write-action guards.
+        obj = get_object_or_404(
+            self.get_queryset()
             .select_related('company')
             .prefetch_related(
                 'scopes',
@@ -93,6 +96,8 @@ class ProgramViewSet(viewsets.ModelViewSet):
             ),
             pk=self.kwargs['pk']
         )
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def perform_create(self, serializer):
         serializer.save(company=self.request.user)

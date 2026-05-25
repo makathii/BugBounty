@@ -167,3 +167,71 @@ def other_report(db, second_verified_user, program):
         reporter=second_verified_user,
         program=program,
     )
+
+
+@pytest.fixture
+def admin_user(db, admin_group):
+    """A fully verified user in the Admin group."""
+    user = User.objects.create_user(
+        username="admin_user",
+        email="admin@example.com",
+        password="SafePass123!",
+        is_active=True,
+    )
+    user.groups.add(admin_group)
+    Profile.objects.filter(user=user).update(email_verified=True)
+    user.refresh_from_db()
+    return user
+
+
+@pytest.fixture
+def program_owner_group(db):
+    return Group.objects.get_or_create(name="ProgramOwner")[0]
+
+
+@pytest.fixture
+def company_user_with_profile(db, program_owner_group):
+    """A ProgramOwner user with a completed, verified Company profile."""
+    user = User.objects.create_user(
+        username="owner_with_profile",
+        email="owner@example.com",
+        password="SafePass123!",
+        is_active=True,
+    )
+    user.groups.add(program_owner_group)
+    Profile.objects.filter(user=user).update(email_verified=True)
+    Company.objects.create(
+        user=user,
+        company_name="Acme Security Inc.",
+        website="https://acme.example.com",
+        description="Test company for unit tests",
+        contact_email="security@acme.example.com",
+        is_verified=True,
+    )
+    user.refresh_from_db()
+    return user
+
+
+@pytest.fixture
+def active_program(db, company_user_with_profile):
+    """An active program owned by company_user_with_profile."""
+    return Program.objects.create(
+        name="Active Bounty Program",
+        company=company_user_with_profile,
+        description="An active program used in tests",
+        status="active",
+        scope_type="public",
+    )
+
+
+@pytest.fixture
+def triaged_report(db, verified_user, program):
+    """A report in 'triaged' status — ready for accept/reject."""
+    return BugReport.objects.create(
+        title="Triaged SSRF report",
+        description="Server-side request forgery found in the image proxy endpoint.",
+        severity="high",
+        reporter=verified_user,
+        program=program,
+        status="triaged",
+    )

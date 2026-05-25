@@ -398,7 +398,8 @@ class ProgramStats(models.Model):
             avg_bounty=Avg('bounty_amount'),
             avg_triage=Avg('time_to_triage'),
             avg_resolution=Avg('time_to_resolution'),
-            avg_bounty_time=Avg('time_to_bounty'),
+            # time_to_bounty does not exist on BugReport yet; omit until the
+            # field is added and avg_time_to_bounty will remain 0 in snapshots.
         )
 
         snapshot, _ = cls.objects.update_or_create(
@@ -412,7 +413,7 @@ class ProgramStats(models.Model):
                 'avg_bounty': agg['avg_bounty'] or 0,
                 'avg_time_to_triage': agg['avg_triage'] or 0,
                 'avg_time_to_resolution': agg['avg_resolution'] or 0,
-                'avg_time_to_bounty': agg['avg_bounty_time'] or 0,
+                'avg_time_to_bounty': 0,  # field not yet on BugReport
                 'critical_count': severity_counts.get('critical', 0),
                 'high_count': severity_counts.get('high', 0),
                 'medium_count': severity_counts.get('medium', 0),

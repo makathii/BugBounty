@@ -72,7 +72,7 @@ class BugReportViewSet(viewsets.ModelViewSet):
 
         # Program Owner → see reports for programs they own
         if is_program_owner:
-            return queryset.filter(program__owner=user)
+            return queryset.filter(program__company=user)
 
         # Regular user → only their reports
         return queryset.filter(reporter=user)
