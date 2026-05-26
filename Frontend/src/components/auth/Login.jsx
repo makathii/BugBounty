@@ -6,7 +6,7 @@ import './auth.css';
 
 const Login = () => {
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, loginWithOAuth } = useAuth();
     const [formData, setFormData] = useState({
         username: '',
         password: ''
@@ -112,6 +112,38 @@ const Login = () => {
                         Create one here
                     </Link>
                 </p>
+            </div>
+            <div className="oauth-divider">
+                <span>OR</span>
+            </div>
+
+            <div className="oauth-buttons">
+                <button
+                    type="button"
+                    className="oauth-btn github"
+                    onClick={() => loginWithOAuth('github')}
+                    disabled={isLoading}
+                >
+                    Continue with GitHub
+                </button>
+
+                <button
+                    type="button"
+                    className="oauth-btn google"
+                    onClick={() => loginWithOAuth('google')}
+                    disabled={isLoading}
+                >
+                    Continue with Google
+                </button>
+
+                <button
+                    type="button"
+                    className="oauth-btn gitlab"
+                    onClick={() => loginWithOAuth('gitlab')}
+                    disabled={isLoading}
+                >
+                    Continue with GitLab
+                </button>
             </div>
         </div>
     );

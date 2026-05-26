@@ -21,6 +21,21 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
+    const loginWithOAuth = async (provider) => {
+        try {
+            const response = await authAPI.oauthStart(provider);
+
+            if (response.data?.authorize_url) {
+                window.location.href = response.data.authorize_url;
+            } else {
+                throw new Error('No authorization URL returned');
+            }
+        } catch (error) {
+            console.error('OAuth login failed:', error);
+            throw error;
+        }
+    };
+
     const checkCompanyProfile = async () => {
         try {
             const response = await companyAPI.hasCompanyProfile();
@@ -147,6 +162,7 @@ export const AuthProvider = ({ children }) => {
         hasCompanyProfile,
         setHasCompanyProfile,
         login,
+        loginWithOAuth,
         register,
         logout,
         completeCompanyProfile,

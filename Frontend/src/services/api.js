@@ -69,6 +69,12 @@ export const authAPI = {
     getGroups:            ()     => api.get('/users/groups/'),
     logout:               (data) => api.post('/users/logout/', data),
     verifyEmail:          (token)=> api.get(`/users/verify-email/${token}/`),
+
+    // OAuth
+    oauthStart: (provider, next = window.location.origin + '/oauth/success') =>
+        api.get(`/users/oauth/${provider}/start/`, {
+            params: { next }
+        }),
 };
 
 // ---------------------------------------------------------------------------

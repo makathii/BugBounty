@@ -160,7 +160,7 @@ const ResearcherRegister = () => {
             const result = await register(userData);
 
             if (result.success) {
-                // Reset captcha (same as Register.jsx)
+                // Reset captcha
                 if (window.grecaptcha && window.grecaptcha.reset) {
                     window.grecaptcha.reset();
                 }
