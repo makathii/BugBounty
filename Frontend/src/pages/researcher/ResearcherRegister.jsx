@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './ResearcherRegister.css';
+import {FaGitlab, FaGoogle, FaGithub} from "react-icons/fa";
 
 const ResearcherRegister = () => {
     const navigate = useNavigate();
@@ -329,7 +330,7 @@ const ResearcherRegister = () => {
                     </div>
 
                     <div className="oauth-register">
-                        <div className="oauth-divider">
+                        <div className="auth-divider">
                             <span>OR SIGN UP WITH</span>
                         </div>
 
@@ -340,6 +341,7 @@ const ResearcherRegister = () => {
                                 onClick={() => loginWithOAuth('github')}
                                 disabled={loading}
                             >
+                                <FaGithub className="btn-icon" size={24} />
                                 Continue with GitHub
                             </button>
 
@@ -349,6 +351,7 @@ const ResearcherRegister = () => {
                                 onClick={() => loginWithOAuth('google')}
                                 disabled={loading}
                             >
+                                <FaGoogle className="btn-icon" size={24} />
                                 Continue with Google
                             </button>
 
@@ -358,6 +361,7 @@ const ResearcherRegister = () => {
                                 onClick={() => loginWithOAuth('gitlab')}
                                 disabled={loading}
                             >
+                                <FaGitlab className="btn-icon" size={24} />
                                 Continue with GitLab
                             </button>
                         </div>

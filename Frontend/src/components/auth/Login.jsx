@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './auth.css';
+import { FaGithub, FaGoogle, FaGitlab } from 'react-icons/fa';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -106,44 +107,45 @@ const Login = () => {
                     </button>
                 </form>
 
+                <div className="auth-divider">
+                    <span>or continue with</span>
+                </div>
+
+                <div className="oauth-buttons">
+                    <button
+                        type="button"
+                        className="oauth-btn github"
+                        onClick={() => loginWithOAuth('github')}
+                        disabled={isLoading}
+                    >
+                        <FaGithub className="btn-icon" size={24} />
+                    </button>
+
+                    <button
+                        type="button"
+                        className="oauth-btn google"
+                        onClick={() => loginWithOAuth('google')}
+                        disabled={isLoading}
+                    >
+                        <FaGoogle className="btn-icon" size={24} />
+                    </button>
+
+                    <button
+                        type="button"
+                        className="oauth-btn gitlab"
+                        onClick={() => loginWithOAuth('gitlab')}
+                        disabled={isLoading}
+                    >
+                        <FaGitlab className="btn-icon" size={24} />
+                    </button>
+                </div>
+
                 <p className="switch-auth">
                     Don't have an account?{' '}
                     <Link to="/register" className="link-btn">
                         Create one here
                     </Link>
                 </p>
-            </div>
-            <div className="oauth-divider">
-                <span>OR</span>
-            </div>
-
-            <div className="oauth-buttons">
-                <button
-                    type="button"
-                    className="oauth-btn github"
-                    onClick={() => loginWithOAuth('github')}
-                    disabled={isLoading}
-                >
-                    Continue with GitHub
-                </button>
-
-                <button
-                    type="button"
-                    className="oauth-btn google"
-                    onClick={() => loginWithOAuth('google')}
-                    disabled={isLoading}
-                >
-                    Continue with Google
-                </button>
-
-                <button
-                    type="button"
-                    className="oauth-btn gitlab"
-                    onClick={() => loginWithOAuth('gitlab')}
-                    disabled={isLoading}
-                >
-                    Continue with GitLab
-                </button>
             </div>
         </div>
     );
