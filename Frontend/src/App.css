@@ -1,38 +1,97 @@
+/* ============================================================
+   App.css — Global Dark Theme Overrides
+   ============================================================ */
+
 .App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+  text-align: left;
+  background: #09090f;
   min-height: 100vh;
+}
+
+main {
+  background: #09090f;
+  min-height: calc(100vh - 60px);
+}
+
+/* ── Dashboard / Page wrappers ──────────────────────────── */
+/* Override inline-style white backgrounds on all inner pages */
+main > div,
+main > div > div {
+  color: #f0f0f5;
+}
+
+/* ── Cards inside dashboards ────────────────────────────── */
+/* Generic card override for inline-styled components */
+[style*="background: white"],
+[style*="background:#fff"],
+[style*="background: #fff"],
+[style*="background-color: white"],
+[style*="background-color: #fff"] {
+  background: #111118 !important;
+  color: #f0f0f5 !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+/* ── Inputs in dashboard pages ──────────────────────────── */
+input:not([class]),
+select:not([class]),
+textarea:not([class]) {
+  background: #18181f;
+  color: #f0f0f5;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+input:not([class]):focus,
+select:not([class]):focus,
+textarea:not([class]):focus {
+  outline: none;
+  border-color: #7c6aff;
+  box-shadow: 0 0 0 3px rgba(124,106,255,0.15);
+}
+
+/* ── Buttons without class ──────────────────────────────── */
+button:not([class]) {
+  font-family: inherit;
+}
+
+/* ── Tables ─────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th {
+  background: #111118;
+  color: #8888aa;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+td {
+  color: #f0f0f5;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 14px;
+}
+
+tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+/* ── Loading spinner ─────────────────────────────────────── */
+.loading-screen {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  min-height: 100vh;
+  background: #09090f;
+  color: #8888aa;
 }

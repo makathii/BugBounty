@@ -3,219 +3,260 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 20px;
+    background: var(--color-bg);
+    padding: 2rem 1rem;
+    position: relative;
+    overflow: hidden;
 }
 
-.login-container, .register-container {
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+.auth-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+            radial-gradient(circle at 20% 30%, rgba(124,106,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(167,139,250,0.07) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.login-container,
+.register-container {
+    position: relative;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 2.5rem;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
 }
 
 .auth-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 2rem;
 }
 
 .auth-header h2 {
-    color: #333;
-    margin-bottom: 8px;
-    font-size: 24px;
+    color: var(--color-text);
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin: 0 0 0.4rem 0;
+    letter-spacing: -0.02em;
 }
 
 .auth-header p {
-    color: #666;
-    font-size: 14px;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 1.2rem;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 6px;
-    color: #555;
+    margin-bottom: 0.4rem;
+    color: var(--color-text-muted);
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.85rem;
 }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-group textarea {
     width: 100%;
-    padding: 12px 16px;
-    border: 2px solid #e1e5e9;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: all 0.3s ease;
+    padding: 0.65rem 0.9rem;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.9rem;
+    font-family: var(--font-sans);
+    transition: border-color var(--transition), box-shadow var(--transition);
     box-sizing: border-box;
 }
 
-.form-group input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+.form-group input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.6;
 }
 
-.form-group input.error {
-    border-color: #e74c3c;
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(124,106,255,0.15);
+}
+
+.form-group input.error,
+.form-group select.error {
+    border-color: var(--color-red);
+}
+
+.form-group input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .error-text {
-    color: #e74c3c;
-    font-size: 12px;
+    color: var(--color-red);
+    font-size: 0.78rem;
     display: block;
-    margin-top: 5px;
+    margin-top: 0.3rem;
 }
 
 .error-message {
-    background: #ffeaea;
-    color: #e74c3c;
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    font-size: 14px;
-    border-left: 4px solid #e74c3c;
+    background: rgba(239,68,68,0.1);
+    color: var(--color-red);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.2rem;
+    font-size: 0.85rem;
+    border-left: 3px solid var(--color-red);
 }
 
 .success-message {
-    background: #e8f6ef;
-    color: #27ae60;
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    font-size: 14px;
-    border-left: 4px solid #27ae60;
+    background: var(--color-green-muted);
+    color: var(--color-green);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.2rem;
+    font-size: 0.85rem;
+    border-left: 3px solid var(--color-green);
 }
 
 .submit-btn {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    padding: 0.75rem;
+    background: var(--color-accent);
+    color: #fff;
     border: none;
-    border-radius: 8px;
-    font-size: 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
+    transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .submit-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    background: var(--color-accent-2);
+    box-shadow: 0 0 24px rgba(124,106,255,0.4);
+    transform: translateY(-1px);
+}
+
+.submit-btn:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
 .submit-btn:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
 }
 
 .switch-auth {
     text-align: center;
-    margin-top: 25px;
-    color: #666;
-    font-size: 14px;
+    margin-top: 1.5rem;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
 }
 
 .link-btn {
     background: none;
     border: none;
-    color: #667eea;
+    color: var(--color-accent-2);
     cursor: pointer;
-    font-weight: 500;
-    text-decoration: underline;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color var(--transition);
 }
 
 .link-btn:hover {
-    color: #764ba2;
+    color: var(--color-accent);
 }
 
 .name-fields {
     display: flex;
-    gap: 15px;
+    gap: 0.75rem;
 }
 
 .name-fields .form-group {
     flex: 1;
 }
 
-.password-strength {
-    margin-top: 5px;
-    font-size: 12px;
-}
-
-.strength-weak { color: #e74c3c; }
-.strength-medium { color: #f39c12; }
-.strength-strong { color: #27ae60; }
-
 .loading-spinner {
     display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #ffffff;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
     border-radius: 50%;
-    border-top-color: transparent;
-    animation: spin 1s ease-in-out infinite;
-    margin-right: 8px;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
 .role-selection {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
 }
 
 .role-option {
     display: flex;
     align-items: flex-start;
-    padding: 12px;
-    border: 2px solid #e1e5e9;
-    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: border-color var(--transition), background var(--transition);
+    background: var(--color-surface-2);
 }
 
 .role-option:hover {
-    border-color: #667eea;
-    background-color: #f8f9ff;
+    border-color: var(--color-accent);
+    background: rgba(124,106,255,0.05);
 }
 
 .role-option input[type="radio"] {
-    margin-right: 12px;
+    margin-right: 0.75rem;
     margin-top: 2px;
+    accent-color: var(--color-accent);
 }
 
 .role-label {
     display: flex;
     flex-direction: column;
-    font-weight: 500;
+    gap: 0.2rem;
 }
 
+.role-label strong {
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+.role-label span,
 .role-label small {
-    color: #666;
-    font-size: 12px;
-    margin-top: 4px;
-    font-weight: normal;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
 }
 
-.role-option input[type="radio"]:checked + .role-label {
-    color: #667eea;
-}
+.password-strength { margin-top: 0.3rem; font-size: 0.78rem; }
+.strength-weak   { color: var(--color-red); }
+.strength-medium { color: var(--color-yellow); }
+.strength-strong { color: var(--color-green); }
 
-.role-option:has(input[type="radio"]:checked) {
-    border-color: #667eea;
-    background-color: #f0f4ff;
-}
 
 /* Verify Email Page Styles */
 .verify-email-container {

@@ -110,20 +110,18 @@ const Navbar = () => {
                             >
                                 Login
                             </Link>
-                            <div className="register-options">
-                                <Link
-                                    to="/register/researcher"
-                                    className={`nav-link ${location.pathname === '/register/researcher' ? 'active' : ''}`}
-                                >
-                                    Register as Researcher
-                                </Link>
-                                <Link
-                                    to="/register/company"
-                                    className={`nav-link ${location.pathname === '/register/company' ? 'active' : ''}`}
-                                >
-                                    Register as Company
-                                </Link>
-                            </div>
+                            <Link
+                                to="/register/researcher"
+                                className={`nav-link ${location.pathname === '/register/researcher' ? 'active' : ''}`}
+                            >
+                                For Researchers
+                            </Link>
+                            <Link
+                                to="/register/company"
+                                className={`nav-link ${location.pathname === '/register/company' ? 'active' : ''}`}
+                            >
+                                For Companies
+                            </Link>
                         </>
                     )}
                 </div>

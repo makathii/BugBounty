@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './ResearcherRegister.css';
-import {FaGitlab, FaGoogle, FaGithub} from "react-icons/fa";
+import { FaGithub, FaGoogle, FaGitlab } from 'react-icons/fa';
 
 const ResearcherRegister = () => {
     const navigate = useNavigate();
@@ -20,8 +20,8 @@ const ResearcherRegister = () => {
     const captchaRef = useRef(null);
     const widgetIdRef = useRef(null);
 
-    // Use production key if environment variable is not set
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6Ld5sg8sAAAAAM4xrWvRtC6kcgogyg7MPxnoq7Tt";
+    // Use test key if environment variable is not set
+    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
     useEffect(() => {
         if (!siteKey) {
@@ -161,7 +161,7 @@ const ResearcherRegister = () => {
             const result = await register(userData);
 
             if (result.success) {
-                // Reset captcha
+                // Reset captcha (same as Register.jsx)
                 if (window.grecaptcha && window.grecaptcha.reset) {
                     window.grecaptcha.reset();
                 }
@@ -366,7 +366,6 @@ const ResearcherRegister = () => {
                             </button>
                         </div>
                     </div>
-
 
                     <div className="terms-section">
                         <label className="checkbox-label">
