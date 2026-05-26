@@ -5,7 +5,7 @@ import './ResearcherRegister.css';
 
 const ResearcherRegister = () => {
     const navigate = useNavigate();
-    const { register } = useAuth();
+    const { register, loginWithOAuth } = useAuth();
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [formData, setFormData] = useState({
@@ -327,6 +327,42 @@ const ResearcherRegister = () => {
                             {errors.captcha && <div className="error-text">{errors.captcha}</div>}
                         </div>
                     </div>
+
+                    <div className="oauth-register">
+                        <div className="oauth-divider">
+                            <span>OR SIGN UP WITH</span>
+                        </div>
+
+                        <div className="oauth-buttons">
+                            <button
+                                type="button"
+                                className="oauth-btn github"
+                                onClick={() => loginWithOAuth('github')}
+                                disabled={loading}
+                            >
+                                Continue with GitHub
+                            </button>
+
+                            <button
+                                type="button"
+                                className="oauth-btn google"
+                                onClick={() => loginWithOAuth('google')}
+                                disabled={loading}
+                            >
+                                Continue with Google
+                            </button>
+
+                            <button
+                                type="button"
+                                className="oauth-btn gitlab"
+                                onClick={() => loginWithOAuth('gitlab')}
+                                disabled={loading}
+                            >
+                                Continue with GitLab
+                            </button>
+                        </div>
+                    </div>
+
 
                     <div className="terms-section">
                         <label className="checkbox-label">
