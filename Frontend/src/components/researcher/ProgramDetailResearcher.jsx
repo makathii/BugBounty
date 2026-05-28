@@ -1,449 +1,407 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import api from '../../services/api';
-
-const SCOPE_COLORS = {
-    public: '#3498db',
-    private: '#9b59b6',
-    vdp: '#e67e22',
-};
 
 const ProgramDetailResearcher = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-
     const [program, setProgram] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('overview');
+    const [hasJoined, setHasJoined] = useState(false);
     const [joining, setJoining] = useState(false);
-    const [joinMessage, setJoinMessage] = useState(null); // { type: 'success'|'error', text }
-
-    // For application modal
-    const [showApplicationForm, setShowApplicationForm] = useState(false);
-    const [applicationData, setApplicationData] = useState({
-        message: '', experience: '', qualifications: ''
-    });
-    const [submittingApplication, setSubmittingApplication] = useState(false);
 
     useEffect(() => {
         loadProgram();
-    }, [id]);
+        checkIfJoined();
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadProgram = async () => {
-        setLoading(true);
-        setError(null);
         try {
-            const response = await api.get(`/programs/programs/${id}/`);
-            setProgram(response.data);
-        } catch (err) {
-            if (err.response?.status === 404) {
-                setError('not_found');
-            } else if (err.response?.status === 403) {
-                setError('forbidden');
-            } else {
-                setError('generic');
-            }
-        } finally {
+            // Simulate API call - replace with actual:
+            // const response = await api.get(`/programs/programs/${id}/`);
+
+            setTimeout(() => {
+                setProgram({
+                    id: 1,
+                    name: 'Acme Corp Public Bug Bounty',
+                    description: 'Acme Corporation welcomes security researchers to participate in our public bug bounty program. We value the security research community and believe that working with skilled security researchers is crucial to identifying vulnerabilities in our systems.\n\nThis program covers our customer-facing web applications and APIs. We are particularly interested in findings related to authentication bypass, privilege escalation, sensitive data exposure, and remote code execution.',
+                    company_name: 'Acme Corporation',
+                    scope_type: 'public',
+                    status: 'active',
+                    bounty_policy: 'We offer bounties ranging from $100 to $10,000 based on severity and impact. Critical vulnerabilities can receive up to $10,000. Payments are made via PayPal or cryptocurrency within 30 days of verification.\n\nPayment tiers:\n- Critical: $5,000 - $10,000\n- High: $1,000 - $5,000\n- Medium: $100 - $1,000\n- Low: Swag or recognition',
+                    min_bounty: 100,
+                    max_bounty: 10000,
+                    total_reports: 42,
+                    total_payout: 12500,
+                    avg_severity_score: 3.2,
+                    created_at: '2024-01-15T10:30:00Z',
+                    updated_at: '2024-03-15T14:20:00Z',
+                    scopes: [
+                        {
+                            id: 1,
+                            target: '*.acmecorp.com',
+                            target_type: 'web_application',
+                            is_in_scope: true,
+                            description: 'All subdomains of acmecorp.com'
+                        },
+                        {
+                            id: 2,
+                            target: 'api.acmecorp.com',
+                            target_type: 'api',
+                            is_in_scope: true,
+                            description: 'Public API endpoints'
+                        },
+                        {
+                            id: 3,
+                            target: 'admin.acmecorp.com',
+                            target_type: 'web_application',
+                            is_in_scope: false,
+                            description: 'Administrative interface (out of scope)'
+                        },
+                        {
+                            id: 4,
+                            target: 'mobile.acmecorp.com',
+                            target_type: 'mobile_app',
+                            is_in_scope: true,
+                            description: 'Mobile application backend'
+                        }
+                    ]
+                });
+                setLoading(false);
+            }, 1000);
+        } catch (error) {
+            console.error('Failed to load program:', error);
             setLoading(false);
         }
     };
 
-    const handleJoin = async () => {
-        // For private programs that require an application, show the form
-        if (program.requires_application && program.scope_type === 'private') {
-            setShowApplicationForm(true);
-            return;
-        }
+    const checkIfJoined = async () => {
+        // Check if user has joined this program
+        setHasJoined(false); // For now, simulate
+    };
 
+    const handleJoinProgram = async () => {
         setJoining(true);
-        setJoinMessage(null);
         try {
-            const response = await api.post(`/programs/programs/${id}/join/`);
-            setJoinMessage({ type: 'success', text: response.data.message });
-            loadProgram(); // refresh to update can_accept_submissions etc.
-        } catch (err) {
-            const msg = err.response?.data?.error || 'Failed to join program.';
-            setJoinMessage({ type: 'error', text: msg });
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            setHasJoined(true);
+        } catch (error) {
+            console.error('Failed to join program:', error);
         } finally {
             setJoining(false);
         }
     };
 
-    const handleSubmitApplication = async () => {
-        setSubmittingApplication(true);
-        setJoinMessage(null);
-        try {
-            const response = await api.post(`/programs/programs/${id}/join/`, applicationData);
-            setJoinMessage({ type: 'success', text: response.data.message });
-            setShowApplicationForm(false);
-            setApplicationData({ message: '', experience: '', qualifications: '' });
-        } catch (err) {
-            const msg = err.response?.data?.error || 'Failed to submit application.';
-            setJoinMessage({ type: 'error', text: msg });
-        } finally {
-            setSubmittingApplication(false);
-        }
-    };
-
-    const joinButtonProps = () => {
-        if (!program) return null;
-        const { scope_type, can_accept_submissions, invitation_only, requires_application } = program;
-
-        if (!can_accept_submissions) return null;
-
-        if (scope_type === 'public' || scope_type === 'vdp') {
-            return {
-                label: joining ? 'Joining...' : 'Join Program',
-                color: scope_type === 'vdp' ? '#e67e22' : '#2ecc71',
-                onClick: handleJoin,
-                disabled: joining,
-            };
-        }
-
-        if (scope_type === 'private') {
-            if (invitation_only) {
-                return {
-                    label: 'Accept Invitation',
-                    color: '#9b59b6',
-                    onClick: handleJoin,
-                    disabled: joining,
-                };
-            }
-            if (requires_application) {
-                return {
-                    label: joining ? 'Submitting...' : 'Apply to Program',
-                    color: '#9b59b6',
-                    onClick: handleJoin,
-                    disabled: joining,
-                };
-            }
-            return {
-                label: 'Request Access',
-                color: '#95a5a6',
-                onClick: handleJoin,
-                disabled: joining,
-            };
-        }
-
-        return null;
+    const handleSubmitReport = () => {
+        navigate(`/submit?program=${id}`);
     };
 
     if (loading) {
         return (
-            <div style={{ padding: '3rem', textAlign: 'center' }}>
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
                 <div style={{
-                    border: '4px solid #f3f3f3', borderTop: '4px solid #3498db',
-                    borderRadius: '50%', width: '40px', height: '40px',
-                    animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
-                }} />
-                <p style={{ color: '#666' }}>Loading program details...</p>
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    border: '4px solid #f3f3f3',
+                    borderTop: '4px solid #3498db',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 1rem'
+                }}></div>
+                <p>Loading program details...</p>
             </div>
         );
     }
 
-    if (error) {
-        const messages = {
-            not_found: { title: 'Program not found', body: "This program doesn't exist or you don't have access." },
-            forbidden: { title: 'Access denied', body: "You don't have permission to view this program." },
-            generic: { title: 'Something went wrong', body: 'Failed to load program. Please try again.' },
-        };
-        const { title, body } = messages[error] || messages.generic;
+    if (!program) {
         return (
-            <div style={{ padding: '3rem', textAlign: 'center' }}>
-                <h2>{title}</h2>
-                <p style={{ color: '#666', marginBottom: '1.5rem' }}>{body}</p>
-                <Link
-                    to="/programs"
-                    style={{
-                        padding: '0.75rem 1.5rem', background: '#3498db',
-                        color: 'white', textDecoration: 'none', borderRadius: '4px'
-                    }}
-                >
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <h2>Program not found</h2>
+                <p>The program you're looking for doesn't exist or you don't have access.</p>
+                <Link to="/programs" style={{
+                    padding: '0.75rem 1.5rem',
+                    background: '#3498db',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    display: 'inline-block'
+                }}>
                     Browse Programs
                 </Link>
             </div>
         );
     }
 
-    const scopeColor = SCOPE_COLORS[program.scope_type] || '#7f8c8d';
-    const joinBtn = joinButtonProps();
-    const tabs = ['overview', 'scope', 'policy', 'guidelines'];
-
     return (
         <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-
-            {/* Join message banner */}
-            {joinMessage && (
-                <div style={{
-                    padding: '1rem 1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                    background: joinMessage.type === 'success' ? '#d4edda' : '#f8d7da',
-                    color: joinMessage.type === 'success' ? '#155724' : '#721c24',
-                    border: `1px solid ${joinMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                    <span>{joinMessage.text}</span>
-                    <button
-                        onClick={() => setJoinMessage(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-                    >
-                        ×
-                    </button>
-                </div>
-            )}
-
-            {/* Application modal */}
-            {showApplicationForm && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: 'white', borderRadius: '8px', padding: '2rem',
-                        maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto'
-                    }}>
-                        <h3 style={{ margin: '0 0 1.5rem 0' }}>Apply to {program.name}</h3>
-
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Why do you want to join?
-                            </label>
-                            <textarea
-                                value={applicationData.message}
-                                onChange={e => setApplicationData(d => ({ ...d, message: e.target.value }))}
-                                rows={3}
-                                placeholder="Tell the company why you're interested..."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Relevant experience
-                            </label>
-                            <textarea
-                                value={applicationData.experience}
-                                onChange={e => setApplicationData(d => ({ ...d, experience: e.target.value }))}
-                                rows={3}
-                                placeholder="Describe your security research experience..."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Qualifications / certifications
-                            </label>
-                            <textarea
-                                value={applicationData.qualifications}
-                                onChange={e => setApplicationData(d => ({ ...d, qualifications: e.target.value }))}
-                                rows={2}
-                                placeholder="OSCP, CVEs, HackerOne profile, etc."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setShowApplicationForm(false)}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#95a5a6',
-                                    color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSubmitApplication}
-                                disabled={submittingApplication}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#9b59b6',
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: submittingApplication ? 'not-allowed' : 'pointer',
-                                    opacity: submittingApplication ? 0.7 : 1
-                                }}
-                            >
-                                {submittingApplication ? 'Submitting...' : 'Submit Application'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <h1 style={{ margin: '0 0 0.75rem 0' }}>{program.name}</h1>
-                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <h1 style={{ margin: '0 0 0.5rem 0' }}>{program.name}</h1>
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{
-                                padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                fontWeight: '600', background: scopeColor + '20', color: scopeColor
+                                padding: '0.5rem 1rem',
+                                background: '#3498db20',
+                                color: '#3498db',
+                                borderRadius: '20px',
+                                fontSize: '0.9rem',
+                                fontWeight: '500'
                             }}>
-                                {program.scope_type_display || program.scope_type.toUpperCase()}
+                                {program.scope_type.toUpperCase()}
                             </span>
                             <span style={{
-                                padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                fontWeight: '600', background: '#2ecc7120', color: '#2ecc71'
+                                padding: '0.5rem 1rem',
+                                background: '#2ecc7120',
+                                color: '#2ecc71',
+                                borderRadius: '20px',
+                                fontSize: '0.9rem',
+                                fontWeight: '500'
                             }}>
-                                {program.status_display || program.status.toUpperCase()}
+                                ACTIVE
                             </span>
-                            {program.bounty_range && program.bounty_range !== 'Not specified' && (
-                                <span style={{
-                                    padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                    fontWeight: '600', background: '#27ae6020', color: '#27ae60'
-                                }}>
-                                    {program.bounty_range}
-                                </span>
-                            )}
+                            <span style={{
+                                padding: '0.5rem 1rem',
+                                background: '#9b59b620',
+                                color: '#9b59b6',
+                                borderRadius: '20px',
+                                fontSize: '0.9rem',
+                                fontWeight: '500'
+                            }}>
+                                ${program.min_bounty} - ${program.max_bounty} BOUNTY RANGE
+                            </span>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                        {joinBtn && (
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {program.scope_type === 'public' && !hasJoined ? (
                             <button
-                                onClick={joinBtn.onClick}
-                                disabled={joinBtn.disabled}
+                                onClick={handleJoinProgram}
+                                disabled={joining}
                                 style={{
-                                    padding: '0.75rem 1.5rem', background: joinBtn.color,
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: joinBtn.disabled ? 'not-allowed' : 'pointer',
-                                    fontSize: '1rem', fontWeight: '500',
-                                    opacity: joinBtn.disabled ? 0.7 : 1
+                                    padding: '0.75rem 1.5rem',
+                                    background: '#2ecc71',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    opacity: joining ? 0.7 : 1
                                 }}
                             >
-                                {joinBtn.label}
+                                {joining ? 'Joining...' : 'Join Program'}
                             </button>
-                        )}
-                        {program.can_accept_submissions && (
+                        ) : program.scope_type === 'private' && !hasJoined ? (
                             <button
-                                onClick={() => navigate(`/submit?program=${id}`)}
                                 style={{
-                                    padding: '0.75rem 1.5rem', background: '#3498db',
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
+                                    padding: '0.75rem 1.5rem',
+                                    background: '#95a5a6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem'
                                 }}
                             >
-                                Submit Report
+                                Request Access
                             </button>
-                        )}
+                        ) : null}
+
+                        <button
+                            onClick={handleSubmitReport}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                background: '#3498db',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '1rem'
+                            }}
+                        >
+                            Submit Report
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Stats bar */}
+            {/* Stats Bar */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                gap: '1rem', marginBottom: '2rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '2rem'
             }}>
-                {[
-                    { label: 'Total Reports', value: program.total_reports ?? 0, color: '#3498db' },
-                    { label: 'Total Bounties', value: `$${parseFloat(program.total_bounties || 0).toLocaleString()}`, color: '#9b59b6' },
-                    { label: 'Avg Severity', value: program.avg_severity_score?.toFixed(1) ?? '—', color: '#e67e22' },
-                    { label: 'In-Scope Targets', value: program.in_scope_count ?? program.scopes?.filter(s => s.is_in_scope).length ?? 0, color: '#2ecc71' },
-                ].map(({ label, value, color }) => (
-                    <div key={label} style={{
-                        background: 'white', padding: '1.5rem', borderRadius: '8px',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
-                    }}>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color }}>{value}</div>
-                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{label}</div>
-                    </div>
-                ))}
+                <div style={{
+                    background: 'white',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>{program.total_reports}</div>
+                    <div style={{ color: '#666' }}>Total Reports</div>
+                </div>
+                <div style={{
+                    background: 'white',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>${program.total_payout?.toLocaleString()}</div>
+                    <div style={{ color: '#666' }}>Total Paid</div>
+                </div>
+                <div style={{
+                    background: 'white',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e67e22' }}>{program.avg_severity_score}</div>
+                    <div style={{ color: '#666' }}>Avg Severity</div>
+                </div>
+                <div style={{
+                    background: 'white',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>{program.scopes?.filter(s => s.is_in_scope).length || 0}</div>
+                    <div style={{ color: '#666' }}>In-Scope Targets</div>
+                </div>
             </div>
 
             {/* Tabs */}
-            <div style={{ borderBottom: '2px solid #e9ecef', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '0' }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: '0.75rem 1.5rem',
-                                background: 'transparent',
-                                color: activeTab === tab ? '#3498db' : '#666',
-                                border: 'none',
-                                borderBottom: `3px solid ${activeTab === tab ? '#3498db' : 'transparent'}`,
-                                cursor: 'pointer',
-                                fontSize: '0.95rem',
-                                fontWeight: activeTab === tab ? '600' : '400',
-                                textTransform: 'capitalize',
-                                transition: 'all 0.15s',
-                            }}
-                        >
-                            {tab === 'policy' ? 'Bounty Policy' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
+            <div style={{ borderBottom: '1px solid #ddd', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: activeTab === 'overview' ? '#3498db' : 'transparent',
+                            color: activeTab === 'overview' ? 'white' : '#666',
+                            border: 'none',
+                            borderBottom: activeTab === 'overview' ? '3px solid #3498db' : '3px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Overview
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('scope')}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: activeTab === 'scope' ? '#3498db' : 'transparent',
+                            color: activeTab === 'scope' ? 'white' : '#666',
+                            border: 'none',
+                            borderBottom: activeTab === 'scope' ? '3px solid #3498db' : '3px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Scope
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('policy')}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: activeTab === 'policy' ? '#3498db' : 'transparent',
+                            color: activeTab === 'policy' ? 'white' : '#666',
+                            border: 'none',
+                            borderBottom: activeTab === 'policy' ? '3px solid #3498db' : '3px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Bounty Policy
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('guidelines')}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: activeTab === 'guidelines' ? '#3498db' : 'transparent',
+                            color: activeTab === 'guidelines' ? 'white' : '#666',
+                            border: 'none',
+                            borderBottom: activeTab === 'guidelines' ? '3px solid #3498db' : '3px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Guidelines
+                    </button>
                 </div>
             </div>
 
-            {/* Tab content */}
+            {/* Tab Content */}
             <div style={{
-                background: 'white', padding: '2rem', borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', marginBottom: '2rem'
+                background: 'white',
+                padding: '2rem',
+                borderRadius: '8px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                marginBottom: '2rem'
             }}>
                 {activeTab === 'overview' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>About This Program</h3>
-                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
+                        <h3 style={{ marginBottom: '1rem' }}>About This Program</h3>
+                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.6', marginBottom: '2rem' }}>
                             {program.description}
                         </div>
+
                         <div style={{
-                            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                            gap: '2rem', background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px'
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: '2rem',
+                            background: '#f8f9fa',
+                            padding: '1.5rem',
+                            borderRadius: '8px'
                         }}>
                             <div>
                                 <h4 style={{ margin: '0 0 1rem 0' }}>Program Details</h4>
-                                {[
-                                    ['Company', program.company?.username],
-                                    ['Type', program.scope_type_display || program.scope_type],
-                                    ['Status', program.status_display || program.status],
-                                    ['Published', program.published_at ? new Date(program.published_at).toLocaleDateString() : '—'],
-                                    ['Ends', program.end_date || 'No end date'],
-                                ].map(([k, v]) => (
-                                    <div key={k} style={{
-                                        display: 'flex', justifyContent: 'space-between',
-                                        padding: '0.4rem 0', borderBottom: '1px solid #e9ecef'
-                                    }}>
-                                        <span style={{ color: '#666' }}>{k}</span>
-                                        <span style={{ fontWeight: '500' }}>{v || '—'}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Company:</span>
+                                        <span style={{ fontWeight: '500' }}>{program.company_name}</span>
                                     </div>
-                                ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Program Type:</span>
+                                        <span style={{ fontWeight: '500', textTransform: 'capitalize' }}>{program.scope_type}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Status:</span>
+                                        <span style={{ fontWeight: '500', textTransform: 'capitalize' }}>{program.status}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Created:</span>
+                                        <span>{new Date(program.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
                             </div>
+
                             <div>
-                                <h4 style={{ margin: '0 0 1rem 0' }}>Program Flags</h4>
-                                {[
-                                    ['Anonymous submissions', program.allow_anonymous],
-                                    ['NDA required', program.require_ndas],
-                                    ['Invitation only', program.invitation_only],
-                                    ['Application required', program.requires_application],
-                                ].map(([k, v]) => (
-                                    <div key={k} style={{
-                                        display: 'flex', justifyContent: 'space-between',
-                                        padding: '0.4rem 0', borderBottom: '1px solid #e9ecef'
-                                    }}>
-                                        <span style={{ color: '#666' }}>{k}</span>
-                                        <span style={{
-                                            fontWeight: '600',
-                                            color: v ? '#27ae60' : '#95a5a6'
-                                        }}>
-                                            {v ? 'Yes' : 'No'}
-                                        </span>
+                                <h4 style={{ margin: '0 0 1rem 0' }}>Key Statistics</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Total Reports:</span>
+                                        <span style={{ fontWeight: '500' }}>{program.total_reports}</span>
                                     </div>
-                                ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Total Payout:</span>
+                                        <span style={{ fontWeight: '500', color: '#9b59b6' }}>${program.total_payout?.toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>Avg Severity Score:</span>
+                                        <span style={{ fontWeight: '500' }}>{program.avg_severity_score}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#666' }}>In-Scope Targets:</span>
+                                        <span style={{ fontWeight: '500' }}>{program.scopes?.filter(s => s.is_in_scope).length || 0}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -451,135 +409,201 @@ const ProgramDetailResearcher = () => {
 
                 {activeTab === 'scope' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Program Scope</h3>
+                        <h3 style={{ marginBottom: '1.5rem' }}>Program Scope</h3>
 
-                        {[true, false].map(inScope => {
-                            const items = program.scopes?.filter(s => s.is_in_scope === inScope) || [];
-                            if (items.length === 0 && inScope) return (
-                                <p key="empty" style={{ color: '#666' }}>No in-scope targets defined.</p>
-                            );
-                            if (items.length === 0) return null;
-                            return (
-                                <div key={String(inScope)} style={{ marginBottom: '2rem' }}>
-                                    <h4 style={{ color: inScope ? '#27ae60' : '#e74c3c', marginBottom: '1rem' }}>
-                                        {inScope ? 'In-Scope Targets' : 'Out-of-Scope Targets'}
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        {items.map(scope => (
-                                            <div key={scope.id} style={{
-                                                border: `1px solid ${inScope ? '#d4edda' : '#f8d7da'}`,
-                                                background: inScope ? '#f8fff8' : '#fff8f8',
-                                                borderRadius: '8px', padding: '1.25rem'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: scope.description ? '0.5rem' : 0 }}>
-                                                    <strong>{scope.target}</strong>
-                                                    <span style={{
-                                                        padding: '0.2rem 0.6rem', borderRadius: '4px',
-                                                        fontSize: '0.8rem',
-                                                        background: inScope ? '#e3f2fd' : '#f8d7da',
-                                                        color: inScope ? '#1565c0' : '#721c24',
-                                                    }}>
-                                                        {scope.target_type_display || scope.target_type.replace(/_/g, ' ')}
-                                                    </span>
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h4 style={{ color: '#27ae60', marginBottom: '1rem' }}>In-Scope Targets</h4>
+                            {program.scopes?.filter(s => s.is_in_scope).length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {program.scopes.filter(s => s.is_in_scope).map((scope) => (
+                                        <div key={scope.id} style={{
+                                            border: '1px solid #d4edda',
+                                            background: '#f8fff8',
+                                            borderRadius: '8px',
+                                            padding: '1.5rem'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                <div>
+                                                    <strong style={{ fontSize: '1.1rem' }}>{scope.target}</strong>
+                                                    <div style={{ marginTop: '0.25rem' }}>
+                                                        <span style={{
+                                                            padding: '0.25rem 0.5rem',
+                                                            background: '#e3f2fd',
+                                                            color: '#1565c0',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.85rem',
+                                                            textTransform: 'capitalize'
+                                                        }}>
+                                                            {scope.target_type.replace('_', ' ')}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                {scope.description && (
-                                                    <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                                                        {scope.description}
-                                                    </p>
-                                                )}
                                             </div>
-                                        ))}
-                                    </div>
+                                            {scope.description && (
+                                                <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>{scope.description}</p>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
-                            );
-                        })}
+                            ) : (
+                                <p style={{ color: '#666', textAlign: 'center', padding: '2rem' }}>
+                                    No in-scope targets defined.
+                                </p>
+                            )}
+                        </div>
+
+                        {program.scopes?.filter(s => !s.is_in_scope).length > 0 && (
+                            <div>
+                                <h4 style={{ color: '#e74c3c', marginBottom: '1rem' }}>Out-of-Scope Targets</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {program.scopes.filter(s => !s.is_in_scope).map((scope) => (
+                                        <div key={scope.id} style={{
+                                            border: '1px solid #f8d7da',
+                                            background: '#fff8f8',
+                                            borderRadius: '8px',
+                                            padding: '1.5rem'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                <div>
+                                                    <strong style={{ fontSize: '1.1rem' }}>{scope.target}</strong>
+                                                    <div style={{ marginTop: '0.25rem' }}>
+                                                        <span style={{
+                                                            padding: '0.25rem 0.5rem',
+                                                            background: '#f8d7da',
+                                                            color: '#721c24',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.85rem',
+                                                            textTransform: 'capitalize'
+                                                        }}>
+                                                            {scope.target_type.replace('_', ' ')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {scope.description && (
+                                                <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>{scope.description}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'policy' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Bounty Policy</h3>
-                        {program.bounty_policy ? (
-                            <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                {program.bounty_policy}
-                            </div>
-                        ) : (
-                            <p style={{ color: '#666' }}>No bounty policy specified.</p>
-                        )}
+                        <h3 style={{ marginBottom: '1rem' }}>Bounty Policy</h3>
+                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.6', marginBottom: '2rem' }}>
+                            {program.bounty_policy}
+                        </div>
+
                         <div style={{
-                            background: '#f8f9fa', padding: '1.5rem',
-                            borderRadius: '8px', marginBottom: '1.5rem'
+                            background: '#f8f9fa',
+                            padding: '1.5rem',
+                            borderRadius: '8px',
+                            marginBottom: '2rem'
                         }}>
                             <h4 style={{ margin: '0 0 1rem 0' }}>Bounty Range</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-                                {[
-                                    ['Minimum', program.min_bounty ? `$${program.min_bounty}` : 'Not specified'],
-                                    ['Maximum', program.max_bounty ? `$${program.max_bounty}` : 'Not specified'],
-                                ].map(([k, v]) => (
-                                    <div key={k}>
-                                        <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>{k} Bounty</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#27ae60' }}>{v}</div>
+                                <div>
+                                    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>
+                                        Minimum Bounty
                                     </div>
-                                ))}
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#27ae60' }}>
+                                        ${program.min_bounty || 'Not specified'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>
+                                        Maximum Bounty
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#27ae60' }}>
+                                        ${program.max_bounty || 'Not specified'}
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+
+                        <div>
+                            <h4 style={{ margin: '0 0 1rem 0' }}>Payment Terms</h4>
+                            <ul style={{ margin: '0 0 0 1.5rem', padding: 0 }}>
+                                <li style={{ marginBottom: '0.5rem' }}>Payments are processed within 30 days of report acceptance</li>
+                                <li style={{ marginBottom: '0.5rem' }}>Payments are made via PayPal, wire transfer, or cryptocurrency</li>
+                                <li style={{ marginBottom: '0.5rem' }}>Tax documentation may be required for bounties over $600</li>
+                                <li>Only one bounty will be awarded per unique vulnerability</li>
+                            </ul>
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'guidelines' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Testing Guidelines</h3>
-                        {program.testing_guidelines ? (
-                            <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                {program.testing_guidelines}
+                        <h3 style={{ marginBottom: '1.5rem' }}>Testing Guidelines</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            <div>
+                                <h4 style={{ margin: '0 0 1rem 0' }}>Testing Rules</h4>
+                                <ul style={{ margin: '0 0 0 1.5rem', padding: 0 }}>
+                                    <li style={{ marginBottom: '0.5rem' }}>Only test systems explicitly listed as in-scope</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Do not perform Denial of Service (DoS/DDoS) attacks</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Do not access or modify other users' data</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Report vulnerabilities as soon as they are discovered</li>
+                                    <li>Social engineering attacks are strictly prohibited</li>
+                                </ul>
                             </div>
-                        ) : (
-                            <p style={{ color: '#666' }}>No testing guidelines provided.</p>
-                        )}
 
-                        {program.report_guidelines && (
-                            <>
-                                <h4>Report Guidelines</h4>
-                                <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                    {program.report_guidelines}
-                                </div>
-                            </>
-                        )}
+                            <div>
+                                <h4 style={{ margin: '0 0 1rem 0' }}>Report Requirements</h4>
+                                <ul style={{ margin: '0 0 0 1.5rem', padding: 0 }}>
+                                    <li style={{ marginBottom: '0.5rem' }}>Include detailed steps to reproduce the vulnerability</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Provide proof of concept (screenshots, videos, or code)</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Explain the potential impact of the vulnerability</li>
+                                    <li>Suggest remediation steps if possible</li>
+                                </ul>
+                            </div>
 
-                        {program.disclosure_policy && (
-                            <>
-                                <h4>Disclosure Policy</h4>
-                                <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', color: '#444' }}>
-                                    {program.disclosure_policy}
-                                </div>
-                            </>
-                        )}
+                            <div>
+                                <h4 style={{ margin: '0 0 1rem 0' }}>Disclosure Policy</h4>
+                                <ul style={{ margin: '0 0 0 1.5rem', padding: 0 }}>
+                                    <li style={{ marginBottom: '0.5rem' }}>Do not disclose vulnerabilities publicly until they are fixed</li>
+                                    <li style={{ marginBottom: '0.5rem' }}>Allow 90 days for the company to fix the issue</li>
+                                    <li>Coordinate disclosure with the program owner</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* CTA */}
-            {program.can_accept_submissions && (
-                <div style={{
-                    background: 'white', padding: '2rem', borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
-                }}>
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Ready to submit a report?</h3>
-                    <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
-                        Found a security vulnerability? Submit your findings now.
-                    </p>
-                    <button
-                        onClick={() => navigate(`/submit?program=${id}`)}
-                        style={{
-                            padding: '0.75rem 2rem', background: '#3498db',
-                            color: 'white', border: 'none', borderRadius: '4px',
-                            cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
-                        }}
-                    >
-                        Submit Report to {program.company?.username}
-                    </button>
-                </div>
-            )}
+            {/* Call to Action */}
+            <div style={{
+                background: 'white',
+                padding: '2rem',
+                borderRadius: '8px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                textAlign: 'center'
+            }}>
+                <h3 style={{ margin: '0 0 1rem 0' }}>Ready to Submit a Report?</h3>
+                <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
+                    Found a security vulnerability? Submit your report now!
+                </p>
+                <button
+                    onClick={handleSubmitReport}
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#3498db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: '500'
+                    }}
+                >
+                    Submit Report to {program.company_name}
+                </button>
+            </div>
         </div>
     );
 };

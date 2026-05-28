@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ReportDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user, isTriager, isAdmin, isCompany } = useAuth();
+    const { isTriager, isAdmin, isCompany } = useAuth();
 
     const [report, setReport] = useState(null);
     const [comments, setComments] = useState([]);
@@ -26,7 +26,7 @@ const ReportDetail = () => {
         loadReport();
         loadComments();
         loadActivityLogs();
-    }, [id]);
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadReport = async () => {
         try {
@@ -200,7 +200,7 @@ const ReportDetail = () => {
                             {report.bounty_amount && (
                                 <span style={{
                                     padding: '0.5rem 1rem',
-                                    background: '#27ae60' + '20',
+                                    background: '#27ae6020',
                                     color: '#27ae60',
                                     borderRadius: '20px',
                                     fontSize: '0.9rem',

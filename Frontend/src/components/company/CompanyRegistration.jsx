@@ -37,7 +37,7 @@ const CompanyRegistration = () => {
         setErrors({});
 
         try {
-            const response = await api.post('/users/companies/', formData);
+            await api.post('/users/companies/', formData);
 
             setHasCompanyProfile(true);
 

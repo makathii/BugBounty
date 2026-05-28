@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { reportAPI } from '../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { reportAPI } from '../../services/api';
 
 const Triage = () => {
-    const { user, isAdmin, isTriager } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({

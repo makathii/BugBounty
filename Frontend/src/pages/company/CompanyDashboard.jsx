@@ -2,6 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
+const s = {
+    page:    { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
+    heading: { margin: '0 0 0.4rem 0', color: '#f0f0f5', fontWeight: 800, fontSize: '1.6rem', letterSpacing: '-0.02em' },
+    sub:     { color: '#8888aa', margin: 0, fontSize: '0.9rem' },
+    grid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', margin: '1.25rem 0' },
+    card:    { background: '#111118', border: '1px solid rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: '14px', textAlign: 'center' },
+    cardVal: { fontSize: '2rem', fontWeight: 800, marginBottom: '0.3rem' },
+    cardLbl: { color: '#8888aa', fontSize: '0.85rem' },
+    section: { background: '#111118', border: '1px solid rgba(255,255,255,0.07)', padding: '1.75rem', borderRadius: '14px', marginBottom: '1.25rem' },
+    sectionTitle: { margin: '0 0 1.25rem 0', color: '#f0f0f5', fontWeight: 700, fontSize: '1rem' },
+    row:     { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' },
+    sbRow:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' },
+    btnPrimary: { background: '#7c6aff', color: '#fff', padding: '0.7rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
+    btnGreen:   { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', padding: '0.7rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
+    btnGhost:   { background: 'rgba(255,255,255,0.06)', color: '#f0f0f5', border: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
+    empty:   { border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '10px', padding: '2.5rem', textAlign: 'center', color: '#8888aa' },
+    emptyIcon: { fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.5 },
+    emptyTitle: { margin: '0 0 0.5rem 0', color: '#f0f0f5', fontWeight: 600 },
+    badge:   (verified) => ({
+        padding: '0.35rem 0.9rem',
+        background: verified ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
+        color: verified ? '#22c55e' : '#fbbf24',
+        border: `1px solid ${verified ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`,
+        borderRadius: '20px',
+        fontSize: '0.8rem',
+        fontWeight: 600,
+    }),
+    warning: { background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '10px', padding: '1.5rem', textAlign: 'center', color: '#fbbf24' },
+    divider: { borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: '1rem', paddingTop: '1rem' },
+};
+
 const CompanyDashboard = () => {
     const { user, hasCompanyProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
@@ -12,13 +43,13 @@ const CompanyDashboard = () => {
         if (!authLoading && user) {
             if (!hasCompanyProfile) {
                 console.log('Company user needs to complete profile, redirecting...');
-                navigate('/company-registration');
+                navigate('/company/setup-profile');
                 return;
             }
 
             loadCompanyData();
         }
-    }, [authLoading, user, hasCompanyProfile, navigate]);
+    }, [authLoading, user, hasCompanyProfile, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadCompanyData = async () => {
         try {
@@ -60,270 +91,87 @@ const CompanyDashboard = () => {
 
     if (authLoading || loading) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div>Loading company dashboard...</div>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#8888aa' }}>
+                Loading...
             </div>
         );
     }
 
+    const verified = company?.verification_status === 'verified';
+
     return (
-        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1>Company Dashboard</h1>
-                <p style={{ color: '#666' }}>Welcome back, {user?.first_name}!</p>
+        <div style={s.page}>
+            {/* Header */}
+            <div style={{ marginBottom: '1.5rem' }}>
+                <h1 style={s.heading}>Company Dashboard</h1>
+                <p style={s.sub}>Welcome back, {user?.first_name || user?.username}!</p>
             </div>
 
-            {/* Company Header */}
-            <div style={{
-                background: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginBottom: '2rem'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Company Card */}
+            <div style={s.section}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
-                        <h2 style={{ margin: '0 0 0.5rem 0' }}>{company.company_name}</h2>
-                        <p style={{ margin: '0 0 0.5rem 0', color: '#666' }}>
-                            <strong>Website:</strong> {company.website}
-                        </p>
-                        <p style={{ margin: '0', color: '#666' }}>
-                            <strong>Industry:</strong> {company.industry} • {company.country}
-                        </p>
+                        <h2 style={{ margin: '0 0 0.4rem 0', color: '#f0f0f5', fontWeight: 700 }}>{company?.company_name}</h2>
+                        <p style={{ margin: '0 0 0.2rem 0', color: '#8888aa', fontSize: '0.85rem' }}>{company?.website}</p>
+                        <p style={{ margin: 0, color: '#8888aa', fontSize: '0.85rem' }}>{company?.industry} · {company?.country}</p>
                     </div>
-                    <div style={{
-                        padding: '0.5rem 1rem',
-                        background: company.verification_status === 'verified' ? '#2ecc71' : '#f39c12',
-                        color: 'white',
-                        borderRadius: '20px',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold'
-                    }}>
-                        {company.verification_status === 'verified' ? '✓ Verified Company' : '⏳ Pending Verification'}
-                    </div>
+                    <span style={s.badge(verified)}>
+                        {verified ? '✓ Verified' : '⏳ Pending Verification'}
+                    </span>
                 </div>
-
-                {company.description && (
-                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #eee' }}>
-                        <p style={{ margin: 0, color: '#555' }}>{company.description}</p>
+                {company?.description && (
+                    <div style={s.divider}>
+                        <p style={{ margin: 0, color: '#8888aa', fontSize: '0.9rem' }}>{company.description}</p>
                     </div>
                 )}
             </div>
 
-            {/* Stats Overview */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '2rem'
-            }}>
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>0</div>
-                    <div style={{ color: '#666' }}>Active Programs</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>0</div>
-                    <div style={{ color: '#666' }}>Total Reports</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e74c3c' }}>$0</div>
-                    <div style={{ color: '#666' }}>Total Payouts</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>0</div>
-                    <div style={{ color: '#666' }}>Active Researchers</div>
-                </div>
+            {/* Stats */}
+            <div style={s.grid}>
+                <div style={s.card}><div style={{ ...s.cardVal, color: '#7c6aff' }}>0</div><div style={s.cardLbl}>Active Programs</div></div>
+                <div style={s.card}><div style={{ ...s.cardVal, color: '#22c55e' }}>0</div><div style={s.cardLbl}>Total Reports</div></div>
+                <div style={s.card}><div style={{ ...s.cardVal, color: '#22c55e' }}>$0</div><div style={s.cardLbl}>Total Payouts</div></div>
+                <div style={s.card}><div style={{ ...s.cardVal, color: '#a78bfa' }}>0</div><div style={s.cardLbl}>Researchers</div></div>
             </div>
 
             {/* Quick Actions */}
-            <div style={{
-                background: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginBottom: '2rem'
-            }}>
-                <h3 style={{ margin: '0 0 1.5rem 0' }}>Quick Actions</h3>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button
-                        onClick={handleCreateProgram}
-                        style={{
-                            background: '#3498db',
-                            color: 'white',
-                            padding: '1rem 1.5rem',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                        }}
-                    >
-                        <span>+</span>
-                        Create New Program
-                    </button>
-
-                    <button
-                        onClick={handleViewReports}
-                        style={{
-                            background: '#2ecc71',
-                            color: 'white',
-                            padding: '1rem 1.5rem',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                        }}
-                    >
-                        <span>📋</span>
-                        View Reports
-                    </button>
-
-                    <button
-                        onClick={handleEditProfile}
-                        style={{
-                            background: '#95a5a6',
-                            color: 'white',
-                            padding: '1rem 1.5rem',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                        }}
-                    >
-                        <span>✏️</span>
-                        Edit Company Profile
-                    </button>
+            <div style={s.section}>
+                <h3 style={s.sectionTitle}>Quick Actions</h3>
+                <div style={s.row}>
+                    <button style={s.btnPrimary} onClick={handleCreateProgram}>+ Create Program</button>
+                    <button style={s.btnGreen}   onClick={handleViewReports}>📋 View Reports</button>
+                    <button style={s.btnGhost}   onClick={handleEditProfile}>✏️ Edit Profile</button>
                 </div>
             </div>
 
-            {/* Programs Section */}
-            <div style={{
-                background: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3 style={{ margin: 0 }}>Your Programs</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span style={{ color: '#666' }}>0 active programs</span>
-                        <button
-                            onClick={handleCreateProgram}
-                            style={{
-                                background: '#3498db',
-                                color: 'white',
-                                padding: '0.5rem 1rem',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem'
-                            }}
-                        >
-                            + New Program
-                        </button>
-                    </div>
+            {/* Programs */}
+            <div style={s.section}>
+                <div style={s.sbRow}>
+                    <h3 style={{ ...s.sectionTitle, margin: 0 }}>Your Programs</h3>
+                    <span style={{ color: '#8888aa', fontSize: '0.85rem' }}>0 active</span>
                 </div>
-
-                {company.verification_status === 'pending' ? (
-                    <div style={{
-                        background: '#fff3cd',
-                        border: '1px solid #ffeaa7',
-                        borderRadius: '8px',
-                        padding: '2rem',
-                        textAlign: 'center',
-                        color: '#856404'
-                    }}>
-                        <h4 style={{ margin: '0 0 1rem 0' }}>Account Verification Required</h4>
-                        <p style={{ margin: '0 0 1rem 0' }}>
-                            Your company account is pending verification. You'll be able to create bug bounty programs once your account is verified.
-                        </p>
-                        <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                            <em>This usually takes 1-2 business days.</em>
+                {!verified ? (
+                    <div style={s.warning}>
+                        <h4 style={{ margin: '0 0 0.5rem 0' }}>Verification Required</h4>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#8888aa' }}>
+                            Your account is pending verification. Programs can be created once verified (1–2 business days).
                         </p>
                     </div>
                 ) : (
-                    <div style={{
-                        border: '2px dashed #ddd',
-                        borderRadius: '8px',
-                        padding: '3rem',
-                        textAlign: 'center',
-                        color: '#666'
-                    }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>📋</div>
-                        <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>No Programs Yet</h4>
-                        <p style={{ margin: '0 0 1.5rem 0', maxWidth: '500px', marginInline: 'auto' }}>
-                            Create your first bug bounty program to start receiving vulnerability reports from security researchers.
-                        </p>
-                        <button
-                            onClick={handleCreateProgram}
-                            style={{
-                                background: '#3498db',
-                                color: 'white',
-                                padding: '0.75rem 1.5rem',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '1rem'
-                            }}
-                        >
-                            Create Your First Program
-                        </button>
+                    <div style={s.empty}>
+                        <div style={s.emptyIcon}>📋</div>
+                        <h4 style={s.emptyTitle}>No Programs Yet</h4>
+                        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>Create your first bug bounty program to start receiving reports.</p>
+                        <button style={s.btnPrimary} onClick={handleCreateProgram}>Create First Program</button>
                     </div>
                 )}
             </div>
 
             {/* Recent Activity */}
-            <div style={{
-                background: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginTop: '2rem'
-            }}>
-                <h3 style={{ margin: '0 0 1.5rem 0' }}>Recent Activity</h3>
-                <div style={{
-                    border: '1px dashed #ddd',
-                    borderRadius: '8px',
-                    padding: '2rem',
-                    textAlign: 'center',
-                    color: '#999'
-                }}>
-                    <p style={{ margin: 0 }}>No recent activity</p>
+            <div style={s.section}>
+                <h3 style={s.sectionTitle}>Recent Activity</h3>
+                <div style={s.empty}>
+                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No recent activity</p>
                 </div>
             </div>
         </div>
@@ -331,3 +179,4 @@ const CompanyDashboard = () => {
 };
 
 export default CompanyDashboard;
+
