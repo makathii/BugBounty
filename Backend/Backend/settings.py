@@ -299,24 +299,22 @@ if os.environ.get('DJANGO_HSTS', 'False') == 'True':
 IPWARE_TRUSTED_PROXY_COUNT = int(os.environ.get('IPWARE_TRUSTED_PROXY_COUNT', '0'))
 
 # Content Security Policy (django-csp 4.x API)
-# Uses CONTENT_SECURITY_POLICY dict — the old CSP_* flat settings are ignored in v4.
-# Templates must render {{ request.csp_nonce }} on every inline <script>/<style> tag.
-# The NONCE sentinel tells django-csp to inject nonce-<value> per request automatically.
-from csp.constants import NONCE  # noqa: E402
+# Content Security Policy (django-csp 4.x)
 
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": ["'self'"],
-        # NONCE replaces 'unsafe-inline': each response gets a unique nonce injected here.
-        "script-src": ["'self'", NONCE],
-        "style-src":  ["'self'", NONCE],
-        "img-src":    ["'self'", "data:", "blob:"],
-        "font-src":   ["'self'"],
+
+        "script-src": ["'self'", "'nonce-{nonce}'"],
+        "style-src": ["'self'", "'nonce-{nonce}'"],
+
+        "img-src": ["'self'", "data:", "blob:"],
+        "font-src": ["'self'"],
         "connect-src": ["'self'"],
-        "media-src":  ["'self'"],
-        "frame-src":  ["'none'"],
+        "media-src": ["'self'"],
+
+        "frame-src": ["'none'"],
         "frame-ancestors": ["'none'"],
-        "report-uri": [os.environ.get("CSP_REPORT_URI", "")] if os.environ.get("CSP_REPORT_URI") else None,
     },
 }
 
