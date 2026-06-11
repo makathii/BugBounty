@@ -10,10 +10,12 @@ const Login = () => {
     const { login, loginWithOAuth } = useAuth();
     const [formData, setFormData] = useState({
         username: '',
-        password: ''
+        password: '',
+        totp_code: ''
     });
 
     const [errors, setErrors] = useState({});
+    const [showTotp, setShowTotp] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
@@ -38,12 +40,21 @@ const Login = () => {
         setIsLoading(true);
 
         try {
-            const result = await login(formData.username, formData.password);
+            const result = await login(
+                formData.username,
+                formData.password,
+                formData.totp_code || undefined
+            );
 
             if (result.success) {
                 navigate('/dashboard');
             } else {
-                setErrors({ general: result.error || 'Login failed' });
+                const message = result.error || 'Login failed';
+                // Server demands a 2FA code → reveal the TOTP input
+                if (/2fa|totp|two-factor/i.test(message)) {
+                    setShowTotp(true);
+                }
+                setErrors({ general: message });
             }
         } catch (err) {
             setErrors({ general: 'An unexpected error occurred' });
@@ -96,6 +107,25 @@ const Login = () => {
                         />
                         {errors.password && <span className="error-text">{errors.password}</span>}
                     </div>
+
+                    {showTotp && (
+                        <div className="form-group">
+                            <label htmlFor="totp_code">2FA Code</label>
+                            <input
+                                type="text"
+                                id="totp_code"
+                                name="totp_code"
+                                placeholder="6-digit code from your authenticator app"
+                                value={formData.totp_code}
+                                onChange={handleChange}
+                                autoComplete="one-time-code"
+                                inputMode="numeric"
+                                maxLength={8}
+                                disabled={isLoading}
+                                autoFocus
+                            />
+                        </div>
+                    )}
 
                     <button
                         type="submit"

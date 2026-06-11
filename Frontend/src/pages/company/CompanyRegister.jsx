@@ -119,7 +119,6 @@ const CompanyRegister = () => {
                     window.grecaptcha.reset();
                 }
 
-                console.log('Company registration successful, redirecting to company dashboard');
                 navigate('/company/dashboard');
             } else {
                 if (result.error) {

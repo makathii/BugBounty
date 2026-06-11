@@ -666,6 +666,22 @@ class CompanyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response({"companies": serializer.data})
 
+    @action(detail=False, methods=['get'])
+    def has_profile(self, request):
+        return Response({
+            "has_company_profile": Company.objects.filter(user=request.user).exists()
+        })
+
+    @action(detail=False, methods=['get'])
+    def my_profile(self, request):
+        company = Company.objects.filter(user=request.user).first()
+        if company is None:
+            return Response(
+                {"detail": "No company profile found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(self.get_serializer(company).data)
+
 
 # ---------------------------------------------------------------------------
 # API root

@@ -38,7 +38,6 @@ const ResearcherRegister = () => {
                 document.head.appendChild(script);
 
                 script.onload = () => {
-                    console.log('reCAPTCHA script loaded for ResearcherRegister');
                     renderCaptcha();
                 };
             } else if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
@@ -49,7 +48,6 @@ const ResearcherRegister = () => {
         const renderCaptcha = () => {
             try {
                 if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-                    console.log('Rendering reCAPTCHA with sitekey:', siteKey);
                     widgetIdRef.current = window.grecaptcha.render(captchaRef.current, {
                         sitekey: siteKey,
                     });
@@ -157,7 +155,6 @@ const ResearcherRegister = () => {
                 captcha: token
             };
 
-            console.log('Sending registration data with captcha token');
             const result = await register(userData);
 
             if (result.success) {

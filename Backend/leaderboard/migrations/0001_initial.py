@@ -11,8 +11,8 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('programs', '0003_company'),
-        ('reports', '0009_bugreport_cvss_score_bugreport_cvss_severity_and_more'),
+        ('programs', '0001_initial'),
+        ('reports', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

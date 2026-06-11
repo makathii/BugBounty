@@ -47,6 +47,11 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=bug_bounty_db
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
+      # Relaxed throttles for local demo/recording — logging in as several
+      # roles back-to-back would trip the secure 3/min default. Remove these
+      # two lines to restore production-like rates.
+      - LOGIN_THROTTLE_RATE=30/min
+      - REGISTER_THROTTLE_RATE=10/min
       - CLAMAV_HOST=clamav
       - CLAMAV_PORT=3310
       - PYTHONDONTWRITEBYTECODE=1

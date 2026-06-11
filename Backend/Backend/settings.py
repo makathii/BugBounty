@@ -100,8 +100,10 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'login': '3/min',      # Reduced from 5/min
-        'register': '2/min',   # Reduced from 3/min
+        # Env-overridable so local demos can log in as several roles in
+        # quick succession without tripping the throttle. Secure defaults.
+        'login': os.environ.get('LOGIN_THROTTLE_RATE', '3/min'),      # Reduced from 5/min
+        'register': os.environ.get('REGISTER_THROTTLE_RATE', '2/min'),   # Reduced from 3/min
         'password_reset': '2/hour',          # Per-IP: Password reset requests
         'password_reset_email': '3/hour',    # Per-target-email: blocks inbox flooding with rotating IPs
         'password_reset_confirm': '5/hour',  # Per-IP: Password reset confirmations

@@ -304,19 +304,19 @@ const ReportDetail = () => {
                         }}>
                             <div>
                                 <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Reporter</div>
-                                <div style={{ fontWeight: '500' }}>{report.reporter}</div>
+                                <div style={{ fontWeight: '500', color: '#2c3e50' }}>{report.reporter_username || report.reporter}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Created</div>
-                                <div>{new Date(report.created_at).toLocaleString()}</div>
+                                <div style={{ color: '#2c3e50' }}>{new Date(report.created_at).toLocaleString()}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Last Updated</div>
-                                <div>{new Date(report.updated_at).toLocaleString()}</div>
+                                <div style={{ color: '#2c3e50' }}>{new Date(report.updated_at).toLocaleString()}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Assigned To</div>
-                                <div>{report.assigned_to || 'Unassigned'}</div>
+                                <div style={{ color: '#2c3e50' }}>{report.assigned_to_username || (report.assigned_to ? `User ${report.assigned_to}` : 'Unassigned')}</div>
                             </div>
                         </div>
                     </div>

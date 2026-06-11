@@ -86,12 +86,14 @@ const Navbar = () => {
                                     >
                                         Triage Reports
                                     </Link>
-                                    <Link
-                                        to="/admin"
-                                        className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                                    <a
+                                        href={`${(process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '')}/admin/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="nav-link"
                                     >
                                         Admin
-                                    </Link>
+                                    </a>
                                 </>
                             )}
 

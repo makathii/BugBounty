@@ -33,6 +33,7 @@ import ReportDetail from './pages/reports/ReportDetail';
 import CompanyRegistration from './components/company/CompanyRegistration';
 import CompanyDashboard from './pages/company/CompanyDashboard';
 import CompanyPrograms from './pages/company/CompanyPrograms';
+import CompanyReports from './pages/company/CompanyReports';
 import CreateProgram from './pages/company/CreateProgram';
 
 import './App.css';
@@ -130,6 +131,9 @@ function AppContent() {
                     } />
                     <Route path="/company/programs/create" element={
                         <CompanyRoute><CreateProgram /></CompanyRoute>
+                    } />
+                    <Route path="/company/reports" element={
+                        <CompanyRoute><CompanyReports /></CompanyRoute>
                     } />
 
                     {/* Programs — researchers */}
