@@ -102,15 +102,15 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         # Env-overridable so local demos can log in as several roles in
         # quick succession without tripping the throttle. Secure defaults.
-        'login': os.environ.get('LOGIN_THROTTLE_RATE', '3/min'),      # Reduced from 5/min
-        'register': os.environ.get('REGISTER_THROTTLE_RATE', '2/min'),   # Reduced from 3/min
+        'login': os.environ.get('LOGIN_THROTTLE_RATE', '3/min'),
+        'register': os.environ.get('REGISTER_THROTTLE_RATE', '2/min'),
         'password_reset': '2/hour',          # Per-IP: Password reset requests
         'password_reset_email': '3/hour',    # Per-target-email: blocks inbox flooding with rotating IPs
         'password_reset_confirm': '5/hour',  # Per-IP: Password reset confirmations
-        'submission': '50/hour',  # Reduced from 100/hour
-        'anon': '20/min',      # Reduced from 30/min
-        'user': '60/min',      # Reduced from 120/min
-        'burst': '100/minute', # Reduced from 200/minute
+        'submission': '50/hour',
+        'anon': '20/min',
+        'user': '60/min',
+        'burst': '100/minute',
         # OAuth client login — keep tighter than regular login because each
         # callback hit is a network round-trip to the provider.
         'oauth_init': '10/min',

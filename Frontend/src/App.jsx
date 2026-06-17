@@ -38,6 +38,7 @@ import CreateProgram from './pages/company/CreateProgram';
 
 import './App.css';
 import OAuthSuccess from "./pages/OAuthSuccess";
+import Leaderboard from "./pages/leaderboard/leaderboard";
 
 
 /* =========================
@@ -108,6 +109,9 @@ function AppContent() {
                     <Route path="/register/researcher" element={<ResearcherRegister />} />
                     <Route path="/register/company" element={<CompanyRegister />} />
                     <Route path="/verify-email/:token" element={<VerifyEmail />} />
+
+                    {/*Leaderboard */}
+                    <Route path="/leaderboard" element={<Leaderboard />} />
 
                     {/* OAuth */}
                     <Route path="/oauth/success" element={<OAuthSuccess />} />
