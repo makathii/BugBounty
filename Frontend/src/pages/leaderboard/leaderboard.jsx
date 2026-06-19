@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './leaderboard.css';
+import { leaderboardAPI } from '../../services/api';
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const API_BASE = '/api';
 const DEFAULT_LIMIT = 50;
 
 const PERIOD_OPTIONS = [
-    { value: 'all', label: 'All time' },
-    { value: 'monthly', label: '30 days' },
-    { value: 'weekly', label: '7 days' },
+    { value: 'all',     label: 'All time' },
+    { value: 'monthly', label: '30 days'  },
+    { value: 'weekly',  label: '7 days'   },
 ];
 
 const SEV_CONFIG = {
     critical: { cls: 'sev-critical', label: 'Critical' },
     high:     { cls: 'sev-high',     label: 'High'     },
     medium:   { cls: 'sev-medium',   label: 'Medium'   },
-    low:      { cls: 'sev-low',      label: 'Low'      },
+    low:      { cls: 'sev-low',      label: 'Low'       },
 };
 
 const AVATAR_COLORS = [
@@ -61,25 +61,6 @@ function Avatar({ id, username, size = 32 }) {
 }
 
 // ---------------------------------------------------------------------------
-// API calls
-// ---------------------------------------------------------------------------
-async function fetchLeaderboard({ period, program, limit, offset }) {
-    const params = new URLSearchParams({ period, limit, offset });
-    if (program != null) params.set('program', program);
-    const res = await fetch(`${API_BASE}/leaderboard/?${params}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-}
-
-async function fetchMe({ period, program }) {
-    const params = new URLSearchParams({ period });
-    if (program != null) params.set('program', program);
-    const res = await fetch(`${API_BASE}/leaderboard/me/?${params}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-}
-
-// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 function StatCards({ total, count, me, meRank }) {
@@ -100,7 +81,7 @@ function StatCards({ total, count, me, meRank }) {
                 <div className="lb-stat-value">
                     {me && meRank === 1 ? me.total_points.toLocaleString() : '—'}
                 </div>
-                <div className="lb-stat-sub">{me && meRank === 1 ? 'that\'s you 🎉' : 'keep hunting'}</div>
+                <div className="lb-stat-sub">{me && meRank === 1 ? "that's you 🎉" : 'keep hunting'}</div>
             </div>
         </div>
     );
@@ -119,7 +100,7 @@ function Podium({ rows }) {
             ]
             : rows.map((r, i) => ({
                 row: r,
-                cls: ['first', 'second', 'third'][i],
+                cls:   ['first', 'second', 'third'][i],
                 emoji: ['🥇', '🥈', '🥉'][i],
             }));
 
@@ -179,28 +160,37 @@ function Skeleton() {
 // Main component
 // ---------------------------------------------------------------------------
 export default function Leaderboard({ programId = null }) {
-    const [period, setPeriod]     = useState('all');
-    const [rows, setRows]         = useState([]);
-    const [totalCount, setTotal]  = useState(0);
-    const [offset, setOffset]     = useState(0);
-    const [loading, setLoading]   = useState(true);
-    const [error, setError]       = useState(null);
-    const [meData, setMeData]     = useState(null);  // { ranked, result? }
+    const [period, setPeriod]    = useState('all');
+    const [rows, setRows]        = useState([]);
+    const [totalCount, setTotal] = useState(0);
+    const [offset, setOffset]    = useState(0);
+    const [loading, setLoading]  = useState(true);
+    const [error, setError]      = useState(null);
+    const [meData, setMeData]    = useState(null);  // { ranked, result? }
 
     const load = useCallback(async (newOffset = 0) => {
         setLoading(true);
         setError(null);
         try {
             const [board, me] = await Promise.all([
-                fetchLeaderboard({ period, program: programId, limit: DEFAULT_LIMIT, offset: newOffset }),
-                fetchMe({ period, program: programId }),
+                leaderboardAPI.getLeaderboard({
+                    period,
+                    program: programId,
+                    limit: DEFAULT_LIMIT,
+                    offset: newOffset,
+                }),
+                leaderboardAPI.getMe({ period, program: programId }),
             ]);
-            setRows(newOffset === 0 ? board.results : prev => [...prev, ...board.results]);
-            setTotal(board.count);
+
+            setRows(newOffset === 0
+                ? board.data.results
+                : prev => [...prev, ...board.data.results]
+            );
+            setTotal(board.data.count);
             setOffset(newOffset);
-            setMeData(me);
+            setMeData(me.data);
         } catch (err) {
-            setError(err.message);
+            setError(err.response?.data?.error || err.message);
         } finally {
             setLoading(false);
         }
@@ -217,7 +207,9 @@ export default function Leaderboard({ programId = null }) {
     };
 
     const meRow    = meData?.ranked ? meData.result : null;
-    const meRank   = meRow ? (rows.findIndex(r => r.researcher_id === meRow.researcher_id) + 1) || null : null;
+    const meRank   = meRow
+        ? (rows.findIndex(r => r.researcher_id === meRow.researcher_id) + 1) || null
+        : null;
     const totalPts = rows.reduce((a, r) => a + (r.total_points || 0), 0);
     const hasMore  = rows.length < totalCount;
 

@@ -184,6 +184,11 @@ export const reportAPI = {
     getStats:             ()     => api.get('/reports/stats/'),
 };
 
+export const leaderboardAPI = {
+    getLeaderboard: (params) => api.get('/leaderboard/', { params }),
+    getMe: (params) => api.get('/leaderboard/me/', { params }),
+};
+
 // ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
