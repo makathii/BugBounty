@@ -298,24 +298,24 @@ const ReportDetail = () => {
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
                             gap: '1rem',
-                            background: '#f8f9fa',
+                            background: '#18181f',
                             padding: '1.5rem',
                             borderRadius: '8px'
                         }}>
                             <div>
-                                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Reporter</div>
+                                <div style={{ fontSize: '0.9rem', color: '#8888aa', marginBottom: '0.25rem' }}>Reporter</div>
                                 <div style={{ fontWeight: '500', color: '#2c3e50' }}>{report.reporter_username || report.reporter}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Created</div>
+                                <div style={{ fontSize: '0.9rem', color: '#8888aa', marginBottom: '0.25rem' }}>Created</div>
                                 <div style={{ color: '#2c3e50' }}>{new Date(report.created_at).toLocaleString()}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Last Updated</div>
+                                <div style={{ fontSize: '0.9rem', color: '#8888aa', marginBottom: '0.25rem' }}>Last Updated</div>
                                 <div style={{ color: '#2c3e50' }}>{new Date(report.updated_at).toLocaleString()}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.25rem' }}>Assigned To</div>
+                                <div style={{ fontSize: '0.9rem', color: '#8888aa', marginBottom: '0.25rem' }}>Assigned To</div>
                                 <div style={{ color: '#2c3e50' }}>{report.assigned_to_username || (report.assigned_to ? `User ${report.assigned_to}` : 'Unassigned')}</div>
                             </div>
                         </div>

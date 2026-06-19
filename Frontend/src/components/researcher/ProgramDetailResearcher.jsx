@@ -403,10 +403,10 @@ const ProgramDetailResearcher = () => {
                         </div>
                         <div style={{
                             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                            gap: '2rem', background: '#f8f9fa', padding: '1.5rem', borderRadius: '8px'
+                            gap: '2rem', background: '#18181f', padding: '1.5rem', borderRadius: '8px'
                         }}>
                             <div>
-                                <h4 style={{ margin: '0 0 1rem 0', color: '#2c3e50' }}>Program Details</h4>
+                                <h4 style={{ margin: '0 0 1rem 0', color: '#8888aa' }}>Program Details</h4>
                                 {[
                                     ['Company', program.company?.username],
                                     ['Type', program.scope_type_display || program.scope_type],
@@ -419,12 +419,12 @@ const ProgramDetailResearcher = () => {
                                         padding: '0.4rem 0', borderBottom: '1px solid #e9ecef'
                                     }}>
                                         <span style={{ color: '#666' }}>{k}</span>
-                                        <span style={{ fontWeight: '500', color: '#2c3e50' }}>{v || '—'}</span>
+                                        <span style={{ fontWeight: '500', color: '#8888aa' }}>{v || '—'}</span>
                                     </div>
                                 ))}
                             </div>
                             <div>
-                                <h4 style={{ margin: '0 0 1rem 0', color: '#2c3e50' }}>Program Flags</h4>
+                                <h4 style={{ margin: '0 0 1rem 0', color: '#8888aa' }}>Program Flags</h4>
                                 {[
                                     ['Anonymous submissions', program.allow_anonymous],
                                     ['NDA required', program.require_ndas],

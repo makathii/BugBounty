@@ -394,3 +394,17 @@
     background: rgba(230, 126, 34, 0.15);
     color: #f0a85a;
 }
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    gap: 1rem;
+}
+
+.wizard-nav .btn-primary {
+    background: var(--color-accent);
+    background-image: none;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}

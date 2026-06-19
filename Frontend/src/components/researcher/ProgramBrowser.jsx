@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
+/* 18181f 8888aa*/
+
+
 const SCOPE_COLORS = {
     public: '#3498db',
     private: '#9b59b6',
@@ -208,7 +211,7 @@ const ProgramBrowser = () => {
                 <>
                     {programs.length === 0 ? (
                         <div style={{
-                            background: 'white', padding: '3rem', borderRadius: '8px',
+                            background: '18181f', padding: '3rem', borderRadius: '8px',
                             boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
                         }}>
                             <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.4 }}>🎯</div>
@@ -268,7 +271,7 @@ const ProgramBrowser = () => {
                                                     <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>
                                                         <Link
                                                             to={`/programs/${program.id}`}
-                                                            style={{ color: '#2c3e50', textDecoration: 'none' }}
+                                                            style={{ color: 'white', textDecoration: 'none' }}
                                                         >
                                                             {program.name}
                                                         </Link>
@@ -306,11 +309,11 @@ const ProgramBrowser = () => {
                                             {/* Stats grid */}
                                             <div style={{
                                                 display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
-                                                gap: '0.75rem', background: '#f8f9fa',
+                                                gap: '0.75rem', background: '#18181f',
                                                 padding: '1rem', borderRadius: '6px', marginBottom: '1.25rem'
                                             }}>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.2rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
                                                         Bounty Range
                                                     </div>
                                                     <div style={{ fontWeight: '600', color: '#27ae60', fontSize: '0.9rem' }}>
@@ -318,7 +321,7 @@ const ProgramBrowser = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.2rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
                                                         Total Reports
                                                     </div>
                                                     <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>
@@ -326,7 +329,7 @@ const ProgramBrowser = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.2rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
                                                         Total Bounties
                                                     </div>
                                                     <div style={{ fontWeight: '600', color: '#9b59b6', fontSize: '0.9rem' }}>
@@ -334,7 +337,7 @@ const ProgramBrowser = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.2rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
                                                         Status
                                                     </div>
                                                     <span style={{

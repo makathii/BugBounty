@@ -194,7 +194,7 @@ tr:hover td {
 .checkbox-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--color-accent, #00ff66); /* Falls back to a neon green if var isn't set */
+  accent-color: var(--color-accent, #00ff66);
   cursor: pointer;
   border-radius: 4px;
   border: 1px solid var(--color-border);
