@@ -53,7 +53,7 @@ Report list/detail/triage dashboard (`reports/views.py`), program list/stats/das
 `reports/signals.on_report_saved` computed derived fields post-save and re-`save()`d the instance, which re-fired every `post_save` receiver (program stats and the leaderboard ledger ran twice); stats and ledger work also ran on edits that couldn't affect them. *Measured on SQLite with `CaptureQueriesContext` (earlier drafts of this doc over-estimated this at ~15):* create 8 queries, status change to triaged 8, unrelated field edit 4.
 *Done:* derived fields (`severity_score`, `time_to_*`) are now set in `BugReport.save()` before the write; `BugReport` remembers loaded values so `save()` flags whether stats (`_stats_programs`, including the *old* program when a report moves) or the ledger (`_score_dirty`) need work; `Program.refresh_stats_for(id)` is one aggregate + one `UPDATE` with no model fetch; the blanket `except Exception: pass` is gone.
 *Result (same measurement):* create 4, status change 4, unrelated edit **1**, accept 5 (UPDATE + 2 stats + ledger lookup/insert).
-*Not done:* deferring `refresh_stats` to `transaction.on_commit` / a task queue. pytest-django's transaction-wrapped tests never run on-commit callbacks, so the existing suite would need `django_capture_on_commit_callbacks` first; revisit with phase E. Note `ProgramStats.snapshot_for` (≈9 queries) is *not* called from the signal path — only the cheap `refresh_stats` is.
+*Follow-up done (phase E):* `refresh_stats` now runs as a Celery task published `on_commit` (`core.tasks.enqueue_after_commit`); with no broker configured it runs inline, so tests and local dev behave as before. With a broker, stats are eventually consistent (updated when the worker runs, not before the HTTP response). Note `ProgramStats.snapshot_for` (≈9 queries) is *not* called from the signal path — only the cheap `refresh_stats` is.
 
 **3.6 `icontains` search on `title` and `description` — *High confidence*.**
 `Q(title__icontains)|Q(description__icontains)` (`reports/views.py:60-63`) is a sequential scan on a `TextField`. B-tree indexes cannot help.
@@ -140,7 +140,8 @@ Other tables:
 - [ ] B: trigram search; build indexes `CONCURRENTLY` on a large live table
 - [x] B: drop redundant `slug` / `(program,date)` indexes (migration `programs/0002`)
 - [x] C: remove post-save re-save; conditional stats/ledger work (1–4 queries per save instead of 4–8)
-- [ ] C: `on_commit`/queued `refresh_stats` (see 3.5)
+- [x] C: queued `refresh_stats` via Celery after commit (see 3.5)
 - [x] D: window-function leaderboard + cache (see 3.4 caveat on LocMemCache)
 - [x] E: audit-log retention command, env-driven DB config + persistent connections, optional shared Redis cache
-- [ ] E: task queue for stats/email, read replica, audit index pruning (need production data / an infra decision)
+- [x] E: Celery + Redis task queue (stats refresh, submission email, daily audit purge via beat)
+- [ ] E: read replica, PgBouncer, audit index pruning (need production data / an infra decision)
