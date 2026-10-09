@@ -210,6 +210,10 @@ export const reportAPI = {
     getStats:             ()     => api.get('/reports/stats/'),
 };
 
+export const badgeAPI = {
+    getBadges: () => api.get('/badges/'),
+};
+
 export const levelAPI = {
     getLadder: () => api.get('/levels/'),
     getMine:   () => api.get('/levels/me/'),

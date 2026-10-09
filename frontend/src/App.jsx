@@ -44,6 +44,7 @@ import TwoFactorSetup from './features/auth/TwoFactorSetup';
 import TwoFactorSettings from './features/auth/TwoFactorSettings';
 import Leaderboard from './features/leaderboard/Leaderboard';
 import Wallet from './features/wallet/Wallet';
+import Badges from './features/badges/Badges';
 
 
 /* =========================
@@ -88,6 +89,11 @@ function AppContent() {
                     {/* Points wallet — researchers */}
                     <Route path="/wallet" element={
                         <ResearcherRoute><Wallet /></ResearcherRoute>
+                    } />
+
+                    {/* Badges — researchers */}
+                    <Route path="/badges" element={
+                        <ResearcherRoute><Badges /></ResearcherRoute>
                     } />
 
                     {/*Leaderboard */}

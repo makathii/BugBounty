@@ -6,6 +6,7 @@ import api, { reportAPI, walletAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
 import { formatPoints } from '../../utils/points';
 import LevelCard from '../../components/levels/LevelCard';
+import BadgeShelf from '../../components/badges/BadgeShelf';
 
 const ResearcherDashboard = () => {
     const { user } = useAuth();
@@ -83,6 +84,8 @@ const ResearcherDashboard = () => {
                     </div>
                 ))}
             </div>
+
+            <BadgeShelf />
 
             <div className="ui-card ui-mb-lg">
                 <h3 className="ui-section-title">Quick Actions</h3>

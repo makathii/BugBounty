@@ -54,6 +54,29 @@ spending never changes it (revoked points can). The ladder lives in `leaderboard
 - The UI shows a progress card on the dashboard and wallet, a chip on the leaderboard, and a
   one-time "Level up!" banner (remembered per browser in localStorage)
 
+## Badges
+
+Badges are achievements, defined in code (`badges/definitions.py`) and awarded automatically
+whenever a researcher's points ledger changes. Only *who earned what, when* is stored
+(`badges.UserBadge`). Once earned a badge is kept, even if the report behind it is later rejected.
+
+| Badge | Rule |
+|-------|------|
+| 🩸 First Blood | first report accepted |
+| 💥 Critical Thinker | a critical report accepted |
+| 🔨 Heavy Hitter | 3 high or critical reports accepted |
+| 🐞 Bug Collector | 10 reports accepted |
+| 🏆 Bug Hoarder | 25 reports accepted |
+| 🌍 Globetrotter | accepted reports in 3 different programs |
+| ⭐ Standout Report | a triager gave bonus points |
+| ✨ Clean Streak | 5 accepted in a row without a rejection (duplicates and open reports are neutral) |
+
+To add a badge, add one `Badge(...)` line (a key, name, description, icon and a
+`progress(stats) -> (current, target)` rule); no migration is needed. Run
+`python manage.py award_badges` to hand out new badges to people who already qualify
+(`GET /api/badges/` also catches the caller up). The dashboard shows a shelf with a one-time
+"New badge" banner and `/badges` shows every badge with progress on the locked ones.
+
 ## For the store (next step)
 
 `wallet.services.spend(user, amount, reason, reference="item:<id>")` is the only way to spend. It
@@ -68,5 +91,5 @@ That is intentional (it is honest bookkeeping); purchases are simply blocked unt
 
 - `GET /api/wallet/`: balance, lifetime earned, total spent, ten most recent transactions
 - `GET /api/wallet/transactions/?limit=&offset=`: paged history
-- `GET /api/levels/`, `GET /api/levels/me/`
+- `GET /api/levels/`, `GET /api/levels/me/`, `GET /api/badges/`
 - `POST /api/reports/{id}/accept/` accepts `bonus_points`; reports expose `bonus_points` and `points_awarded`

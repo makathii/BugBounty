@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'audit.apps.AuditConfig',
     'leaderboard.apps.LeaderboardConfig',
     'wallet.apps.WalletConfig',
+    'badges.apps.BadgesConfig',
 
     'django_filters',
 ]
