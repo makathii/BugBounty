@@ -13,3 +13,6 @@ class LeaderboardEntrySerializer(serializers.Serializer):
     total_points = serializers.IntegerField()
     report_count = serializers.IntegerField()
     last_awarded_at = serializers.DateTimeField()
+    # Lifetime level (not the window's points); filled in by the view.
+    level = serializers.IntegerField(required=False)
+    level_title = serializers.CharField(required=False)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './leaderboard.css';
 import { leaderboardAPI } from '../../services/api';
+import LevelChip from '../../components/levels/LevelChip';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -111,6 +112,7 @@ function Podium({ rows }) {
                     <div className="lb-pod-emoji">{emoji}</div>
                     <Avatar id={row.researcher_id} username={row.username} size={44} />
                     <div className="lb-pod-name">{row.username}</div>
+                    <LevelChip level={row.level} title={row.level_title} />
                     <div className="lb-pod-pts">{row.total_points.toLocaleString()}</div>
                     <div className="lb-pod-sub">{row.report_count} reports</div>
                 </div>
@@ -127,6 +129,7 @@ function EntryRow({ row, rank, isMe }) {
             <div className="lb-user-cell">
                 <Avatar id={row.researcher_id} username={row.username} size={30} />
                 <span className="lb-username">{row.username}</span>
+                <LevelChip level={row.level} title={row.level_title} />
                 {isMe && <span className="lb-you-tag">you</span>}
             </div>
 

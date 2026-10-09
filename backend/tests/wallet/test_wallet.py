@@ -27,9 +27,11 @@ def accepted(user, program, severity="high", **kw):
 @pytest.mark.django_db
 class TestBalance:
     def test_new_user_has_nothing(self, verified_user):
-        assert services.summary(verified_user) == {
+        summary = services.summary(verified_user)
+        assert {k: summary[k] for k in ("balance", "lifetime_earned", "total_spent")} == {
             "balance": 0, "lifetime_earned": 0, "total_spent": 0,
         }
+        assert summary["level"]["level"] == 1
 
     def test_earned_points_become_balance(self, verified_user, program):
         accepted(verified_user, program, "high")
@@ -40,9 +42,11 @@ class TestBalance:
         accepted(verified_user, program, "critical")
         services.spend(verified_user, 100, "Cool hat", reference="item:1")
         assert services.balance(verified_user) == 50
-        assert services.summary(verified_user) == {
+        summary = services.summary(verified_user)
+        assert {k: summary[k] for k in ("balance", "lifetime_earned", "total_spent")} == {
             "balance": 50, "lifetime_earned": 150, "total_spent": 100,
         }
+        assert summary["level"]["level"] == 3  # level follows lifetime points, not balance
         assert board.rank_for(verified_user)["total_points"] == 150
 
     def test_revoked_report_reduces_balance(self, verified_user, program):

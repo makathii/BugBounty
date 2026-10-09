@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q, Sum
 
+from leaderboard.levels import level_for
 from leaderboard.models import ScoreEvent
 
 from .models import WalletTransaction
@@ -44,6 +45,7 @@ def summary(user):
         "balance": earned + net,
         "lifetime_earned": earned,
         "total_spent": -(totals["spent"] or 0),
+        "level": level_for(earned),
     }
 
 

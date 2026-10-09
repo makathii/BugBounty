@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { walletAPI } from '../../services/api';
 import { formatPoints } from '../../utils/points';
+import LevelCard from '../../components/levels/LevelCard';
 
 const PAGE_SIZE = 25;
 
@@ -82,6 +83,8 @@ const Wallet = () => {
                     leaderboard rank, which is based on lifetime points.
                 </p>
             </header>
+
+            <LevelCard level={wallet.level} />
 
             <div className="ui-grid ui-grid--stats">
                 {cards.map(({ label, value, tone }) => (

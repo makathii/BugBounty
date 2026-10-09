@@ -430,3 +430,41 @@ a:not([class]):hover { color: #fff; text-decoration: underline; }
 .ui-link-btn--danger:hover { color: #f87171; }
 .ui-comment-form { margin-top: 0.6rem; }
 .ui-check { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--color-text-muted); cursor: pointer; }
+
+/* ---------- Levels ---------- */
+.ui-level-card { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+.ui-level-title { font-size: 1.4rem; font-weight: 700; color: var(--color-text); }
+.ui-progress {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    overflow: hidden;
+}
+.ui-progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgb(124,106,255), rgb(167,139,250));
+    transition: width 0.6s ease;
+}
+.ui-level-up {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    background: rgba(251,191,36,0.12);
+    border: 1px solid rgba(251,191,36,0.4);
+    color: var(--color-yellow);
+    animation: ui-pop 0.4s ease;
+}
+@keyframes ui-pop { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ui-level-up { animation: none; } .ui-progress-bar { transition: none; } }
+.ui-level-chip {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: rgb(167,139,250);
+    background: rgba(124,106,255,0.14);
+    border: 1px solid rgba(124,106,255,0.3);
+}

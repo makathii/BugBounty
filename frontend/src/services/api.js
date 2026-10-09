@@ -210,6 +210,11 @@ export const reportAPI = {
     getStats:             ()     => api.get('/reports/stats/'),
 };
 
+export const levelAPI = {
+    getLadder: () => api.get('/levels/'),
+    getMine:   () => api.get('/levels/me/'),
+};
+
 export const walletAPI = {
     getWallet:       () => api.get('/wallet/'),
     getTransactions: (params) => api.get('/wallet/transactions/', { params }),

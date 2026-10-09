@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import api, { reportAPI, walletAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
 import { formatPoints } from '../../utils/points';
+import LevelCard from '../../components/levels/LevelCard';
 
 const ResearcherDashboard = () => {
     const { user } = useAuth();
@@ -71,6 +72,8 @@ const ResearcherDashboard = () => {
                     {myRank ? ` You're ranked #${myRank} on the leaderboard.` : ''}
                 </p>
             </header>
+
+            <LevelCard level={wallet?.level} />
 
             <div className="ui-grid ui-grid--stats">
                 {statCards.map(({ label, value, tone }) => (

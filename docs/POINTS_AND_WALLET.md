@@ -31,6 +31,29 @@ report later stops qualifying (rejected, marked duplicate), its points are revok
 `WalletTransaction` is append-only. To undo a purchase use `wallet.services.refund()`; staff can
 grant or claw back points from the Django admin (it records who and why).
 
+## Levels
+
+A researcher's level is a pure function of **lifetime earned** points, so it is never stored and
+spending never changes it (revoked points can). The ladder lives in `leaderboard/levels.py`
+(override with `settings.LEADERBOARD_LEVELS`, a list of `(min_points, title)` starting at 0):
+
+| Level | Title         | Lifetime points |
+|-------|---------------|-----------------|
+| 1     | Bug Sprout    | 0               |
+| 2     | Bug Hatchling | 50              |
+| 3     | Bug Scout     | 150             |
+| 4     | Bug Hunter    | 350             |
+| 5     | Bug Wrangler  | 700             |
+| 6     | Bug Slayer    | 1,200           |
+| 7     | Bug Whisperer | 2,000           |
+| 8     | Bug Legend    | 3,500           |
+
+- `GET /api/levels/` the ladder; `GET /api/levels/me/` your level, progress and points to next
+- `/api/wallet/` and every leaderboard row include the level (leaderboard rows show the
+  *lifetime* level even when ranking a 7-day window)
+- The UI shows a progress card on the dashboard and wallet, a chip on the leaderboard, and a
+  one-time "Level up!" banner (remembered per browser in localStorage)
+
 ## For the store (next step)
 
 `wallet.services.spend(user, amount, reason, reference="item:<id>")` is the only way to spend. It
@@ -45,4 +68,5 @@ That is intentional (it is honest bookkeeping); purchases are simply blocked unt
 
 - `GET /api/wallet/`: balance, lifetime earned, total spent, ten most recent transactions
 - `GET /api/wallet/transactions/?limit=&offset=`: paged history
+- `GET /api/levels/`, `GET /api/levels/me/`
 - `POST /api/reports/{id}/accept/` accepts `bonus_points`; reports expose `bonus_points` and `points_awarded`

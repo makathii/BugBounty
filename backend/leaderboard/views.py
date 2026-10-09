@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from . import services
+from . import levels, services
 from .serializers import LeaderboardEntrySerializer
 
 DEFAULT_LIMIT = 50
@@ -32,6 +32,16 @@ def _parse_params(request):
             )
 
     return {"period": period, "program": program}, None
+
+
+def _with_levels(rows):
+    """Attach each researcher's lifetime level to ranking rows (one query for the page)."""
+    info = levels.level_info_for_users([row["researcher_id"] for row in rows])
+    return [
+        {**row, "level": info[row["researcher_id"]]["level"],
+         "level_title": info[row["researcher_id"]]["title"]}
+        for row in rows
+    ]
 
 
 class LeaderboardViewSet(viewsets.ViewSet):
@@ -79,7 +89,7 @@ class LeaderboardViewSet(viewsets.ViewSet):
             "count": total,
             "limit": limit,
             "offset": offset,
-            "results": LeaderboardEntrySerializer(page, many=True).data,
+            "results": LeaderboardEntrySerializer(_with_levels(page), many=True).data,
         })
 
     @action(detail=False, methods=["get"])
@@ -103,7 +113,7 @@ class LeaderboardViewSet(viewsets.ViewSet):
             "period": params["period"],
             "program": params["program"],
             "ranked": True,
-            "result": LeaderboardEntrySerializer(row).data,
+            "result": LeaderboardEntrySerializer(_with_levels([row])[0]).data,
         })
 
     def retrieve(self, request, pk=None):
@@ -136,5 +146,21 @@ class LeaderboardViewSet(viewsets.ViewSet):
             "period": params["period"],
             "program": params["program"],
             "ranked": True,
-            "result": LeaderboardEntrySerializer(row).data,
+            "result": LeaderboardEntrySerializer(_with_levels([row])[0]).data,
         })
+
+
+class LevelViewSet(viewsets.ViewSet):
+    """
+    GET /api/levels/     the whole ladder (level, title, points needed)
+    GET /api/levels/me/  the caller's level and progress toward the next one
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        return Response(levels.levels_overview())
+
+    @action(detail=False, methods=["get"])
+    def me(self, request):
+        points = levels.lifetime_points([request.user.pk]).get(request.user.pk, 0)
+        return Response({"lifetime_points": points, **levels.level_for(points)})
