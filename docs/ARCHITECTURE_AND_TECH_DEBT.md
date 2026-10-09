@@ -4,8 +4,8 @@
 > review treats this repo (`makathii/BugBounty`) as that codebase. If InnoLab 2 is a
 > different project, point me at it and I'll redo this.
 >
-> **Method.** Static review of the Django backend (`Backend/`) and React frontend
-> (`Frontend/`). Nothing here was profiled against a running database; items are
+> **Method.** Static review of the Django backend (`backend/`) and React frontend
+> (`frontend/`). Nothing here was profiled against a running database; items are
 > marked by confidence. Architecture decisions are *inferred from the code* and
 > should be confirmed by the people who made them.
 
@@ -19,6 +19,30 @@
 | Frontend | React (CRA / `react-scripts`) | ~9.7k lines JSX, inline styles |
 | Infra | docker-compose: db, backend, frontend, clamav | Backend runs `runserver` |
 | Size | ~12.4k lines Python (≈45% tests) | |
+
+### Repository layout (after the restructure)
+
+```
+backend/                     Django project root (manage.py, Dockerfile, requirements.txt)
+  config/                    project package: settings, urls, wsgi/asgi, celery, db_config, admin_site
+  core/                      cross-app helpers: roles, captcha, cvss, task dispatch
+  users/ reports/ programs/ audit/ leaderboard/     one Django app per domain
+    models/                  one module per model        (reports, programs)
+    views/                   one module per resource      (users, reports, programs)
+    oauth/                   OAuth providers + views      (users)
+  tests/                     mirrors the apps: users/ reports/ programs/ leaderboard/ audit/ core/
+  scripts/                   one-off scripts (seed_demo.py)
+frontend/src/
+  app/                       route guards
+  features/                  one folder per feature: auth, home, dashboard, programs, reports,
+                             company, researcher, admin, triage, leaderboard
+  components/layout/         shared layout (Navbar)
+  services/api.js            the only place that talks to the backend
+  styles/theme.css           shared ui-* classes on the Home page's design tokens
+  utils/                     small shared helpers
+docs/                        this review, the performance roadmap
+docker-compose.yml, .env.example, run_tests.sh
+```
 
 ## 2. Architecture decision records (inferred)
 
@@ -57,9 +81,9 @@ Severity: **H** fix soon · **M** plan it · **L** opportunistic.
 ### Security / configuration
 | # | Sev | Finding | Where |
 |---|---|---|---|
-| T1 | **H** | Plaintext credentials in comments (superuser/test/researcher passwords). They are in git history, so **rotate them** even after deleting the comment. | `Backend/Backend/settings.py` (end of file), also `DEMO_ACCOUNTS.md` |
+| T1 | **H** | Plaintext credentials in comments (superuser/test/researcher passwords). They are in git history, so **rotate them** even after deleting the comment. | `backend/config/settings.py` (end of file), also `DEMO_ACCOUNTS.md` |
 | T2 | **H** | Insecure `SECRET_KEY` fallback only *warns* when `DEBUG` is false. Should fail to start. | `settings.py` top |
-| T3 | ~~H~~ ✅ | `DATABASES` was hardcoded and ignored `DATABASE_URL`/`POSTGRES_*`, no `CONN_MAX_AGE`. Now built from env in `Backend/db_config.py` (same defaults), persistent connections with health checks. | `settings.py`, `Backend/db_config.py` |
+| T3 | ~~H~~ ✅ | `DATABASES` was hardcoded and ignored `DATABASE_URL`/`POSTGRES_*`, no `CONN_MAX_AGE`. Now built from env in `backend/db_config.py` (same defaults), persistent connections with health checks. | `settings.py`, `backend/db_config.py` |
 | T4 | M | Backend container runs `manage.py runserver` (dev server); no gunicorn/uvicorn, no static serving plan. | `docker-compose.yml` |
 | T5 | M | Public reCAPTCHA *test* key is the frontend default; works in any environment so a missing env var fails open. | `CompanyRegister.jsx` |
 
@@ -71,17 +95,17 @@ Severity: **H** fix soon · **M** plan it · **L** opportunistic.
 | T8 | M | Same program-stats logic implemented twice (`ProgramViewSet` ~L253 and dashboard view ~L588) and again in `ProgramStats.snapshot_for`. | `programs/views.py`, `programs/models.py` |
 | T9 | M | `except Exception: pass` around `refresh_stats()` hides real failures. | `reports/signals.py` |
 | T10 | M | `find_potential_duplicates`: (a) `Q(affected_url=self.affected_url)` with an empty URL matches *every* report with no URL; (b) comment says "recent 50" but the model has no default ordering, so `[:50]` is arbitrary. This is a correctness bug as well as a perf issue. | `reports/models.py` |
-| T11 | L | Large view modules (`users/views.py` 700, `programs/views.py` 704, `reports/views.py` 683 lines) mix permission checks, business logic and email sending. Extract services like `leaderboard/services.py` already does. | |
-| T12 | L | Duplicate imports and `Attachment` split into `models_attachment.py`. | `reports/` |
+| T11 | ~~L~~ ✅ partly | The 700-line view modules are split into per-resource packages (`users/views/`, `reports/views/`, `programs/views/`); `programs/models/` and `reports/models/` are split per model. Business logic is still inside the views: extracting services like `leaderboard/services.py` remains open. | |
+| T12 | ~~L~~ ✅ | `Attachment` folded into `reports/models/`; imports deduplicated in the split modules. | `reports/` |
 | T13 | L | Role literals (`'Triager'`, `'Admin'`…) repeated ~25×. | ADR-2 |
 
 ### Repo / tooling
 | # | Sev | Finding |
 |---|---|---|
-| T14 | M | Tracked junk: `Backend/pytest 2.ini` (copy of `pytest.ini`), `Backend/test_db.sqlite3-journal`, `Backend/docker-compose.yml` (duplicate of root compose). Add to `.gitignore`/delete. |
-| T15 | M | Duplicate/overlapping tests: `reports/test_file_upload_security.py` vs `tests/test_file_upload_security.py`, plus `reports/tests.py`, `users/tests.py`, `tests/test_reports.py`. `run_tests.sh` special-cases one of them. |
+| T14 | ~~M~~ ✅ | Removed: `pytest 2.ini`, the duplicate `backend/docker-compose.yml`, the sqlite journal, the unused root `.dockerignore`, empty frontend files. |
+| T15 | ~~M~~ ✅ | Tests live under `backend/tests/<app>/`; the two `test_file_upload_security.py` files cover different things and are now `test_file_upload_endpoints.py` / `test_file_upload_validators.py`; empty `tests.py` stubs removed. |
 | T16 | M | No CI. Tests only run through `run_tests.sh` inside Docker. Merge-conflict markers reached `dev` (fixed in `8cfeb6e`) — a CI build would have caught it. |
-| T17 | M | `Frontend/package-lock.json` out of sync with `package.json` (`npm ci` fails: missing `yaml@2.9.1`); `npm run build` fails on `jest/globals` ESLint config unless `DISABLE_ESLINT_PLUGIN=true`. |
+| T17 | M | `frontend/package-lock.json` out of sync with `package.json` (`npm ci` fails: missing `yaml@2.9.1`); `npm run build` fails on `jest/globals` ESLint config unless `DISABLE_ESLINT_PLUGIN=true`. |
 
 ### Frontend
 | # | Sev | Finding |

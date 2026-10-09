@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { statusTone, severityTone } from '../../utils/tones';
 
 const ReportDetail = () => {

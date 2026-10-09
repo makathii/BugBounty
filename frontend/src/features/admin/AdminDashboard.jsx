@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { reportAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { statusTone, severityTone } from '../../utils/tones';

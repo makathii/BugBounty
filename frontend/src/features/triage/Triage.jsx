@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { reportAPI } from '../services/api';
-import { statusTone, severityTone } from '../utils/tones';
+import { reportAPI } from '../../services/api';
+import { statusTone, severityTone } from '../../utils/tones';
 
 const TriageDashboard = () => {
     const [dashboardData, setDashboardData] = useState(null);

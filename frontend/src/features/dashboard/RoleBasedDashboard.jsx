@@ -1,9 +1,9 @@
 // src/components/RoleBasedDashboard.jsx
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import CompanyDashboard from '../../pages/company/CompanyDashboard';
-import ResearcherDashboard from '../../pages/researcher/ResearcherDashboard';
-import AdminDashboard from '../../pages/admin/AdminDashboard';
+import { useAuth } from '../auth/AuthContext';
+import CompanyDashboard from '../company/CompanyDashboard';
+import ResearcherDashboard from '../researcher/ResearcherDashboard';
+import AdminDashboard from '../admin/AdminDashboard';
 
 const RoleBasedDashboard = () => {
     const { user, isCompany, isResearcher, isTriager, isAdmin, loading } = useAuth();

@@ -1,7 +1,7 @@
 // src/pages/Home.jsx — Landing Page (kein Bootstrap, reines Custom CSS)
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import './Home.css';
 
 const faqs = [

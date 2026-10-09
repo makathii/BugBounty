@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProgramWizard from '../../components/company/ProgramWizard';
+import ProgramWizard from './ProgramWizard';
 
 const CreateProgram = () => {
     const navigate = useNavigate();

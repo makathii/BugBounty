@@ -6,7 +6,7 @@ import { statusTone, scopeTone } from '../../utils/tones';
 
 const TextBlock = ({ children }) => <div className="ui-pre" style={{ marginBottom: '1.5rem' }}>{children}</div>;
 
-const ProgramDetailResearcher = () => {
+const ProgramDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -408,4 +408,4 @@ const ProgramDetailResearcher = () => {
     );
 };
 
-export default ProgramDetailResearcher;
+export default ProgramDetail;

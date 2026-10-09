@@ -1,5 +1,5 @@
 import React from 'react';
-import ReportForm from '../../components/reports/ReportForm';
+import ReportForm from './ReportForm';
 import { useNavigate } from 'react-router-dom';
 
 const SubmitReport = () => {

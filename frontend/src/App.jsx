@@ -7,72 +7,39 @@ import {
     useNavigate
 } from 'react-router-dom';
 
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-
+import { ProtectedRoute, TriagerRoute, CompanyRoute, ResearcherRoute } from './app/guards';
 import Navbar from './components/layout/Navbar';
-import RoleBasedDashboard from './components/common/RoleBasedDashboard';
-import ProgramBrowser from './components/researcher/ProgramBrowser';
-import ProgramDetailResearcher from './components/researcher/ProgramDetailResearcher';
 
-// Pages
-import Home from './pages/Home';
-import Triage from './pages/Triage';
-
-// Auth
-import Login from './components/auth/Login';
-import ResearcherRegister from './pages/researcher/ResearcherRegister';
-import CompanyRegister from './pages/company/CompanyRegister';
-import VerifyEmail from './components/auth/VerifyEmail';
-
-// Reports
-import SubmitReport from './pages/reports/SubmitReport';
-import Reports from './pages/reports/Reports';
-import ReportDetail from './pages/reports/ReportDetail';
-
-// Company
-import CompanyRegistration from './components/company/CompanyRegistration';
-import CompanyDashboard from './pages/company/CompanyDashboard';
-import CompanyPrograms from './pages/company/CompanyPrograms';
-import CompanyReports from './pages/company/CompanyReports';
-import CreateProgram from './pages/company/CreateProgram';
-
+/*
+ * NOTE: the order of these imports is also the order global stylesheets load in
+ * (Home.css, auth.css, register.css, Wizard.css and App.css define overlapping
+ * selectors such as .btn and .form-group), so keep App.css after the feature
+ * imports and Home before auth. Scoping those files to their features would
+ * remove this coupling.
+ */
+import { AuthProvider, useAuth } from './features/auth/AuthContext';
+import RoleBasedDashboard from './features/dashboard/RoleBasedDashboard';
+import ProgramBrowser from './features/programs/ProgramBrowser';
+import ProgramDetail from './features/programs/ProgramDetail';
+import Home from './features/home/Home';
+import Triage from './features/triage/Triage';
+import Login from './features/auth/Login';
+import ResearcherRegister from './features/auth/register/ResearcherRegister';
+import CompanyRegister from './features/auth/register/CompanyRegister';
+import VerifyEmail from './features/auth/VerifyEmail';
+import SubmitReport from './features/reports/SubmitReport';
+import Reports from './features/reports/Reports';
+import ReportDetail from './features/reports/ReportDetail';
+import CompanyRegistration from './features/company/CompanyRegistration';
+import CompanyDashboard from './features/company/CompanyDashboard';
+import CompanyPrograms from './features/company/CompanyPrograms';
+import CompanyReports from './features/company/CompanyReports';
+import CreateProgram from './features/company/CreateProgram';
 import './App.css';
-import OAuthSuccess from "./pages/OAuthSuccess";
-import TwoFactorSetup from './components/auth/TwoFactorSetup';
-import TwoFactorSettings from './components/auth/TwoFactorSettings';
-import Leaderboard from "./pages/leaderboard/leaderboard";
-
-
-/* =========================
-   Route guards
-   ========================= */
-
-const ProtectedRoute = ({ children }) => {
-    const { user, loading } = useAuth();
-    if (loading) return <div className="loading-screen">Loading...</div>;
-    return user ? children : <Navigate to="/login" />;
-};
-
-const TriagerRoute = ({ children }) => {
-    const { user, isTriager, loading } = useAuth();
-    if (loading) return <div className="loading-screen">Loading...</div>;
-    return user && isTriager() ? children : <Navigate to="/dashboard" />;
-};
-
-const CompanyRoute = ({ children }) => {
-    const { user, loading, isCompany, hasCompanyProfile } = useAuth();
-    if (loading) return <div className="loading-screen">Loading...</div>;
-    if (!user) return <Navigate to="/login" />;
-    if (isCompany() && !hasCompanyProfile) return <Navigate to="/company-registration" />;
-    return isCompany() ? children : <Navigate to="/dashboard" />;
-};
-
-const ResearcherRoute = ({ children }) => {
-    const { user, loading, isResearcher } = useAuth();
-    if (loading) return <div className="loading-screen">Loading...</div>;
-    if (!user) return <Navigate to="/login" />;
-    return isResearcher() ? children : <Navigate to="/dashboard" />;
-};
+import OAuthSuccess from './features/auth/OAuthSuccess';
+import TwoFactorSetup from './features/auth/TwoFactorSetup';
+import TwoFactorSettings from './features/auth/TwoFactorSettings';
+import Leaderboard from './features/leaderboard/Leaderboard';
 
 
 /* =========================
@@ -156,7 +123,7 @@ function AppContent() {
                         <ResearcherRoute><ProgramBrowser /></ResearcherRoute>
                     } />
                     <Route path="/programs/:id" element={
-                        <ProtectedRoute><ProgramDetailResearcher /></ProtectedRoute>
+                        <ProtectedRoute><ProgramDetail /></ProtectedRoute>
                     } />
 
                     {/* Reports */}

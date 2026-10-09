@@ -1,6 +1,6 @@
 """
 Demo data seeder for trailer recording.
-Run: docker exec -i bugbounty-backend python manage.py shell < scripts/seed_demo.py
+Run: docker exec -i bugbounty-backend python manage.py shell < backend/scripts/seed_demo.py (from the repo root)
 Idempotent — safe to run multiple times.
 All demo accounts use the password: Demo1234!
 """

@@ -1,12 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import './ResearcherRegister.css';
-import { FaGithub, FaGoogle, FaGitlab } from 'react-icons/fa';
+import { useAuth } from '../AuthContext';
+import './register.css';
 
-const ResearcherRegister = () => {
+const CompanyRegister = () => {
     const navigate = useNavigate();
-    const { register, loginWithOAuth } = useAuth();
+    const { register } = useAuth();
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [formData, setFormData] = useState({
@@ -15,7 +14,8 @@ const ResearcherRegister = () => {
         password: '',
         confirmPassword: '',
         firstName: '',
-        lastName: ''
+        lastName: '',
+        companyName: ''
     });
     const captchaRef = useRef(null);
     const widgetIdRef = useRef(null);
@@ -24,66 +24,23 @@ const ResearcherRegister = () => {
     const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
     useEffect(() => {
-        if (!siteKey) {
-            console.error('reCAPTCHA site key is missing');
-            return;
+        if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
+            widgetIdRef.current = window.grecaptcha.render(captchaRef.current, {
+                sitekey: siteKey,
+            });
         }
-
-        const loadRecaptcha = () => {
-            if (!window.grecaptcha) {
-                const script = document.createElement('script');
-                script.src = 'https://www.google.com/recaptcha/api.js';
-                script.async = true;
-                script.defer = true;
-                document.head.appendChild(script);
-
-                script.onload = () => {
-                    renderCaptcha();
-                };
-            } else if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-                renderCaptcha();
-            }
-        };
-
-        const renderCaptcha = () => {
-            try {
-                if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-                    widgetIdRef.current = window.grecaptcha.render(captchaRef.current, {
-                        sitekey: siteKey,
-                    });
-                }
-            } catch (error) {
-                console.error('Error rendering reCAPTCHA:', error);
-            }
-        };
-
-        loadRecaptcha();
-
-        return () => {
-            if (window.grecaptcha && widgetIdRef.current !== null) {
-                try {
-                    window.grecaptcha.reset(widgetIdRef.current);
-                } catch (error) {
-                    console.error('Error resetting captcha:', error);
-                }
-            }
-        };
     }, [siteKey]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-        if (errors[name]) {
-            setErrors(prev => ({
-                ...prev,
-                [name]: ''
-            }));
-        }
-        if (errors.general) {
-            setErrors(prev => ({ ...prev, general: '' }));
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+        if (errors[e.target.name]) {
+            setErrors({
+                ...errors,
+                [e.target.name]: ''
+            });
         }
     };
 
@@ -92,8 +49,6 @@ const ResearcherRegister = () => {
 
         if (!formData.username.trim()) {
             newErrors.username = 'Username is required';
-        } else if (formData.username.length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
         }
 
         if (!formData.email.trim()) {
@@ -120,12 +75,18 @@ const ResearcherRegister = () => {
             newErrors.lastName = 'Last name is required';
         }
 
+        if (!formData.companyName.trim()) {
+            newErrors.companyName = 'Company name is required';
+        }
+
         return newErrors;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrors({});
+
+        setErrors(prev => ({ ...prev, captcha: '' }));
 
         const validationErrors = validateForm();
         if (Object.keys(validationErrors).length > 0) {
@@ -135,11 +96,6 @@ const ResearcherRegister = () => {
 
         const tokenInput = document.querySelector('textarea[name="g-recaptcha-response"]');
         const token = tokenInput ? tokenInput.value : '';
-
-        if (!token) {
-            setErrors({ captcha: 'Please complete the security verification' });
-            return;
-        }
 
         setLoading(true);
 
@@ -151,19 +107,19 @@ const ResearcherRegister = () => {
                 password2: formData.confirmPassword,
                 first_name: formData.firstName,
                 last_name: formData.lastName,
-                role: 'researcher',
+                company_name: formData.companyName,
+                role: 'company',
                 captcha: token
             };
 
             const result = await register(userData);
 
             if (result.success) {
-                // Reset captcha (same as Register.jsx)
                 if (window.grecaptcha && window.grecaptcha.reset) {
                     window.grecaptcha.reset();
                 }
 
-                navigate('/dashboard');
+                navigate('/company/dashboard');
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
@@ -181,13 +137,11 @@ const ResearcherRegister = () => {
                     setErrors({ general: 'Registration failed' });
                 }
 
-                // Reset captcha on error
                 if (window.grecaptcha && window.grecaptcha.reset) {
                     window.grecaptcha.reset();
                 }
             }
         } catch (error) {
-            console.error('Registration error:', error);
             setErrors({ general: 'An unexpected error occurred' });
 
             if (window.grecaptcha && window.grecaptcha.reset) {
@@ -202,9 +156,9 @@ const ResearcherRegister = () => {
         <div className="researcher-register-page">
             <div className="register-container">
                 <div className="register-header">
-                    <h1>Join as Security Researcher</h1>
+                    <h1>Company Registration</h1>
                     <p className="subtitle">
-                        Start finding vulnerabilities and earning bounties
+                        Create your company account to start a bug bounty program
                     </p>
                 </div>
 
@@ -212,7 +166,7 @@ const ResearcherRegister = () => {
                     <div className="alert alert-danger">{errors.general}</div>
                 )}
 
-                <form onSubmit={handleSubmit} className="researcher-register-form">
+                <form onSubmit={handleSubmit} className="company-register-form">
                     <div className="form-section">
                         <h3>Account Information</h3>
 
@@ -241,7 +195,7 @@ const ResearcherRegister = () => {
                                 onChange={handleChange}
                                 className={errors.email ? 'error' : ''}
                                 disabled={loading}
-                                placeholder="your.email@example.com"
+                                placeholder="company@example.com"
                             />
                             {errors.email && <div className="error-text">{errors.email}</div>}
                         </div>
@@ -313,54 +267,34 @@ const ResearcherRegister = () => {
                                 {errors.lastName && <div className="error-text">{errors.lastName}</div>}
                             </div>
                         </div>
+
+                        <div className="form-group">
+                            <label htmlFor="companyName">Company Name *</label>
+                            <input
+                                type="text"
+                                id="companyName"
+                                name="companyName"
+                                value={formData.companyName}
+                                onChange={handleChange}
+                                className={errors.companyName ? 'error' : ''}
+                                disabled={loading}
+                                placeholder="Your company name"
+                            />
+                            {errors.companyName && <div className="error-text">{errors.companyName}</div>}
+                        </div>
                     </div>
 
-                    <div className="form-section">
+                    {/* CAPTCHA */}
+                    <div className='form-section'>
                         <h3>Security Verification</h3>
-                        <div className="form-group">
+                        <div className='form-group'>
                             <div
                                 className="g-recaptcha"
                                 ref={captchaRef}
                             />
-                            {errors.captcha && <div className="error-text">{errors.captcha}</div>}
-                        </div>
-                    </div>
-
-                    <div className="oauth-register">
-                        <div className="auth-divider">
-                            <span>OR SIGN UP WITH</span>
-                        </div>
-
-                        <div className="oauth-buttons">
-                            <button
-                                type="button"
-                                className="oauth-btn github"
-                                onClick={() => loginWithOAuth('github')}
-                                disabled={loading}
-                            >
-                                <FaGithub className="btn-icon" size={24} />
-                                Continue with GitHub
-                            </button>
-
-                            <button
-                                type="button"
-                                className="oauth-btn google"
-                                onClick={() => loginWithOAuth('google')}
-                                disabled={loading}
-                            >
-                                <FaGoogle className="btn-icon" size={24} />
-                                Continue with Google
-                            </button>
-
-                            <button
-                                type="button"
-                                className="oauth-btn gitlab"
-                                onClick={() => loginWithOAuth('gitlab')}
-                                disabled={loading}
-                            >
-                                <FaGitlab className="btn-icon" size={24} />
-                                Continue with GitLab
-                            </button>
+                            {errors.captcha && (
+                                <span className='error-text'>{errors.captcha}</span>
+                            )}
                         </div>
                     </div>
 
@@ -368,20 +302,13 @@ const ResearcherRegister = () => {
                         <label className="checkbox-label">
                             <input type="checkbox" required disabled={loading} />
                             <span>
-                                I agree to the{' '}
-                                <a href="/terms" target="_blank" rel="noopener noreferrer">
-                                    Terms of Service
-                                </a>{' '}
-                                and{' '}
-                                <a href="/privacy" target="_blank" rel="noopener noreferrer">
-                                    Privacy Policy
-                                </a>
+                                I agree to the Terms of Service and Privacy Policy
                             </span>
                         </label>
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                        {loading ? 'Creating Account...' : 'Register as Researcher'}
+                        {loading ? 'Creating Account...' : 'Create Company Account'}
                     </button>
 
                     <div className="auth-links">
@@ -389,7 +316,7 @@ const ResearcherRegister = () => {
                             Already have an account? <Link to="/login">Sign In</Link>
                         </p>
                         <p>
-                            Want to run a bug bounty program? <Link to="/register/company">Register as Company</Link>
+                            Want to find vulnerabilities? <Link to="/register/researcher">Register as Researcher</Link>
                         </p>
                     </div>
                 </form>
@@ -398,4 +325,4 @@ const ResearcherRegister = () => {
     );
 };
 
-export default ResearcherRegister;
+export default CompanyRegister;
