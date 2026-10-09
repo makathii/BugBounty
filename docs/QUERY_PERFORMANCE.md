@@ -20,6 +20,10 @@
 
 `BugReport` is the hottest and largest table and has the weakest indexing.
 
+## 2. Hot paths reviewed
+
+Report list/detail/triage dashboard (`reports/views.py`), program list/stats/dashboards (`programs/views.py`, `programs/serializers.py`), leaderboard (`leaderboard/services.py`), post-save signals, duplicate detection, audit middleware.
+
 ## 3. Query-level bottlenecks (ranked)
 
 **3.1 Role checks hit the DB repeatedly — *High confidence*.**
