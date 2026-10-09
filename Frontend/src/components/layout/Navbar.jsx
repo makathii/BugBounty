@@ -97,6 +97,13 @@ const Navbar = () => {
                                 </>
                             )}
 
+                            <Link
+                                to="/2fa/settings"
+                                className={`nav-link ${location.pathname.startsWith('/2fa') ? 'active' : ''}`}
+                            >
+                                Security
+                            </Link>
+
                             <div className="nav-user">
                                 <span>Welcome, {user.first_name || user.username}</span>
                                 <button onClick={handleLogout} className="logout-btn">

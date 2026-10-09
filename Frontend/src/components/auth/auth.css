@@ -516,7 +516,6 @@
 /* ==========================================================================
    Two-factor authentication screens (verify / setup / settings)
    ========================================================================== */
-.register-container.tf-narrow { max-width: 450px; }
 .register-container.tf-medium { max-width: 500px; }
 .register-container.tf-wide   { max-width: 600px; }
 
@@ -561,9 +560,6 @@
   font-size: 1.5rem;
   letter-spacing: 0.5rem;
 }
-.form-group input.tf-code-input--lg { font-size: 2rem; letter-spacing: 1rem; padding: 1.5rem; }
-.form-group input.tf-code-input--backup { letter-spacing: 0.25rem; }
-.tf-warning { display: block; margin-top: 0.5rem; color: var(--color-yellow); }
 
 /* QR + manual key */
 .tf-qr {
@@ -638,25 +634,5 @@
 .tf-confirm-actions { display: flex; gap: 0.75rem; }
 .tf-confirm-actions .tf-btn { flex: 1; }
 
-.tf-link-row { margin-top: 1.5rem; text-align: center; }
-.tf-link-btn {
-  background: none; border: none; padding: 0;
-  color: var(--color-accent-2);
-  font: inherit; font-size: 0.9rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.tf-link-btn:hover { color: #fff; }
 
-.tf-tip {
-  margin-top: 2rem;
-  padding: 1rem;
-  background: rgba(124, 106, 255, 0.1);
-  border: 1px solid rgba(124, 106, 255, 0.2);
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-.tf-tip .tf-tip-label { color: var(--color-accent-2); }
-.tf-tip strong { color: var(--color-text); }
 .tf-icon-lg { font-size: 3rem; margin-bottom: 1rem; }

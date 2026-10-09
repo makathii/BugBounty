@@ -118,6 +118,8 @@ REST_FRAMEWORK = {
         'oauth_init': '10/min',
         'oauth_callback': '10/min',
         'token_refresh': '30/min',
+        # TOTP / backup code checks for logged-in users (confirm, disable, regenerate)
+        'mfa_code': '10/min',
     }
 }
 

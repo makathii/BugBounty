@@ -115,12 +115,11 @@ const Login = () => {
                                 type="text"
                                 id="totp_code"
                                 name="totp_code"
-                                placeholder="6-digit code from your authenticator app"
+                                placeholder="6-digit code or a backup code"
                                 value={formData.totp_code}
                                 onChange={handleChange}
                                 autoComplete="one-time-code"
-                                inputMode="numeric"
-                                maxLength={8}
+                                maxLength={10}
                                 disabled={isLoading}
                                 autoFocus
                             />

@@ -25,7 +25,7 @@ def disable_throttling(monkeypatch):
         'LoginThrottle', 'RegisterThrottle', 'SubmissionThrottle',
         'BurstRateThrottle', 'PasswordResetThrottle',
         'PasswordResetEmailThrottle', 'PasswordResetConfirmThrottle',
-        'TokenRefreshThrottle',
+        'TokenRefreshThrottle', 'MfaCodeThrottle',
     ):
         monkeypatch.setattr(getattr(throttles, name), 'allow_request',
                             lambda self, request, view: True)

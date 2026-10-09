@@ -245,3 +245,65 @@ class TestMFAStatusEndpoint:
         api_client.force_authenticate(user=verified_user)
         resp = api_client.get(self.URL)
         assert resp.data['is_required'] is False
+
+
+# ---------------------------------------------------------------------------
+# POST /api/users/mfa/backup-codes/  (regenerate)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestMFARegenerateBackupCodes:
+    URL = '/api/users/mfa/backup-codes/'
+
+    def test_unauthenticated_returns_401(self, api_client):
+        assert api_client.post(self.URL, {'code': '123456'}, format='json').status_code == 401
+
+    def test_valid_totp_returns_fresh_codes_and_invalidates_old(self, api_client, verified_user):
+        mfa = _enable_mfa(verified_user)
+        old = BackupCode.generate_for_user(verified_user)
+        api_client.force_authenticate(verified_user)
+
+        resp = api_client.post(self.URL, {'code': _valid_totp_code(mfa)}, format='json')
+
+        assert resp.status_code == 200
+        codes = resp.data['backup_codes']
+        assert len(codes) == BackupCode.CODES_PER_USER
+        assert not set(codes) & set(old)
+        assert BackupCode.use_code(verified_user, old[0]) is False   # old set is gone
+        assert BackupCode.use_code(verified_user, codes[0]) is True
+
+    def test_invalid_code_rejected_and_codes_unchanged(self, api_client, verified_user):
+        _enable_mfa(verified_user)
+        old = BackupCode.generate_for_user(verified_user)
+        api_client.force_authenticate(verified_user)
+
+        resp = api_client.post(self.URL, {'code': '000000'}, format='json')
+
+        assert resp.status_code == 400
+        assert BackupCode.use_code(verified_user, old[0]) is True
+
+    def test_backup_code_is_not_accepted_as_authorisation(self, api_client, verified_user):
+        _enable_mfa(verified_user)
+        old = BackupCode.generate_for_user(verified_user)
+        api_client.force_authenticate(verified_user)
+        assert api_client.post(self.URL, {'code': old[0]}, format='json').status_code == 400
+
+    def test_requires_code(self, api_client, verified_user):
+        _enable_mfa(verified_user)
+        api_client.force_authenticate(verified_user)
+        assert api_client.post(self.URL, {}, format='json').status_code == 400
+
+    def test_requires_mfa_enabled(self, api_client, verified_user):
+        api_client.force_authenticate(verified_user)
+        assert api_client.post(self.URL, {'code': '123456'}, format='json').status_code == 400
+        UserMFA.objects.create(user=verified_user, secret=UserMFA.generate_secret(), is_enabled=False)
+        assert api_client.post(self.URL, {'code': '123456'}, format='json').status_code == 400
+
+
+@pytest.mark.django_db
+def test_mfa_code_endpoints_are_throttled():
+    from users.throttles import MfaCodeThrottle
+    from users import views
+    assert MfaCodeThrottle.scope == 'mfa_code'
+    for fn in (views.mfa_confirm, views.mfa_disable, views.mfa_regenerate_backup_codes):
+        assert MfaCodeThrottle in fn.cls.throttle_classes

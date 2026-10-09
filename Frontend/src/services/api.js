@@ -78,6 +78,18 @@ export const authAPI = {
 };
 
 // ---------------------------------------------------------------------------
+// Two-factor authentication (TOTP)
+// ---------------------------------------------------------------------------
+
+export const mfaAPI = {
+    getStatus:             ()     => api.get('/users/mfa/status/'),
+    setup:                 ()     => api.post('/users/mfa/setup/'),
+    confirm:               (code) => api.post('/users/mfa/confirm/', { code }),
+    disable:               (code) => api.post('/users/mfa/disable/', { code }),
+    regenerateBackupCodes: (code) => api.post('/users/mfa/backup-codes/', { code }),
+};
+
+// ---------------------------------------------------------------------------
 // Company
 // ---------------------------------------------------------------------------
 

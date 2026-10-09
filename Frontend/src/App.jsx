@@ -38,6 +38,8 @@ import CreateProgram from './pages/company/CreateProgram';
 
 import './App.css';
 import OAuthSuccess from "./pages/OAuthSuccess";
+import TwoFactorSetup from './components/auth/TwoFactorSetup';
+import TwoFactorSettings from './components/auth/TwoFactorSettings';
 import Leaderboard from "./pages/leaderboard/leaderboard";
 
 
@@ -119,6 +121,14 @@ function AppContent() {
                     {/* Dashboard */}
                     <Route path="/dashboard" element={
                         <ProtectedRoute><RoleBasedDashboard /></ProtectedRoute>
+                    } />
+
+                    {/* Two-factor authentication */}
+                    <Route path="/2fa/setup" element={
+                        <ProtectedRoute><TwoFactorSetup /></ProtectedRoute>
+                    } />
+                    <Route path="/2fa/settings" element={
+                        <ProtectedRoute><TwoFactorSettings /></ProtectedRoute>
                     } />
 
                     {/* Company registration */}

@@ -1,37 +1,47 @@
 // src/components/auth/TwoFactorSetup.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
+import { mfaAPI } from '../../services/api';
+import { downloadBackupCodes } from './backupCodes';
 import './auth.css';
+
+const errorText = (err, fallback) => err.response?.data?.detail || fallback;
 
 const TwoFactorSetup = () => {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1); // 1: QR Code, 2: Verify Code
-    const [qrCode, setQrCode] = useState('');
+    const [step, setStep] = useState(1); // 1: scan + verify, 2: backup codes
+    const [provisioningUri, setProvisioningUri] = useState('');
     const [secret, setSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [backupCodes, setBackupCodes] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    // POST /mfa/setup/ rotates the secret, so it must run exactly once per visit
+    // (React StrictMode would otherwise call it twice and the QR could go stale).
+    const requested = useRef(false);
 
     useEffect(() => {
-        // Load QR code and secret from backend
-        loadQRCode();
-    }, []);
+        if (requested.current) return;
+        requested.current = true;
 
-    const loadQRCode = async () => {
-        try {
-            // TODO: Replace with actual API call
-            // const response = await api.post('/users/2fa/setup/');
-            // setQrCode(response.data.qr_code);
-            // setSecret(response.data.secret);
-
-            // Simulate API response
-            setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-            setSecret('JBSWY3DPEHPK3PXP');
-        } catch (err) {
-            setError('Failed to load 2FA setup');
-        }
-    };
+        const init = async () => {
+            try {
+                // An already-enabled account must not be handed its secret again.
+                const { data: status } = await mfaAPI.getStatus();
+                if (status.is_enabled) {
+                    navigate('/2fa/settings', { replace: true });
+                    return;
+                }
+                const { data } = await mfaAPI.setup();
+                setSecret(data.secret);
+                setProvisioningUri(data.provisioning_uri);
+            } catch (err) {
+                setError(errorText(err, 'Failed to load 2FA setup'));
+            }
+        };
+        init();
+    }, [navigate]);
 
     const handleVerify = async (e) => {
         e.preventDefault();
@@ -39,44 +49,14 @@ const TwoFactorSetup = () => {
         setError('');
 
         try {
-            // TODO: Replace with actual API call
-            // const response = await api.post('/users/2fa/verify/', {
-            //     code: verificationCode
-            // });
-            // setBackupCodes(response.data.backup_codes);
-
-            // Simulate API response
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setBackupCodes([
-                'A1B2-C3D4-E5F6',
-                'G7H8-I9J0-K1L2',
-                'M3N4-O5P6-Q7R8',
-                'S9T0-U1V2-W3X4',
-                'Y5Z6-A7B8-C9D0',
-                'E1F2-G3H4-I5J6',
-                'K7L8-M9N0-O1P2',
-                'Q3R4-S5T6-U7V8'
-            ]);
+            const { data } = await mfaAPI.confirm(verificationCode);
+            setBackupCodes(data.backup_codes || []);
             setStep(2);
         } catch (err) {
-            setError(err.response?.data?.error || 'Invalid verification code');
+            setError(errorText(err, 'Invalid verification code'));
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const handleComplete = () => {
-        navigate('/dashboard');
-    };
-
-    const downloadBackupCodes = () => {
-        const text = backupCodes.join('\n');
-        const blob = new Blob([text], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'bugbounty-backup-codes.txt';
-        link.click();
     };
 
     if (step === 2) {
@@ -85,24 +65,24 @@ const TwoFactorSetup = () => {
                 <div className="register-container tf-medium">
                     <div className="auth-header">
                         <h2>Save Your Backup Codes</h2>
-                        <p>Store these codes in a safe place. Each can only be used once.</p>
+                        <p>Store these codes in a safe place. Each can only be used once and they will not be shown again.</p>
                     </div>
 
                     <div className="success-message">✓ Two-Factor Authentication Enabled</div>
 
                     <div className="tf-panel">
                         <div className="tf-codes">
-                            {backupCodes.map((code, idx) => (
-                                <div key={idx}>{code}</div>
+                            {backupCodes.map((code) => (
+                                <div key={code}>{code}</div>
                             ))}
                         </div>
                     </div>
 
-                    <button type="button" className="tf-btn tf-btn--block" onClick={downloadBackupCodes}>
+                    <button type="button" className="tf-btn tf-btn--block" onClick={() => downloadBackupCodes(backupCodes)}>
                         📥 Download Backup Codes
                     </button>
 
-                    <button type="button" className="submit-btn" onClick={handleComplete}>
+                    <button type="button" className="submit-btn" onClick={() => navigate('/dashboard')}>
                         Continue to Dashboard
                     </button>
                 </div>
@@ -124,8 +104,8 @@ const TwoFactorSetup = () => {
                     <h3 className="tf-panel-title tf-panel-title--sm">Step 1: Scan QR Code</h3>
 
                     <div className="tf-qr">
-                        {qrCode ? (
-                            <img src={qrCode} alt="QR Code" />
+                        {provisioningUri ? (
+                            <QRCodeSVG value={provisioningUri} size={200} level="M" title="2FA QR code" />
                         ) : (
                             <div className="tf-qr-placeholder">
                                 <span className="loading-spinner"></span>
@@ -134,7 +114,7 @@ const TwoFactorSetup = () => {
                     </div>
 
                     <p className="tf-text" style={{ marginBottom: '0.5rem' }}>Or enter this key manually:</p>
-                    <code className="tf-secret">{secret}</code>
+                    <code className="tf-secret">{secret || '…'}</code>
                 </div>
 
                 <form onSubmit={handleVerify}>
@@ -153,6 +133,8 @@ const TwoFactorSetup = () => {
                                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                 maxLength="6"
                                 pattern="[0-9]{6}"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
                                 required
                                 disabled={isLoading}
                             />
@@ -161,7 +143,7 @@ const TwoFactorSetup = () => {
 
                     <button
                         type="submit"
-                        disabled={isLoading || verificationCode.length !== 6}
+                        disabled={isLoading || verificationCode.length !== 6 || !secret}
                         className="submit-btn"
                     >
                         {isLoading && <span className="loading-spinner"></span>}

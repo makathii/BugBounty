@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -18,6 +18,7 @@ from .throttles import (
     PasswordResetThrottle, PasswordResetEmailThrottle, PasswordResetConfirmThrottle,
     TokenRefreshThrottle,
 )
+from .throttles import MfaCodeThrottle
 from .models import Profile, PasswordResetToken, AccountLockout, UserSession, UserMFA, BackupCode
 from .jwt_cookies import set_jwt_cookies, clear_jwt_cookies
 from reports.captcha import verify_recaptcha
@@ -609,6 +610,7 @@ def mfa_setup(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@throttle_classes([MfaCodeThrottle])
 def mfa_confirm(request):
     """
     POST /api/users/mfa/confirm/  { "code": "123456" }
@@ -640,6 +642,7 @@ def mfa_confirm(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@throttle_classes([MfaCodeThrottle])
 def mfa_disable(request):
     """
     POST /api/users/mfa/disable/  { "code": "123456" }
@@ -673,6 +676,36 @@ def mfa_disable(request):
     BackupCode.objects.filter(user=request.user).delete()
 
     return Response({'detail': '2FA has been disabled.'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@throttle_classes([MfaCodeThrottle])
+def mfa_regenerate_backup_codes(request):
+    """
+    POST /api/users/mfa/backup-codes/  { "code": "123456" }
+    Replaces all backup codes with a fresh set. Requires a current TOTP code
+    (a backup code is deliberately not accepted: it would let one leaked code
+    mint ten more). The new plaintext codes are returned once.
+    """
+    code = request.data.get('code')
+    if not code:
+        return Response({'detail': 'code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        mfa = request.user.mfa
+    except UserMFA.DoesNotExist:
+        return Response({'detail': '2FA is not enabled on this account.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not mfa.is_enabled:
+        return Response({'detail': '2FA is not enabled on this account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not mfa.verify_code(str(code)):
+        return Response({'detail': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        'detail': 'New backup codes generated. Previous codes no longer work.',
+        'backup_codes': BackupCode.generate_for_user(request.user),
+    })
 
 
 @api_view(['GET'])

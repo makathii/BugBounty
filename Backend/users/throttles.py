@@ -70,3 +70,10 @@ class OAuthCallbackThrottle(AnonRateThrottle):
     key — multiple users behind the same NAT will share a bucket but the
     rate is generous enough to absorb that."""
     scope = 'oauth_callback'
+
+
+class MfaCodeThrottle(UserRateThrottle):
+    """Limits endpoints that check a TOTP/backup code for an already
+    authenticated user, so a stolen session cannot brute-force the 6-digit
+    code (or disable 2FA) at full speed."""
+    scope = 'mfa_code'
