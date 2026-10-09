@@ -27,7 +27,8 @@ docker compose up --build       # db, redis, backend, celery worker + beat, fron
 `docker compose up --build` so the images are rebuilt; a stale backend image fails with
 `ModuleNotFoundError: No module named 'config'`.
 
-Frontend: http://localhost:3000, API: http://localhost:8000/api. Demo data and accounts: `DEMO_ACCOUNTS.md`.
+Frontend: http://localhost:3000, API: http://localhost:8000/api, email inbox (Mailpit): http://localhost:8025
+(verification and password-reset emails are delivered there, not to real addresses). Demo data and accounts: `DEMO_ACCOUNTS.md`.
 
 ## Test
 

@@ -69,6 +69,7 @@ export const authAPI = {
     getGroups:            ()     => api.get('/users/groups/'),
     logout:               (data) => api.post('/users/logout/', data),
     verifyEmail:          (token)=> api.get(`/users/verify-email/${token}/`),
+    resendVerification:   (email) => api.post('/users/resend-verification/', { email }),
 
     // Password reset: the request always answers 200 (no account enumeration)
     requestPasswordReset: (email) => api.post('/users/password-reset/', { email }),

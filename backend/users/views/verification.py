@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from ..emails import send_verification_email
 from ..models import Profile
 
 
@@ -55,24 +56,11 @@ def resend_verification_email(request):
                     status=status.HTTP_429_TOO_MANY_REQUESTS
                 )
 
-        # Generate new token and send
-        import secrets
-        from django.core.mail import send_mail
-        from django.conf import settings
-        token = secrets.token_urlsafe(32)
-        profile.email_verification_token = token
-        profile.email_verification_sent_at = timezone.now()
-        profile.save()
-
-        verify_url = f"http://localhost:3000/verify-email/{token}"
-
-        send_mail(
-            subject="Verify your email - BugBounty Platform",
-            message=f"Hi {user.first_name or user.username},\n\nPlease click the link below to verify your email address:\n\n{verify_url}\n\nIf you didn't create an account, you can ignore this email.\n\nBest regards,\nBugBounty Team",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        if not send_verification_email(user):
+            return Response(
+                {"detail": "We could not send the email right now. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response({"detail": "Verification email sent successfully"})
 

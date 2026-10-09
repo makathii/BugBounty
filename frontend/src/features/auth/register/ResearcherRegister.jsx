@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import RegistrationSuccessModal from './RegistrationSuccessModal';
 import { useAuth } from '../AuthContext';
 import './register.css';
 import { FaGithub, FaGoogle, FaGitlab } from 'react-icons/fa';
@@ -8,6 +9,7 @@ const ResearcherRegister = () => {
     const navigate = useNavigate();
     const { register, loginWithOAuth } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState(null); // set => show the success popup
     const [errors, setErrors] = useState({});
     const [formData, setFormData] = useState({
         username: '',
@@ -163,7 +165,7 @@ const ResearcherRegister = () => {
                     window.grecaptcha.reset();
                 }
 
-                navigate('/dashboard');
+                setRegisteredEmail(formData.email);
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
@@ -200,6 +202,12 @@ const ResearcherRegister = () => {
 
     return (
         <div className="researcher-register-page">
+            {registeredEmail && (
+                <RegistrationSuccessModal
+                    email={registeredEmail}
+                    onLogin={() => navigate('/login')}
+                />
+            )}
             <div className="register-container">
                 <div className="register-header">
                     <h1>Join as Security Researcher</h1>

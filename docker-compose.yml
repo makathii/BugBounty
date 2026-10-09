@@ -34,6 +34,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mailpit — local SMTP server that catches every email the backend sends (verification
+  # links, password resets) and shows them in a web inbox: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: bugbounty-mailpit
+    ports:
+      - "8025:8025"   # web UI
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
   # Django backend
   backend:
     build: 
@@ -58,6 +69,16 @@ services:
     environment: &backend-env
       - CELERY_BROKER_URL=${CELERY_BROKER_URL-redis://redis:6379/0}   # empty -> tasks run inline in the web process
       - REDIS_URL=${REDIS_URL-redis://redis:6379/1}   # set REDIS_URL= (empty) to use the in-process cache
+      # Email: by default everything goes to the local Mailpit inbox (http://localhost:8025).
+      # Override EMAIL_* in .env to use a real SMTP server (see .env.example).
+      - EMAIL_BACKEND=${EMAIL_BACKEND:-smtp}
+      - EMAIL_HOST=${EMAIL_HOST:-mailpit}
+      - EMAIL_PORT=${EMAIL_PORT:-1025}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS:-False}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER:-}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD:-}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-no-reply@bugbounty.local}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - DB_CONN_MAX_AGE=${DB_CONN_MAX_AGE:-60}
       - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-365}
       # Secrets & tunables come from .env (same directory, auto-loaded by

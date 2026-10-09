@@ -218,3 +218,37 @@ def test_register_returns_verification_message(api_client, unique_user_payload):
 
     assert response.status_code == 201
     assert "check your email" in response.data["message"].lower() or "verify" in response.data["message"].lower()
+
+
+@pytest.mark.django_db
+def test_verification_link_uses_frontend_url(api_client, unique_user_payload, settings):
+    settings.FRONTEND_URL = "https://app.example.test/"
+    api_client.post("/api/users/register/", unique_user_payload, format="json")
+    token = User.objects.get(username=unique_user_payload["username"]).profile.email_verification_token
+    assert f"https://app.example.test/verify-email/{token}" in mail.outbox[-1].body
+
+
+@pytest.mark.django_db
+def test_registration_survives_a_broken_mail_server(api_client, unique_user_payload, monkeypatch):
+    def boom(*a, **k):
+        raise ConnectionRefusedError("smtp down")
+    monkeypatch.setattr("users.emails.send_mail", boom)
+
+    resp = api_client.post("/api/users/register/", unique_user_payload, format="json")
+
+    assert resp.status_code == 201
+    user = User.objects.get(username=unique_user_payload["username"])
+    assert user.profile.email_verification_token   # stored, so "resend" can still work
+
+
+@pytest.mark.django_db
+def test_resend_reports_failure_when_mail_server_is_down(api_client, unique_user_payload, monkeypatch):
+    api_client.post("/api/users/register/", unique_user_payload, format="json")
+    Profile.objects.filter(user__username=unique_user_payload["username"]).update(
+        email_verification_sent_at=timezone.now() - timedelta(minutes=5)
+    )
+    monkeypatch.setattr("users.emails.send_mail", lambda *a, **k: (_ for _ in ()).throw(OSError("down")))
+
+    resp = api_client.post("/api/users/resend-verification/", {"email": unique_user_payload["email"]}, format="json")
+
+    assert resp.status_code == 503

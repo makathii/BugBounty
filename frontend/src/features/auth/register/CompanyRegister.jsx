@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import RegistrationSuccessModal from './RegistrationSuccessModal';
 import { useAuth } from '../AuthContext';
 import './register.css';
 
@@ -7,6 +8,7 @@ const CompanyRegister = () => {
     const navigate = useNavigate();
     const { register } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState(null); // set => show the success popup
     const [errors, setErrors] = useState({});
     const [formData, setFormData] = useState({
         username: '',
@@ -119,7 +121,7 @@ const CompanyRegister = () => {
                     window.grecaptcha.reset();
                 }
 
-                navigate('/company/dashboard');
+                setRegisteredEmail(formData.email);
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
@@ -154,6 +156,12 @@ const CompanyRegister = () => {
 
     return (
         <div className="researcher-register-page">
+            {registeredEmail && (
+                <RegistrationSuccessModal
+                    email={registeredEmail}
+                    onLogin={() => navigate('/login')}
+                />
+            )}
             <div className="register-container">
                 <div className="register-header">
                     <h1>Company Registration</h1>
