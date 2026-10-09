@@ -74,6 +74,12 @@ const Navbar = () => {
                                     >
                                         Leaderboard
                                     </Link>
+                                    <Link
+                                        to="/wallet"
+                                        className={`nav-link ${location.pathname === '/wallet' ? 'active' : ''}`}
+                                    >
+                                        Wallet
+                                    </Link>
                                 </>
                             )}
 

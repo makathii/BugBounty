@@ -8,7 +8,7 @@ Django REST backend, React frontend, PostgreSQL, Redis, Celery.
 ```
 backend/    Django project (config/ + one app per domain: users, reports, programs, audit, leaderboard; core/ helpers)
 frontend/   React app (src/features/<feature>/, shared src/components, src/services/api.js, src/styles/theme.css)
-docs/       architecture review and performance roadmap (ARCHITECTURE_AND_TECH_DEBT.md, QUERY_PERFORMANCE.md)
+docs/       architecture review and performance roadmap (ARCHITECTURE_AND_TECH_DEBT.md, QUERY_PERFORMANCE.md), points and wallet (POINTS_AND_WALLET.md)
 ```
 
 Backend apps keep `models/` and `views/` as packages with one module per model / resource;

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 import CommentThread from './CommentThread';
 
 const ReportDetail = () => {
@@ -18,7 +19,8 @@ const ReportDetail = () => {
     const [showAcceptModal, setShowAcceptModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [verificationNotes, setVerificationNotes] = useState('');
-    const [bountyAmount, setBountyAmount] = useState('');
+    const [bonusPoints, setBonusPoints] = useState('');
+    const [acceptError, setAcceptError] = useState('');
 
     useEffect(() => {
         loadReport();
@@ -49,14 +51,17 @@ const ReportDetail = () => {
         try {
             await reportAPI.acceptReport(id, {
                 verification_notes: verificationNotes,
-                bounty_amount: bountyAmount
+                bonus_points: bonusPoints || 0
             });
             setShowAcceptModal(false);
             setVerificationNotes('');
-            setBountyAmount('');
+            setBonusPoints('');
+            setAcceptError('');
             loadReport(); // Refresh report
+            loadActivityLogs();
         } catch (error) {
             console.error('Failed to accept report:', error);
+            setAcceptError(error.response?.data?.error || 'Could not accept the report.');
         }
     };
 
@@ -113,8 +118,8 @@ const ReportDetail = () => {
                     <div className="ui-row">
                         <span className={`ui-badge ${statusTone(report.status)}`}>{report.status}</span>
                         <span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity} severity</span>
-                        {report.bounty_amount && (
-                            <span className="ui-badge tone-green">Bounty: ${report.bounty_amount}</span>
+                        {report.points_awarded > 0 && (
+                            <span className="ui-badge tone-green">+{formatPoints(report.points_awarded)}</span>
                         )}
                     </div>
                 </div>
@@ -243,14 +248,20 @@ const ReportDetail = () => {
                     <div className="ui-modal">
                         <h3 className="ui-section-title">Accept Report</h3>
                         <div className="ui-field">
-                            <label className="ui-label">Bounty Amount ($)</label>
+                            <label className="ui-label">Bonus Points (optional)</label>
                             <input
                                 type="number"
+                                min="0"
+                                max="1000"
+                                step="1"
                                 className="ui-input ui-input--block"
-                                value={bountyAmount}
-                                onChange={(e) => setBountyAmount(e.target.value)}
-                                placeholder="Enter bounty amount"
+                                value={bonusPoints}
+                                onChange={(e) => setBonusPoints(e.target.value)}
+                                placeholder="0"
                             />
+                            <div className="ui-muted ui-small" style={{ marginTop: '0.35rem' }}>
+                                Added on top of the points for the report's severity. Max 1,000.
+                            </div>
                         </div>
                         <div className="ui-field">
                             <label className="ui-label">Verification Notes</label>
@@ -262,13 +273,15 @@ const ReportDetail = () => {
                                 placeholder="Add verification notes..."
                             />
                         </div>
+                        {acceptError && <div className="ui-muted ui-small" style={{ color: '#f87171', marginBottom: '0.75rem' }}>{acceptError}</div>}
                         <div className="ui-row" style={{ justifyContent: 'flex-end' }}>
                             <button
                                 className="ui-btn ui-btn--ghost"
                                 onClick={() => {
                                     setShowAcceptModal(false);
                                     setVerificationNotes('');
-                                    setBountyAmount('');
+                                    setBonusPoints('');
+                                    setAcceptError('');
                                 }}
                             >
                                 Cancel

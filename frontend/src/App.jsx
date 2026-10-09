@@ -43,6 +43,7 @@ import TwoFactorVerify from './features/auth/TwoFactorVerify';
 import TwoFactorSetup from './features/auth/TwoFactorSetup';
 import TwoFactorSettings from './features/auth/TwoFactorSettings';
 import Leaderboard from './features/leaderboard/Leaderboard';
+import Wallet from './features/wallet/Wallet';
 
 
 /* =========================
@@ -83,6 +84,11 @@ function AppContent() {
                     <Route path="/verify-email/:token" element={<VerifyEmail />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+                    {/* Points wallet — researchers */}
+                    <Route path="/wallet" element={
+                        <ResearcherRoute><Wallet /></ResearcherRoute>
+                    } />
 
                     {/*Leaderboard */}
                     <Route path="/leaderboard" element={<Leaderboard />} />

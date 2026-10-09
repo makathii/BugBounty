@@ -48,10 +48,10 @@ const AdminDashboard = () => {
         const verificationNotes = prompt('Enter verification notes:');
         if (!verificationNotes) return;
 
-        const bountyAmount = prompt('Enter bounty amount (optional):');
+        const bonusPoints = prompt('Bonus points on top of the severity points (optional):');
         const data = {
             verification_notes: verificationNotes,
-            ...(bountyAmount && { bounty_amount: bountyAmount })
+            ...(bonusPoints && { bonus_points: bonusPoints })
         };
 
         try {

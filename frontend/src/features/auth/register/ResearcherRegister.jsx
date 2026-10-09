@@ -155,7 +155,7 @@ const ResearcherRegister = () => {
                 <div className="register-header">
                     <h1>Join as Security Researcher</h1>
                     <p className="subtitle">
-                        Start finding vulnerabilities and earning bounties
+                        Start finding vulnerabilities and earning points
                     </p>
                 </div>
 

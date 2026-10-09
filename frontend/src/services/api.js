@@ -210,6 +210,11 @@ export const reportAPI = {
     getStats:             ()     => api.get('/reports/stats/'),
 };
 
+export const walletAPI = {
+    getWallet:       () => api.get('/wallet/'),
+    getTransactions: (params) => api.get('/wallet/transactions/', { params }),
+};
+
 export const leaderboardAPI = {
     getLeaderboard: (params) => api.get('/leaderboard/', { params }),
     getMe: (params) => api.get('/leaderboard/me/', { params }),

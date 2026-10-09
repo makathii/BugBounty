@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import api, { reportAPI } from '../../services/api';
+import api, { reportAPI, walletAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const ResearcherDashboard = () => {
     const { user } = useAuth();
@@ -12,21 +13,24 @@ const ResearcherDashboard = () => {
     const [submissions, setSubmissions] = useState([]);
     const [programs, setPrograms] = useState([]);
     const [leaderboard, setLeaderboard] = useState([]);
+    const [wallet, setWallet] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const load = async () => {
             try {
-                const [statsRes, subsRes, programsRes, lbRes] = await Promise.all([
+                const [statsRes, subsRes, programsRes, lbRes, walletRes] = await Promise.all([
                     reportAPI.getStats().catch(() => null),
                     reportAPI.getMySubmissions().catch(() => null),
                     api.get('/programs/researcher/').catch(() => null),
                     api.get('/leaderboard/', { params: { limit: 5 } }).catch(() => null),
+                    walletAPI.getWallet().catch(() => null),
                 ]);
                 if (statsRes) setStats(statsRes.data);
                 if (subsRes) setSubmissions(subsRes.data.results || subsRes.data || []);
                 if (programsRes) setPrograms(programsRes.data.results || programsRes.data || []);
                 if (lbRes) setLeaderboard(lbRes.data.results || []);
+                if (walletRes) setWallet(walletRes.data);
             } finally {
                 setLoading(false);
             }
@@ -45,9 +49,6 @@ const ResearcherDashboard = () => {
 
     const acceptedCount = (stats?.by_status?.accepted || 0) + (stats?.by_status?.resolved || 0);
     const activeCount = (stats?.by_status?.open || 0) + (stats?.by_status?.triaged || 0);
-    const totalEarnings = submissions.reduce(
-        (sum, s) => sum + (s.bounty_amount ? Number(s.bounty_amount) : 0), 0
-    );
     const programsParticipated = new Set(
         submissions.map(s => s.program?.id || s.program).filter(Boolean)
     ).size;
@@ -56,7 +57,7 @@ const ResearcherDashboard = () => {
     const statCards = [
         { label: 'Active Submissions', value: activeCount, tone: 'blue' },
         { label: 'Accepted Reports', value: acceptedCount, tone: 'green' },
-        { label: 'Total Earnings', value: `$${totalEarnings.toLocaleString()}`, tone: 'accent' },
+        { label: 'Points Balance', value: formatPoints(wallet?.balance), tone: 'accent' },
         { label: 'Programs Participated', value: programsParticipated, tone: 'orange' },
     ];
     const rankTone = (rank) => (rank === 1 ? 'tone-yellow' : rank === 2 ? 'tone-gray' : rank === 3 ? 'tone-orange' : 'tone-gray');
@@ -103,7 +104,7 @@ const ResearcherDashboard = () => {
                             <div className="ui-empty">
                                 <div className="ui-empty-icon">🎯</div>
                                 <h3>No Programs Available</h3>
-                                <p>There are currently no active bug bounty programs. Check back soon!</p>
+                                <p>There are currently no active programs. Check back soon!</p>
                             </div>
                         ) : (
                             <div className="ui-list">
@@ -116,7 +117,7 @@ const ResearcherDashboard = () => {
                                             </div>
                                         </div>
                                         <div className="ui-tone-text tone-green ui-strong ui-small" style={{ flexShrink: 0 }}>
-                                            {program.bounty_range || ''}
+                                            {program.points_range || ''}
                                         </div>
                                     </Link>
                                 ))}
@@ -138,7 +139,7 @@ const ResearcherDashboard = () => {
                                             </div>
                                             <div className="ui-muted ui-small">
                                                 {new Date(sub.created_at).toLocaleDateString()}
-                                                {sub.bounty_amount ? ` • $${Number(sub.bounty_amount).toLocaleString()}` : ''}
+                                                {sub.points_awarded ? ` • +${sub.points_awarded} pts` : ''}
                                             </div>
                                         </div>
                                         <div className="ui-row" style={{ flexShrink: 0, gap: '0.4rem' }}>

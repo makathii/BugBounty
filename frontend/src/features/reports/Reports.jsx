@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const Reports = () => {
     const [reports, setReports] = useState([]);
@@ -49,12 +50,12 @@ const Reports = () => {
         }));
     };
 
-    const bounty = reports.reduce((sum, r) => sum + (r.bounty_amount ? Number(r.bounty_amount) : 0), 0);
+    const earned = reports.reduce((sum, r) => sum + (r.points_awarded || 0), 0);
     const statCards = [
         { label: 'Total Submissions', value: stats.total_submissions || 0, tone: 'accent' },
         { label: 'Accepted', value: (stats.by_status?.accepted || 0) + (stats.by_status?.resolved || 0), tone: 'green' },
         { label: 'High Severity', value: (stats.by_severity?.high || 0) + (stats.by_severity?.critical || 0), tone: 'orange' },
-        { label: 'Total Bounty', value: `$${bounty.toLocaleString()}`, tone: 'blue' },
+        { label: 'Points Earned', value: formatPoints(earned), tone: 'blue' },
     ];
 
     if (loading) {
@@ -126,7 +127,7 @@ const Reports = () => {
                                     <th>Status</th>
                                     <th>Severity</th>
                                     <th>Date</th>
-                                    <th>Bounty</th>
+                                    <th>Points</th>
                                     <th />
                                 </tr>
                             </thead>
@@ -143,8 +144,8 @@ const Reports = () => {
                                         <td><span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity}</span></td>
                                         <td className="ui-muted">{new Date(report.created_at).toLocaleDateString()}</td>
                                         <td>
-                                            {report.bounty_amount
-                                                ? <span className="ui-tone-text tone-green ui-strong">${report.bounty_amount}</span>
+                                            {report.points_awarded
+                                                ? <span className="ui-tone-text tone-green ui-strong">+{report.points_awarded}</span>
                                                 : <span className="ui-muted">—</span>}
                                         </td>
                                         <td>

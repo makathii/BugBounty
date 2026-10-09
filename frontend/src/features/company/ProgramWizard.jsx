@@ -114,9 +114,9 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
         short_description: '',
         description: '',
         scope_type: 'public',
-        bounty_policy: '',
-        min_bounty: '',
-        max_bounty: '',
+        reward_notes: '',
+        min_points: '',
+        max_points: '',
         start_date: '',
         end_date: '',
         allow_anonymous: false,
@@ -186,9 +186,9 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
         }
 
         if (s === 3) {
-            if (formData.min_bounty && formData.max_bounty) {
-                if (parseFloat(formData.min_bounty) > parseFloat(formData.max_bounty))
-                    errs.max_bounty = 'Maximum must be greater than minimum bounty.';
+            if (formData.min_points && formData.max_points) {
+                if (parseInt(formData.min_points, 10) > parseInt(formData.max_points, 10))
+                    errs.max_points = 'Maximum must be greater than minimum points.';
             }
             if (formData.start_date && formData.end_date) {
                 if (formData.start_date > formData.end_date)
@@ -238,8 +238,8 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
         try {
             const payload = {
                 ...formData,
-                min_bounty: formData.min_bounty || null,
-                max_bounty: formData.max_bounty || null,
+                min_points: formData.min_points || null,
+                max_points: formData.max_points || null,
                 start_date: formData.start_date || null,
                 end_date: formData.end_date || null,
             };
@@ -327,9 +327,9 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
                             <span className="status-pill draft">DRAFT</span>
                         </div>
                         <div className="review-row">
-                            <span className="review-key">Bounty range</span>
+                            <span className="review-key">Points range</span>
                             <span className="review-value">
-                                {createdProgram.bounty_range || 'Not specified'}
+                                {createdProgram.points_range || 'Not specified'}
                             </span>
                         </div>
                     </div>
@@ -399,8 +399,8 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
                     title: 'Rewards',
                     step: 3,
                     rows: [
-                        ['Min bounty', formData.min_bounty ? `$${formData.min_bounty}` : 'Not set'],
-                        ['Max bounty', formData.max_bounty ? `$${formData.max_bounty}` : 'Not set'],
+                        ['Min points', formData.min_points ? `${formData.min_points} pts` : 'Not set'],
+                        ['Max points', formData.max_points ? `${formData.max_points} pts` : 'Not set'],
                         ['Start date', formData.start_date || 'No start date'],
                         ['End date', formData.end_date || 'No end date'],
                         ['Anonymous submissions', formData.allow_anonymous ? 'Yes' : 'No'],
@@ -516,7 +516,7 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
                                         value: 'vdp',
                                         label: 'VDP',
                                         badge: 'Disclosure',
-                                        desc: 'Public program focused on responsible disclosure. Typically no monetary bounties.',
+                                        desc: 'Public program focused on responsible disclosure. Typically awards no points.',
                                     },
                                 ].map(opt => (
                                     <label
@@ -648,32 +648,32 @@ const ProgramWizard = ({ onSuccess, onCancel }) => {
                         <h3>Rewards & Guidelines</h3>
 
                         <div className="form-group">
-                            <SectionLabel>Bounty Policy</SectionLabel>
+                            <SectionLabel>Reward Notes</SectionLabel>
                             <textarea
                                 className="form-input"
-                                name="bounty_policy" value={formData.bounty_policy}
+                                name="reward_notes" value={formData.reward_notes}
                                 onChange={handleChange} rows={4}
-                                placeholder="Describe your reward tiers, payment methods, timelines, etc."
+                                placeholder="Points are awarded by severity (10 / 30 / 70 / 150). Say what earns bonus points here."
                             />
                         </div>
 
                         <div className="scope-grid">
                             <div className="form-group">
-                                <SectionLabel>Min Bounty ($)</SectionLabel>
+                                <SectionLabel>Min Points</SectionLabel>
                                 <input
                                     className="form-input"
-                                    type="number" name="min_bounty" value={formData.min_bounty}
-                                    onChange={handleChange} placeholder="0.00" step="0.01" min="0"
+                                    type="number" name="min_points" value={formData.min_points}
+                                    onChange={handleChange} placeholder="10" step="1" min="0"
                                 />
                             </div>
                             <div className="form-group">
-                                <SectionLabel>Max Bounty ($)</SectionLabel>
+                                <SectionLabel>Max Points</SectionLabel>
                                 <input
                                     className="form-input"
-                                    type="number" name="max_bounty" value={formData.max_bounty}
-                                    onChange={handleChange} placeholder="0.00" step="0.01" min="0"
+                                    type="number" name="max_points" value={formData.max_points}
+                                    onChange={handleChange} placeholder="150" step="1" min="0"
                                 />
-                                <FieldError error={errors.max_bounty} />
+                                <FieldError error={errors.max_points} />
                             </div>
                         </div>
 
