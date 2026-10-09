@@ -27,7 +27,7 @@ const ProgramDetail = () => {
 
     useEffect(() => {
         loadProgram();
-    }, [id]);
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadProgram = async () => {
         setLoading(true);

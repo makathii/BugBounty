@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         checkAuth();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loginWithOAuth = async (provider) => {
         try {

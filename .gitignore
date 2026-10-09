@@ -150,3 +150,6 @@ $RECYCLE.BIN/
 
 # Misc
 SECURITY_FINDINGS.*
+## Browser test output
+frontend/test-results/
+frontend/playwright-report/

@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"   # matches backend/Dockerfile
+  NODE_VERSION: "22"
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_HOST: localhost
+  DJANGO_SECRET_KEY: ci-only-secret-not-used-anywhere-else
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libmagic1
+      - run: pip install -r requirements.txt
+      - name: Models and migrations agree
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: config.test_settings
+      - name: Tests (SQLite, fast)
+        run: pytest -q
+      - name: Tests (PostgreSQL, includes the row-locking tests)
+        run: pytest -q --create-db
+        env:
+          DJANGO_SETTINGS_MODULE: config.test_settings_pg
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Unit and component tests
+        run: npm run test:ci
+      - name: Production build (CI=true makes lint warnings fail the build)
+        run: npm run build
+        env:
+          CI: "true"
+
+  e2e:
+    name: Browser tests (real browser, real backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bb_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_DB: bb_e2e
+      DJANGO_SETTINGS_MODULE: config.e2e_settings
+      E2E_PYTHON: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libmagic1
+      - run: pip install -r backend/requirements.txt
+      - name: Database with demo data
+        working-directory: backend
+        run: |
+          python manage.py migrate --noinput
+          python manage.py shell < scripts/seed_demo.py
+      - name: Start the API
+        working-directory: backend
+        run: |
+          nohup python manage.py runserver 8000 --noreload > ../api.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:8000/api/wallet/ && exit 0
+            sleep 1
+          done
+          echo "API did not start" && cat ../api.log && exit 1
+      - name: Build and serve the frontend
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          REACT_APP_API_URL: http://localhost:8000/api
+          CI: "true"
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build
+          nohup npx --yes serve@14.2.4 -s build -l 3000 > ../web.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:3000/ && exit 0
+            sleep 1
+          done
+          echo "Frontend did not start" && cat ../web.log && exit 1
+      - name: Install the browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run the browser tests
+        working-directory: frontend
+        env:
+          E2E_BACKEND_DIR: ../backend
+        run: npm run e2e
+      - name: Keep the evidence when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-evidence
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            api.log
+            web.log
+          retention-days: 7

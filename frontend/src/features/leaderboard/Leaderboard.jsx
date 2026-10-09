@@ -15,21 +15,9 @@ const PERIOD_OPTIONS = [
     { value: 'weekly',  label: '7 days'   },
 ];
 
-const SEV_CONFIG = {
-    critical: { cls: 'sev-critical', label: 'Critical' },
-    high:     { cls: 'sev-high',     label: 'High'     },
-    medium:   { cls: 'sev-medium',   label: 'Medium'   },
-    low:      { cls: 'sev-low',      label: 'Low'       },
-};
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function SevBadge({ severity }) {
-    const cfg = SEV_CONFIG[severity] || SEV_CONFIG.medium;
-    return <span className={`sev-badge ${cfg.cls}`}>{cfg.label}</span>;
-}
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------

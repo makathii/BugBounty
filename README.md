@@ -15,6 +15,24 @@ Backend apps keep `models/` and `views/` as packages with one module per model /
 tests mirror the apps under `backend/tests/<app>/`. See `docs/ARCHITECTURE_AND_TECH_DEBT.md`
 for the full tree and the reasoning behind it.
 
+## Tests and CI
+
+Every push runs `.github/workflows/ci.yml`:
+
+| Job | What it checks |
+|-----|----------------|
+| Backend | migrations match the models; the pytest suite on SQLite (fast) **and** PostgreSQL (also runs the row-locking tests) |
+| Frontend | Jest/React Testing Library component tests; a production build where lint warnings fail |
+| Browser (e2e) | Playwright in a real browser against a real backend with demo data: comments, points/levels/badges, the store |
+
+Run them yourself:
+
+```bash
+cd backend  && pytest                      # or ./run_tests.sh inside Docker
+cd frontend && npm run test:ci             # component tests
+cd frontend && npm run e2e                 # browser tests; see frontend/e2e/README.md for setup
+```
+
 ## Run
 
 ```bash
