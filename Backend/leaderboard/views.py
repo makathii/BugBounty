@@ -68,13 +68,15 @@ class LeaderboardViewSet(viewsets.ViewSet):
         limit = max(limit, 0)
         offset = max(offset, 0)
 
-        rows = services.leaderboard_rows(period=params["period"], program=params["program"])
-        page = rows[offset:offset + limit]
+        page, total = services.leaderboard_page(
+            period=params["period"], program=params["program"],
+            limit=limit, offset=offset,
+        )
 
         return Response({
             "period": params["period"],
             "program": params["program"],
-            "count": len(rows),
+            "count": total,
             "limit": limit,
             "offset": offset,
             "results": LeaderboardEntrySerializer(page, many=True).data,

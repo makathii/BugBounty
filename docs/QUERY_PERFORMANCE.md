@@ -39,10 +39,15 @@ Report list/detail/triage dashboard (`reports/views.py`), program list/stats/das
 `triage_dashboard` runs 7 separate `COUNT(*)` on `BugReport` (`reports/views.py:131-138`). `ProgramStats.snapshot_for` runs ~9 queries, and `programs/views.py` repeats the pattern.
 *Fix:* one `aggregate()` using `Count('id', filter=Q(status='open'))` etc. → 1 query per dashboard.
 
-**3.4 Leaderboard recomputed and ranked in Python on every request — *High confidence on shape, medium on cost*.**
-`leaderboard_rows` aggregates all `ScoreEvent` rows in the window, materializes *every* researcher into a Python list, and `list()` then slices a page. `rank_for` (used by `/me/` and `/<id>/`) re-runs the full aggregation and loops linearly.
-- Cost grows with total researchers × events; "all" period can never use the date index.
-*Fix (in order):* (1) push ranking into SQL with `Window(RowNumber/Rank)` and paginate in the DB, `rank_for` filters one row; (2) cache per `(period, program)` for 30–60 s, invalidated by `sync_report_score`; (3) if still hot, maintain a `ResearcherScore` rollup table.
+**3.4 Leaderboard recomputed and ranked in Python on every request — *✅ done (phase D)*.**
+`leaderboard_rows` used to materialize every researcher into a Python list; the page was a slice of it, and `rank_for` re-ran the full aggregation and looped.
+*Done:*
+- **Rank in SQL:** `services._ranked_queryset` aggregates per researcher and assigns `ROW_NUMBER()` as a window function, ordered by points, report count, latest award and finally researcher id (the old ordering left full ties undefined). `leaderboard_page(limit, offset)` pages with `LIMIT/OFFSET` in the database and returns `(rows, total)`; the list endpoint uses it. `leaderboard_rows` remains as a thin wrapper.
+- **`rank_for`:** rank = 1 + number of researchers ordered strictly before this one (a `HAVING` count), two small queries, nothing materialized. (A first attempt filtered the window query by researcher, which applies the filter *before* the window and returned rank 1; a test caught it.)
+- **Cache:** pages and ranks are cached for `LEADERBOARD_CACHE_TTL` seconds (default 30, 0 disables). Keys include a version number bumped on every `ScoreEvent` save/delete (including the cascade when a report is deleted) and by `recompute_all`.
+- **`recompute_all`:** single transaction, one bulk insert, so readers never see an empty ledger and a failure rolls back (3.11 ✅).
+*Caveat:* the project has no `CACHES` setting, so Django's default per-process `LocMemCache` is used. With several workers, an invalidation is visible only to the process that made it; others serve stale pages for up to the TTL. Configure Redis/Memcached for immediate, global invalidation.
+*Not done:* a `ResearcherScore` rollup table. The all-time aggregation still scans the whole ledger on a cache miss; add the rollup only if misses become slow at real data volumes.
 
 **3.5 Signal write amplification on every report save — *High confidence; ✅ done (phase C)*.**
 `reports/signals.on_report_saved` computed derived fields post-save and re-`save()`d the instance, which re-fired every `post_save` receiver (program stats and the leaderboard ledger ran twice); stats and ledger work also ran on edits that couldn't affect them. *Measured on SQLite with `CaptureQueriesContext` (earlier drafts of this doc over-estimated this at ~15):* create 8 queries, status change to triaged 8, unrelated field edit 4.
@@ -114,7 +119,7 @@ Other tables:
 | **A – No-schema quick wins** (1–2 d) | 3.1 role cache; 3.2 `select_related` + annotated counts; 3.3 single-aggregate dashboards; 3.10 default pagination; 3.7 empty-URL fix + ordering | Query count per list request drops from O(rows) to O(1); dashboard 7→1 queries | Low |
 | **B – Indexes** (1 d + review) | §4.1 `BugReport` indexes (concurrently), §4.2 removals, trigram search | Filter/sort/search move from seq scan to index scan | Low–Med (index build time/lock if not concurrent) |
 | **C – Write path** (2–3 d) | 3.5 ✅ derived fields in `save()` + conditional stats/ledger; ⏳ `on_commit`/queue, 3.11 atomic bulk recompute | Report save 8 → 4 queries (1 for unrelated edits); fewer index writes | Med (behavior of signals tested in `test_leaderboard`, `test_reports_workflow`) |
-| **D – Leaderboard** (2 d) | 3.4 SQL window ranking + 30–60 s cache | Constant-time page + rank | Med (tie-break parity with current ordering) |
+| **D – Leaderboard** (2 d) ✅ | 3.4 SQL window ranking + 30 s cache, atomic bulk recompute | Page cost independent of researcher count; cache hit = 0 queries | Med (tie-break parity with current ordering) |
 | **E – Scale** (as needed) | Task queue for stats/email, audit-log retention/partitioning (3.9), `CONN_MAX_AGE` + PgBouncer, read replica | Headroom beyond ~1M reports | Higher (ops) |
 
 ## 6. How to validate (do this before and after each phase)
@@ -134,5 +139,5 @@ Other tables:
 - [x] B: drop redundant `slug` / `(program,date)` indexes (migration `programs/0002`)
 - [x] C: remove post-save re-save; conditional stats/ledger work (1–4 queries per save instead of 4–8)
 - [ ] C: `on_commit`/queued `refresh_stats` (see 3.5)
-- [ ] D: window-function leaderboard + cache
+- [x] D: window-function leaderboard + cache (see 3.4 caveat on LocMemCache)
 - [ ] E: audit-log retention, connection pooling

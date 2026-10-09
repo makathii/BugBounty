@@ -230,3 +230,132 @@ class TestLeaderboardAPI:
         api_client.force_authenticate(user=verified_user)
         resp = api_client.get(f"/api/leaderboard/{second_verified_user.id}/")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Phase D: SQL ranking, DB paging, caching, atomic recompute
+# ---------------------------------------------------------------------------
+
+from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
+
+def _ledger_user(name):
+    return User.objects.create_user(username=name, password="x")
+
+
+@pytest.mark.django_db
+class TestSqlRanking:
+    def _seed(self, program, n=12):
+        users = [_ledger_user(f"u{i:02d}") for i in range(n)]
+        for i, u in enumerate(users):
+            for _ in range(1 + i % 3):
+                make_report(u, program, severity="medium", status="accepted")
+        return users
+
+    def test_paging_is_consistent_with_full_ranking(self, program):
+        self._seed(program)
+        full = services.leaderboard_rows()
+        assert [r["rank"] for r in full] == list(range(1, len(full) + 1))
+        pages = []
+        for off in range(0, len(full), 5):
+            rows, total = services.leaderboard_page(limit=5, offset=off)
+            assert total == len(full)
+            pages.extend(rows)
+        assert pages == full
+
+    def test_ties_are_deterministic(self, program):
+        users = [_ledger_user(f"t{i}") for i in range(4)]
+        for u in users:
+            make_report(u, program, severity="low", status="accepted")
+        # identical points/count; last_awarded_at differs only by creation order
+        a = [r["researcher_id"] for r in services.leaderboard_rows()]
+        cache.clear()
+        b = [r["researcher_id"] for r in services.leaderboard_rows()]
+        assert a == b and len(set(a)) == 4
+
+    def test_rank_for_matches_listing_and_is_one_row(self, program):
+        users = self._seed(program)
+        full = {r["researcher_id"]: r for r in services.leaderboard_rows()}
+        cache.clear()
+        target = users[7]
+        with CaptureQueriesContext(connection) as ctx:
+            row = services.rank_for(target)
+        assert row == full[target.id]
+        assert len(ctx) <= 2
+
+    def test_page_query_count_independent_of_size(self, program):
+        self._seed(program, n=3)
+        cache.clear()
+        with CaptureQueriesContext(connection) as small:
+            services.leaderboard_page(limit=5)
+        self._seed_more = [_ledger_user(f"x{i}") for i in range(30)]
+        for u in self._seed_more:
+            make_report(u, program, status="accepted")
+        cache.clear()
+        with CaptureQueriesContext(connection) as large:
+            services.leaderboard_page(limit=5)
+        assert len(large) == len(small) <= 2
+
+
+@pytest.mark.django_db
+class TestLeaderboardCache:
+    def test_second_call_hits_cache(self, verified_user, program):
+        make_report(verified_user, program, status="accepted")
+        services.leaderboard_page()
+        with CaptureQueriesContext(connection) as ctx:
+            services.leaderboard_page()
+        assert len(ctx) == 0
+
+    def test_invalidated_by_ledger_changes(self, verified_user, second_verified_user, program):
+        report = make_report(verified_user, program, severity="low", status="accepted")
+        assert services.rank_for(verified_user)["total_points"] == 1
+        report.severity = "critical"
+        report.save()
+        assert services.rank_for(verified_user)["total_points"] == 15
+
+        make_report(second_verified_user, program, severity="medium", status="accepted")
+        assert services.leaderboard_page()[1] == 2
+
+        report.delete()  # cascade removes the ScoreEvent
+        assert services.leaderboard_page()[1] == 1
+        assert services.rank_for(verified_user) is None
+
+    def test_ttl_zero_disables_cache(self, settings, verified_user, program):
+        settings.LEADERBOARD_CACHE_TTL = 0
+        make_report(verified_user, program, status="accepted")
+        services.leaderboard_page()
+        with CaptureQueriesContext(connection) as ctx:
+            services.leaderboard_page()
+        assert len(ctx) > 0
+
+
+@pytest.mark.django_db
+class TestRecomputeAtomic:
+    def test_recompute_matches_incremental_ledger(self, verified_user, second_verified_user, program):
+        make_report(verified_user, program, severity="high", status="accepted")
+        make_report(second_verified_user, program, severity="low", status="resolved")
+        make_report(verified_user, program, severity="critical", status="open")
+        before = sorted(ScoreEvent.objects.values_list("researcher_id", "report_id", "points", "severity"))
+        assert services.recompute_all() == 2
+        after = sorted(ScoreEvent.objects.values_list("researcher_id", "report_id", "points", "severity"))
+        assert before == after
+
+    def test_recompute_uses_bulk_insert(self, verified_user, program):
+        for _ in range(10):
+            make_report(verified_user, program, status="accepted")
+        with CaptureQueriesContext(connection) as ctx:
+            services.recompute_all()
+        inserts = [q for q in ctx.captured_queries if q["sql"].lstrip().upper().startswith("INSERT")]
+        assert len(inserts) == 1
+
+    def test_recompute_failure_rolls_back(self, verified_user, program, monkeypatch):
+        make_report(verified_user, program, status="accepted")
+        def boom(*a, **k):
+            raise RuntimeError("insert failed")
+        monkeypatch.setattr(ScoreEvent.objects.__class__, "bulk_create", boom)
+        with pytest.raises(RuntimeError):
+            services.recompute_all()
+        assert ScoreEvent.objects.count() == 1  # old ledger intact

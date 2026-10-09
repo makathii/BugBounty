@@ -9,7 +9,8 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 from reports.models import BugReport
-from .services import sync_report_score
+from .models import ScoreEvent
+from .services import bump_cache_version, sync_report_score
 
 
 @receiver(post_save, sender=BugReport, dispatch_uid="leaderboard_sync_on_save")
@@ -25,3 +26,10 @@ def on_report_deleted(sender, instance, **kwargs):
     # The OneToOne FK is CASCADE, so the ScoreEvent is already gone by the time
     # this fires — nothing to do, but the hook is here for symmetry / clarity.
     pass
+
+
+@receiver(post_save, sender=ScoreEvent, dispatch_uid="leaderboard_cache_bump_on_save")
+@receiver(post_delete, sender=ScoreEvent, dispatch_uid="leaderboard_cache_bump_on_delete")
+def invalidate_leaderboard_cache(sender, **kwargs):
+    # Covers every ledger mutation, including the cascade when a report is deleted.
+    bump_cache_version()
