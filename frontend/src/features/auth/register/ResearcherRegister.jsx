@@ -160,12 +160,14 @@ const ResearcherRegister = () => {
             const result = await register(userData);
 
             if (result.success) {
-                // Reset captcha (same as Register.jsx)
-                if (window.grecaptcha && window.grecaptcha.reset) {
-                    window.grecaptcha.reset();
-                }
-
+                // Show the popup first: the account exists now, and a hiccup resetting the
+                // captcha widget must not hide that (it would land in the generic error branch).
                 setRegisteredEmail(formData.email);
+                try {
+                    window.grecaptcha?.reset?.();
+                } catch {
+                    /* widget already gone: nothing to reset */
+                }
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
