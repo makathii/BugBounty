@@ -738,17 +738,16 @@ class TestProgramModel:
         )
         assert program.can_accept_submissions is False
 
-    def test_bounty_range_display(self, company_user_with_profile):
+    def test_points_range_display(self, company_user_with_profile):
         program = Program.objects.create(
-            name="Bounty Range Program",
+            name="Points Range Program",
             company=company_user_with_profile,
-            description="With bounty range",
+            description="With points range",
             status="active",
-            min_bounty=100,
-            max_bounty=5000,
+            min_points=100,
+            max_points=5000,
         )
-        assert "$100" in program.bounty_range
-        assert "$5000" in program.bounty_range
+        assert program.points_range == "100 - 5000 pts"
 
 
 # ---------------------------------------------------------------------------

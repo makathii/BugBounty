@@ -87,13 +87,15 @@ class BugReportSerializer(serializers.ModelSerializer):
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     assigned_to_username = serializers.SerializerMethodField()
     program_name = serializers.SerializerMethodField()
+    points_awarded = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = BugReport
         fields = '__all__'
         read_only_fields = [
             'severity_score', 'time_to_triage', 'time_to_resolution',
-            'created_at', 'updated_at', 'reporter'  # reporter is set in perform_create
+            'created_at', 'updated_at', 'reporter',  # reporter is set in perform_create
+            'bonus_points',  # only a triager's accept action may award bonus points
         ]
 
     def get_assigned_to_username(self, obj):

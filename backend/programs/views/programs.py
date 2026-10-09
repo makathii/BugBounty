@@ -1,4 +1,4 @@
-from django.db.models import Avg, Count, IntegerField, OuterRef, Subquery, Sum
+from django.db.models import Avg, Count, F, IntegerField, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.roles import has_any_role
+from leaderboard.models import ScoreEvent
 from reports.models import BugReport
 
 from ..models import Program, ProgramApplication, ProgramFavorite, ProgramInvitation
@@ -42,7 +43,7 @@ class ProgramViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['scope_type', 'status', 'company']
     search_fields = ['name', 'description', 'short_description', 'company__username']
-    ordering_fields = ['created_at', 'published_at', 'total_reports', 'total_bounties', 'avg_severity_score']
+    ordering_fields = ['created_at', 'published_at', 'total_reports', 'total_points', 'avg_severity_score']
     ordering = ['-created_at']
 
     def get_serializer_class(self):
@@ -261,6 +262,8 @@ class ProgramViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         reports = BugReport.objects.filter(program=program)
+        events = ScoreEvent.objects.filter(program=program)
+        points = events.aggregate(total=Sum('points'), avg=Avg('points'))
         return Response({
             'total_reports': reports.count(),
             'reports_by_status': dict(
@@ -269,12 +272,12 @@ class ProgramViewSet(viewsets.ModelViewSet):
             'reports_by_severity': dict(
                 reports.values_list('severity').annotate(count=Count('id'))
             ),
-            'total_bounties': reports.aggregate(total=Sum('bounty_amount'))['total'] or 0,
-            'avg_bounty': reports.aggregate(avg=Avg('bounty_amount'))['avg'] or 0,
+            'total_points': points['total'] or 0,
+            'avg_points': points['avg'] or 0,
             'top_researchers': list(
-                reports.values('reporter__username')
-                .annotate(report_count=Count('id'), total_bounty=Sum('bounty_amount'))
-                .order_by('-total_bounty')[:10]
+                events.values(username=F('researcher__username'))
+                .annotate(report_count=Count('id'), total_points=Sum('points'))
+                .order_by('-total_points')[:10]
             ),
             'recent_activity': list(
                 reports.order_by('-created_at')[:10]

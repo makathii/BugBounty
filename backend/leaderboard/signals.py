@@ -8,7 +8,9 @@ its behaviour with it.
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
+from core.tasks import enqueue_after_commit
 from reports.models import BugReport
+from reports.tasks import refresh_program_stats
 from .models import ScoreEvent
 from .services import bump_cache_version, sync_report_score
 
@@ -33,3 +35,12 @@ def on_report_deleted(sender, instance, **kwargs):
 def invalidate_leaderboard_cache(sender, **kwargs):
     # Covers every ledger mutation, including the cascade when a report is deleted.
     bump_cache_version()
+
+
+@receiver(post_save, sender=ScoreEvent, dispatch_uid="leaderboard_program_stats_on_save")
+@receiver(post_delete, sender=ScoreEvent, dispatch_uid="leaderboard_program_stats_on_delete")
+def refresh_program_points(sender, instance, **kwargs):
+    # A program's total/average points come from the ledger, so refresh them whenever
+    # the ledger changes (the report's own save may run before its ScoreEvent exists).
+    if instance.program_id:
+        enqueue_after_commit(refresh_program_stats, instance.program_id)

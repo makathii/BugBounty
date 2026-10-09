@@ -15,7 +15,7 @@ class ResearcherProgramListView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['scope_type']
     search_fields = ['name', 'description', 'short_description', 'company__username']
-    ordering_fields = ['created_at', 'published_at', 'total_reports', 'total_bounties']
+    ordering_fields = ['created_at', 'published_at', 'total_reports', 'total_points']
     ordering = ['-published_at']
 
     def get_queryset(self):
@@ -52,7 +52,7 @@ class PublicProgramListView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['scope_type']
     search_fields = ['name', 'description', 'short_description', 'company__username']
-    ordering_fields = ['published_at', 'total_reports', 'total_bounties']
+    ordering_fields = ['published_at', 'total_reports', 'total_points']
     ordering = ['-published_at']
 
     def get_queryset(self):

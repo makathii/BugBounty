@@ -5,7 +5,6 @@ Idempotent — safe to run multiple times.
 All demo accounts use the password: Demo1234!
 """
 from datetime import timedelta
-from decimal import Decimal
 
 from django.contrib.auth.models import User, Group
 from django.utils import timezone
@@ -88,10 +87,10 @@ def make_program(owner, name, short, desc, min_b, max_b, **extra):
             description=desc,
             scope_type="public",
             status="active",
-            min_bounty=Decimal(min_b),
-            max_bounty=Decimal(max_b),
+            min_points=min_b,
+            max_points=max_b,
             start_date=today - timedelta(days=60),
-            bounty_policy="Bounties are awarded based on CVSS severity and report quality.",
+            reward_notes="Points are awarded by severity (10 / 30 / 70 / 150), plus bonus points for an especially clear report.",
             testing_guidelines="No automated scanners against production. Use test accounts only. No social engineering or physical attacks.",
             report_guidelines="Include clear reproduction steps, impact assessment, and a proof of concept where possible.",
             disclosure_policy="Coordinated disclosure: please allow 90 days before public disclosure.",
@@ -108,38 +107,38 @@ p_web = make_program(
     "In scope: *.acme.example web applications, including the shop checkout flow, "
     "account management, and the seller portal.\n\nOut of scope: third-party services, "
     "rate limiting issues, self-XSS.",
-    "100.00", "5000.00",
+    10, 150,
 )
 p_mobile = make_program(
     acme, "Acme Mobile App",
     "Our iOS & Android shopping apps — API and client-side issues welcome.",
     "In scope: the Acme mobile apps (iOS/Android) and the mobile API gateway at "
     "api.acme.example.\n\nOut of scope: issues requiring a rooted/jailbroken device.",
-    "50.00", "2500.00",
+    10, 150,
 )
 p_api = make_program(
     techflow, "TechFlow API Security",
-    "Harden the payment API used by 40+ fintech startups. Top payouts for auth bypasses.",
+    "Harden the payment API used by 40+ fintech startups. Big points for auth bypasses.",
     "In scope: api.techflow.example (REST + webhooks), OAuth2 flows, and the developer "
     "dashboard.\n\nOut of scope: sandbox environment, documentation site.",
-    "200.00", "10000.00",
+    10, 150,
 )
 
 now = timezone.now()
 reports_spec = [
-    # (reporter, program, title, severity, status, vuln_type, url, cvss_score, cvss_sev, bounty, days_ago)
+    # (reporter, program, title, severity, status, vuln_type, url, cvss_score, cvss_sev, bonus, days_ago)
     (parsa, p_web, "Stored XSS in product review comments", "high", "resolved",
-     "Cross-Site Scripting (XSS)", "https://acme.example/products/123/reviews", 8.1, "High", "1500.00", 42),
+     "Cross-Site Scripting (XSS)", "https://acme.example/products/123/reviews", 8.1, "High", 20, 42),
     (parsa, p_api, "JWT signature not validated on webhook endpoints", "critical", "accepted",
-     "Authentication Bypass", "https://api.techflow.example/v2/webhooks", 9.8, "Critical", "8000.00", 21),
+     "Authentication Bypass", "https://api.techflow.example/v2/webhooks", 9.8, "Critical", 50, 21),
     (parsa, p_mobile, "API key leaked in Android APK resources", "medium", "triaged",
      "Information Disclosure", "https://api.acme.example/mobile", 6.5, "Medium", None, 5),
     (nova, p_web, "IDOR allows reading other users' invoices", "high", "accepted",
-     "Insecure Direct Object Reference", "https://acme.example/account/invoices", 7.7, "High", "2000.00", 30),
+     "Insecure Direct Object Reference", "https://acme.example/account/invoices", 7.7, "High", 30, 30),
     (nova, p_api, "Race condition in payment idempotency check", "critical", "resolved",
-     "Business Logic", "https://api.techflow.example/v2/payments", 9.1, "Critical", "9500.00", 18),
+     "Business Logic", "https://api.techflow.example/v2/payments", 9.1, "Critical", 40, 18),
     (raven, p_web, "CSRF on email change endpoint", "medium", "accepted",
-     "Cross-Site Request Forgery", "https://acme.example/account/email", 6.8, "Medium", "500.00", 25),
+     "Cross-Site Request Forgery", "https://acme.example/account/email", 6.8, "Medium", 10, 25),
     (raven, p_mobile, "Certificate pinning bypass via debug flag", "low", "rejected",
      "Security Misconfiguration", "https://api.acme.example/mobile", 3.1, "Low", None, 12),
     (cipher, p_api, "SQL injection in transaction search filter", "critical", "triaged",
@@ -151,7 +150,7 @@ reports_spec = [
 ]
 
 dup_source = None
-for reporter, program, title, severity, status, vtype, url, cvss, cvss_sev, bounty, days_ago in reports_spec:
+for reporter, program, title, severity, status, vtype, url, cvss, cvss_sev, bonus, days_ago in reports_spec:
     report, created = BugReport.objects.get_or_create(
         title=title,
         program=program,
@@ -170,7 +169,7 @@ for reporter, program, title, severity, status, vtype, url, cvss, cvss_sev, boun
             affected_url=url,
             cvss_score=cvss,
             cvss_severity=cvss_sev,
-            bounty_amount=Decimal(bounty) if bounty else None,
+            bonus_points=bonus or 0,
             assigned_to=triager if status not in ("open",) else None,
         ),
     )

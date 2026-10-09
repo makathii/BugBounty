@@ -4,6 +4,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from leaderboard.models import ScoreEvent
 from reports.models import BugReport
 
 from ..models import Company, Program
@@ -33,6 +34,9 @@ class ProgramDashboardView(APIView):
 
     def _program_dashboard(self, program, request):
         reports = BugReport.objects.filter(program=program)
+        points = ScoreEvent.objects.filter(program=program).aggregate(
+            total=Sum('points'), avg=Avg('points'),
+        )
         return Response({
             'program': ProgramListSerializer(program, context={'request': request}).data,
             'total_reports': reports.count(),
@@ -42,8 +46,8 @@ class ProgramDashboardView(APIView):
             'reports_by_severity': dict(
                 reports.values_list('severity').annotate(count=Count('id'))
             ),
-            'total_bounties': reports.aggregate(total=Sum('bounty_amount'))['total'] or 0,
-            'avg_bounty': reports.aggregate(avg=Avg('bounty_amount'))['avg'] or 0,
+            'total_points': points['total'] or 0,
+            'avg_points': points['avg'] or 0,
             'active_researchers': reports.values('reporter').distinct().count(),
             'recent_reports': ProgramReportSerializer(
                 reports.select_related('reporter').order_by('-created_at')[:10],
@@ -67,7 +71,8 @@ class ProgramDashboardView(APIView):
             'total_programs': programs.count(),
             'active_programs': programs.filter(status='active').count(),
             'total_reports': all_reports.count(),
-            'total_bounties': all_reports.aggregate(total=Sum('bounty_amount'))['total'] or 0,
+            'total_points': ScoreEvent.objects.filter(program__in=programs).aggregate(
+                total=Sum('points'))['total'] or 0,
             'programs': ProgramListSerializer(
                 programs, many=True, context={'request': request}
             ).data,

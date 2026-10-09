@@ -250,13 +250,13 @@ class TestTriageActions:
         api_client.force_authenticate(user=triager_user)
         resp = api_client.post(
             f"/api/reports/{triaged_report.id}/accept/",
-            {"verification_notes": "Confirmed — reproduced locally.", "bounty_amount": "500.00"},
+            {"verification_notes": "Confirmed — reproduced locally.", "bonus_points": 25},
             format="json",
         )
         assert resp.status_code == 200
         triaged_report.refresh_from_db()
         assert triaged_report.status == "accepted"
-        assert triaged_report.bounty_amount is not None
+        assert triaged_report.bonus_points == 25
 
     def test_researcher_cannot_accept_report(self, api_client, verified_user, triaged_report):
         api_client.force_authenticate(user=verified_user)

@@ -47,7 +47,7 @@ class ScopeSerializer(serializers.ModelSerializer):
         model = Scope
         fields = [
             'id', 'target', 'target_type', 'target_type_display',
-            'is_in_scope', 'description', 'notes', 'bounty_multiplier',
+            'is_in_scope', 'description', 'notes', 'points_multiplier',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -59,7 +59,7 @@ class ScopeSerializer(serializers.ModelSerializer):
 
 class ProgramListSerializer(serializers.ModelSerializer):
     company = UserSummarySerializer(read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
     can_accept_submissions = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
@@ -73,9 +73,9 @@ class ProgramListSerializer(serializers.ModelSerializer):
             'scope_type', 'scope_type_display',
             'status', 'status_display',
             'company',
-            'min_bounty', 'max_bounty', 'bounty_range',
+            'min_points', 'max_points', 'points_range',
             'is_active', 'can_accept_submissions',
-            'total_reports', 'total_bounties', 'avg_severity_score',
+            'total_reports', 'total_points', 'avg_severity_score',
             'favorites_count',
             'created_at', 'published_at',
         ]
@@ -90,7 +90,7 @@ class ProgramListSerializer(serializers.ModelSerializer):
 class ProgramDetailSerializer(serializers.ModelSerializer):
     company = UserSummarySerializer(read_only=True)
     scopes = ScopeSerializer(many=True, read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
     can_accept_submissions = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
@@ -107,11 +107,11 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
             'scope_type', 'scope_type_display',
             'status', 'status_display',
             'company',
-            'bounty_policy', 'min_bounty', 'max_bounty', 'bounty_range',
+            'reward_notes', 'min_points', 'max_points', 'points_range',
             'start_date', 'end_date',
             'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
             'testing_guidelines', 'report_guidelines', 'disclosure_policy',
-            'total_reports', 'total_bounties', 'avg_severity_score',
+            'total_reports', 'total_points', 'avg_severity_score',
             'avg_time_to_triage', 'avg_time_to_resolution',
             'scopes', 'in_scope_count', 'out_of_scope_count',
             'is_active', 'can_accept_submissions',
@@ -145,7 +145,7 @@ class ProgramCreateSerializer(serializers.ModelSerializer):
         model = Program
         fields = [
             'id', 'name', 'description', 'short_description', 'scope_type',
-            'bounty_policy', 'min_bounty', 'max_bounty',
+            'reward_notes', 'min_points', 'max_points',
             'start_date', 'end_date',
             'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
             'testing_guidelines', 'report_guidelines', 'disclosure_policy',
@@ -153,11 +153,11 @@ class ProgramCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate(self, data):
-        min_b = data.get('min_bounty')
-        max_b = data.get('max_bounty')
+        min_b = data.get('min_points')
+        max_b = data.get('max_points')
         if min_b is not None and max_b is not None and min_b > max_b:
             raise serializers.ValidationError(
-                {'max_bounty': 'Maximum bounty must be greater than or equal to minimum bounty.'}
+                {'max_points': 'Maximum points must be greater than or equal to minimum points.'}
             )
         start = data.get('start_date')
         end = data.get('end_date')
@@ -203,7 +203,7 @@ class ProgramUpdateSerializer(ProgramCreateSerializer):
 
 class PublicProgramSerializer(serializers.ModelSerializer):
     company_username = serializers.CharField(source='company.username', read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
 
     class Meta:
@@ -212,7 +212,7 @@ class PublicProgramSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'short_description',
             'scope_type', 'scope_type_display',
             'company_username',
-            'min_bounty', 'max_bounty', 'bounty_range',
+            'min_points', 'max_points', 'points_range',
             'total_reports', 'avg_severity_score',
             'published_at',
         ]
@@ -296,8 +296,8 @@ class ProgramStatsSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'program', 'date',
             'total_reports', 'new_reports', 'resolved_reports',
-            'total_bounties', 'avg_bounty',
-            'avg_time_to_triage', 'avg_time_to_resolution', 'avg_time_to_bounty',
+            'total_points', 'avg_points',
+            'avg_time_to_triage', 'avg_time_to_resolution', 'avg_time_to_award',
             'critical_count', 'high_count', 'medium_count', 'low_count', 'info_count',
             'total_vulnerabilities',
             'active_researchers', 'new_researchers',
@@ -365,9 +365,8 @@ class ProgramReportSerializer(serializers.Serializer):
     title = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
     severity = serializers.CharField(read_only=True)
-    bounty_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, allow_null=True, read_only=True
-    )
+    bonus_points = serializers.IntegerField(read_only=True)
+    points_awarded = serializers.IntegerField(read_only=True)
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)

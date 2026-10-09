@@ -16,12 +16,12 @@ class ProgramStats(models.Model):
     new_reports = models.IntegerField(default=0)
     resolved_reports = models.IntegerField(default=0)
 
-    total_bounties = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    avg_bounty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_points = models.IntegerField(default=0)
+    avg_points = models.FloatField(default=0)
 
     avg_time_to_triage = models.FloatField(default=0)
     avg_time_to_resolution = models.FloatField(default=0)
-    avg_time_to_bounty = models.FloatField(default=0)
+    avg_time_to_award = models.FloatField(default=0)
 
     critical_count = models.IntegerField(default=0)
     high_count = models.IntegerField(default=0)
@@ -49,6 +49,7 @@ class ProgramStats(models.Model):
     @classmethod
     def snapshot_for(cls, program, date=None):
         from django.db.models import Count, Sum, Avg
+        from leaderboard.models import ScoreEvent
         from reports.models import BugReport
 
         if date is None:
@@ -62,12 +63,12 @@ class ProgramStats(models.Model):
             for row in reports.values('severity').annotate(count=Count('id'))
         }
         agg = reports.aggregate(
-            total_bounties=Sum('bounty_amount'),
-            avg_bounty=Avg('bounty_amount'),
             avg_triage=Avg('time_to_triage'),
             avg_resolution=Avg('time_to_resolution'),
-            # time_to_bounty does not exist on BugReport yet; omit until the
-            # field is added and avg_time_to_bounty will remain 0 in snapshots.
+            # time-to-award is not tracked on BugReport yet; avg_time_to_award stays 0.
+        )
+        points = ScoreEvent.objects.filter(program=program).aggregate(
+            total=Sum('points'), avg=Avg('points'),
         )
 
         snapshot, _ = cls.objects.update_or_create(
@@ -77,11 +78,11 @@ class ProgramStats(models.Model):
                 'total_reports': reports.count(),
                 'new_reports': today_reports.count(),
                 'resolved_reports': resolved_today.count(),
-                'total_bounties': agg['total_bounties'] or 0,
-                'avg_bounty': agg['avg_bounty'] or 0,
+                'total_points': points['total'] or 0,
+                'avg_points': points['avg'] or 0,
                 'avg_time_to_triage': agg['avg_triage'] or 0,
                 'avg_time_to_resolution': agg['avg_resolution'] or 0,
-                'avg_time_to_bounty': 0,  # field not yet on BugReport
+                'avg_time_to_award': 0,  # not tracked on BugReport yet
                 'critical_count': severity_counts.get('critical', 0),
                 'high_count': severity_counts.get('high', 0),
                 'medium_count': severity_counts.get('medium', 0),

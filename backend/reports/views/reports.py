@@ -35,7 +35,7 @@ class BugReportViewSet(
 
     def get_queryset(self):
         user = self.request.user
-        queryset = BugReport.objects.select_related("assigned_to", "program", "reporter").order_by("-created_at")
+        queryset = BugReport.objects.select_related("assigned_to", "program", "reporter", "score_event").order_by("-created_at")
 
         # Apply filters for triage dashboard
         status_filter = self.request.query_params.get('status')

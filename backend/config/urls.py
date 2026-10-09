@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/programs/', include('programs.urls')),
     path('api/', include('leaderboard.urls')),
+    path('api/', include('wallet.urls')),
     # RFC 9116 security contact information
     path('.well-known/security.txt', security_txt, name='security-txt'),
 ]

@@ -26,7 +26,7 @@ class Scope(models.Model):
     is_in_scope = models.BooleanField(default=True)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
-    bounty_multiplier = models.FloatField(
+    points_multiplier = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0.1), MaxValueValidator(10.0)]
     )

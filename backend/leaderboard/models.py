@@ -8,13 +8,14 @@ from django.utils import timezone
 # ---------------------------------------------------------------------------
 # Points awarded per accepted/resolved report, weighted by severity. Tunable
 # via settings so the platform can rebalance the economy without a code change.
-# Defaults make critical findings worth dramatically more than lows, which is
-# the norm for bug-bounty reputation systems.
+# Defaults make critical findings worth dramatically more than lows. The
+# numbers are sized so a researcher can afford small store items after a handful
+# of accepted reports (the points are also the wallet currency, see ``wallet``).
 DEFAULT_SEVERITY_POINTS = {
-    "low": 1,
-    "medium": 3,
-    "high": 7,
-    "critical": 15,
+    "low": 10,
+    "medium": 30,
+    "high": 70,
+    "critical": 150,
 }
 
 # A report only earns points once it reaches one of these statuses (and is not
@@ -70,6 +71,7 @@ class ScoreEvent(models.Model):
         blank=True,
     )
 
+    # Total earned for this report: severity points plus any triager bonus.
     points = models.PositiveIntegerField(default=0)
     # Snapshot of the severity that produced ``points`` at award time, so the
     # ledger explains itself even if config or the report later changes.

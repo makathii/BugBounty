@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'programs.apps.ProgramsConfig',
     'audit.apps.AuditConfig',
     'leaderboard.apps.LeaderboardConfig',
+    'wallet.apps.WalletConfig',
 
     'django_filters',
 ]
@@ -64,13 +65,14 @@ INSTALLED_APPS = [
 # ---------------------------------------------------------------------------
 # Leaderboard scoring economy
 # ---------------------------------------------------------------------------
-# Points granted per accepted/resolved report, weighted by severity. Override
-# either of these to rebalance without touching the leaderboard code.
+# Points granted per accepted/resolved report, weighted by severity. Points are
+# also the wallet currency (see the ``wallet`` app). Override either of these to
+# rebalance without touching the leaderboard code.
 LEADERBOARD_SEVERITY_POINTS = {
-    "low": 1,
-    "medium": 3,
-    "high": 7,
-    "critical": 15,
+    "low": 10,
+    "medium": 30,
+    "high": 70,
+    "critical": 150,
 }
 # Report statuses that earn points (a report flagged as a duplicate never does,
 # regardless of status — enforced in leaderboard.services).

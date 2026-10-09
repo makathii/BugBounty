@@ -10,7 +10,7 @@ class ProgramNotification(models.Model):
         ('report_status_change', 'Report Status Change'),
         ('program_update', 'Program Update'),
         ('new_scope', 'New Scope Added'),
-        ('bounty_paid', 'Bounty Paid'),
+        ('points_awarded', 'Points Awarded'),
         ('application_update', 'Application Status Update'),
         ('invitation', 'New Invitation'),
     ]

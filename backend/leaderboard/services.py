@@ -69,6 +69,11 @@ def points_for_severity(severity):
     return severity_points_map().get((severity or "").lower(), 0)
 
 
+def points_for_report(report):
+    """Severity points plus the triager's bonus: what the report is worth in total."""
+    return points_for_severity(report.severity) + (getattr(report, "bonus_points", 0) or 0)
+
+
 def is_awardable(report):
     """
     A report earns points only when it is in an awardable status AND is not
@@ -102,7 +107,7 @@ def sync_report_score(report):
             existing.delete()
         return None
 
-    points = points_for_severity(report.severity)
+    points = points_for_report(report)
 
     if existing is None:
         event = ScoreEvent.objects.create(
@@ -302,7 +307,8 @@ def recompute_all():
     now = timezone.now()
     events = []
     reports = BugReport.objects.only(
-        "id", "reporter_id", "program_id", "severity", "status", "duplicate_of_id"
+        "id", "reporter_id", "program_id", "severity", "status", "duplicate_of_id",
+        "bonus_points",
     )
     for report in reports.iterator(chunk_size=2000):
         if not report.reporter_id or not is_awardable(report):
@@ -311,7 +317,7 @@ def recompute_all():
             researcher_id=report.reporter_id,
             report_id=report.pk,
             program_id=report.program_id,
-            points=points_for_severity(report.severity),
+            points=points_for_report(report),
             severity=report.severity or "",
             awarded_at=now,
         ))
