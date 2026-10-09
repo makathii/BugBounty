@@ -82,66 +82,27 @@ const TwoFactorSetup = () => {
     if (step === 2) {
         return (
             <div className="auth-container">
-                <div className="register-container" style={{ maxWidth: '500px' }}>
+                <div className="register-container tf-medium">
                     <div className="auth-header">
                         <h2>Save Your Backup Codes</h2>
                         <p>Store these codes in a safe place. Each can only be used once.</p>
                     </div>
 
-                    <div className="success-message">
-                        ✓ Two-Factor Authentication Enabled
-                    </div>
+                    <div className="success-message">✓ Two-Factor Authentication Enabled</div>
 
-                    <div style={{
-                        background: 'var(--color-surface-2)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '1.5rem',
-                        marginBottom: '1.5rem'
-                    }}>
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: '0.75rem',
-                            fontFamily: 'monospace',
-                            fontSize: '0.9rem',
-                            color: 'var(--color-text)'
-                        }}>
+                    <div className="tf-panel">
+                        <div className="tf-codes">
                             {backupCodes.map((code, idx) => (
-                                <div key={idx} style={{
-                                    padding: '0.5rem',
-                                    background: 'var(--color-bg)',
-                                    borderRadius: '4px',
-                                    textAlign: 'center'
-                                }}>
-                                    {code}
-                                </div>
+                                <div key={idx}>{code}</div>
                             ))}
                         </div>
                     </div>
 
-                    <button
-                        onClick={downloadBackupCodes}
-                        className="btn-ghost"
-                        style={{
-                            width: '100%',
-                            marginBottom: '0.75rem',
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid var(--color-border)',
-                            padding: '0.75rem',
-                            borderRadius: 'var(--radius-sm)',
-                            color: 'var(--color-text)',
-                            cursor: 'pointer',
-                            fontWeight: 600
-                        }}
-                    >
+                    <button type="button" className="tf-btn tf-btn--block" onClick={downloadBackupCodes}>
                         📥 Download Backup Codes
                     </button>
 
-                    <button
-                        onClick={handleComplete}
-                        className="submit-btn"
-                    >
+                    <button type="button" className="submit-btn" onClick={handleComplete}>
                         Continue to Dashboard
                     </button>
                 </div>
@@ -151,7 +112,7 @@ const TwoFactorSetup = () => {
 
     return (
         <div className="auth-container">
-            <div className="register-container" style={{ maxWidth: '500px' }}>
+            <div className="register-container tf-medium">
                 <div className="auth-header">
                     <h2>Setup Two-Factor Authentication</h2>
                     <p>Scan the QR code with your authenticator app</p>
@@ -159,82 +120,34 @@ const TwoFactorSetup = () => {
 
                 {error && <div className="error-message">{error}</div>}
 
-                <div style={{
-                    background: 'var(--color-surface-2)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '1.5rem',
-                    marginBottom: '1.5rem',
-                    textAlign: 'center'
-                }}>
-                    <h3 style={{
-                        color: 'var(--color-text)',
-                        fontSize: '0.9rem',
-                        fontWeight: 600,
-                        marginBottom: '1rem'
-                    }}>
-                        Step 1: Scan QR Code
-                    </h3>
+                <div className="tf-panel tf-panel--center">
+                    <h3 className="tf-panel-title tf-panel-title--sm">Step 1: Scan QR Code</h3>
 
-                    <div style={{
-                        background: '#fff',
-                        padding: '1rem',
-                        borderRadius: 'var(--radius-sm)',
-                        display: 'inline-block',
-                        marginBottom: '1rem'
-                    }}>
+                    <div className="tf-qr">
                         {qrCode ? (
-                            <img src={qrCode} alt="QR Code" style={{ width: '200px', height: '200px' }} />
+                            <img src={qrCode} alt="QR Code" />
                         ) : (
-                            <div style={{ width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span className="loading-spinner" style={{ borderColor: '#000', borderTopColor: 'transparent' }}></span>
+                            <div className="tf-qr-placeholder">
+                                <span className="loading-spinner"></span>
                             </div>
                         )}
                     </div>
 
-                    <p style={{
-                        color: 'var(--color-text-muted)',
-                        fontSize: '0.85rem',
-                        margin: '0 0 0.5rem 0'
-                    }}>
-                        Or enter this key manually:
-                    </p>
-                    <code style={{
-                        background: 'var(--color-bg)',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '4px',
-                        color: 'var(--color-accent-2)',
-                        fontFamily: 'monospace',
-                        fontSize: '0.9rem',
-                        display: 'inline-block'
-                    }}>
-                        {secret}
-                    </code>
+                    <p className="tf-text" style={{ marginBottom: '0.5rem' }}>Or enter this key manually:</p>
+                    <code className="tf-secret">{secret}</code>
                 </div>
 
                 <form onSubmit={handleVerify}>
-                    <div style={{
-                        background: 'var(--color-surface-2)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '1.5rem',
-                        marginBottom: '1.5rem'
-                    }}>
-                        <h3 style={{
-                            color: 'var(--color-text)',
-                            fontSize: '0.9rem',
-                            fontWeight: 600,
-                            marginBottom: '1rem'
-                        }}>
-                            Step 2: Enter Verification Code
-                        </h3>
+                    <div className="tf-panel tf-panel--flush-form">
+                        <h3 className="tf-panel-title tf-panel-title--sm">Step 2: Enter Verification Code</h3>
 
-                        <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div className="form-group">
                             <label htmlFor="code">6-Digit Code from App</label>
                             <input
                                 type="text"
                                 id="code"
                                 name="code"
+                                className="tf-code-input"
                                 placeholder="000000"
                                 value={verificationCode}
                                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -242,12 +155,6 @@ const TwoFactorSetup = () => {
                                 pattern="[0-9]{6}"
                                 required
                                 disabled={isLoading}
-                                style={{
-                                    textAlign: 'center',
-                                    fontSize: '1.5rem',
-                                    letterSpacing: '0.5rem',
-                                    fontFamily: 'monospace'
-                                }}
                             />
                         </div>
                     </div>
@@ -263,11 +170,7 @@ const TwoFactorSetup = () => {
                 </form>
 
                 <p className="switch-auth">
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="link-btn"
-                        style={{ background: 'none', border: 'none' }}
-                    >
+                    <button type="button" className="link-btn" onClick={() => navigate('/dashboard')}>
                         Skip for now
                     </button>
                 </p>

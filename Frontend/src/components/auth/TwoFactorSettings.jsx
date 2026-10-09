@@ -99,7 +99,7 @@ const TwoFactorSettings = () => {
 
     return (
         <div className="auth-container">
-            <div className="register-container" style={{ maxWidth: '600px' }}>
+            <div className="register-container tf-wide">
                 <div className="auth-header">
                     <h2>Two-Factor Authentication Settings</h2>
                     <p>Manage your 2FA security settings</p>
@@ -108,43 +108,18 @@ const TwoFactorSettings = () => {
                 {error && <div className="error-message">{error}</div>}
                 {success && <div className="success-message">{success}</div>}
 
-                {/* Status Card */}
-                <div style={{
-                    background: 'var(--color-surface-2)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '1.5rem',
-                    marginBottom: '1.5rem'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="tf-panel">
+                    <div className="tf-row">
                         <div>
-                            <h3 style={{ 
-                                color: 'var(--color-text)', 
-                                fontSize: '1rem', 
-                                fontWeight: 600,
-                                marginBottom: '0.25rem'
-                            }}>
-                                Status
-                            </h3>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                            <h3 className="tf-panel-title" style={{ marginBottom: '0.25rem' }}>Status</h3>
+                            <p className="tf-text">
                                 Two-Factor Authentication is currently{' '}
-                                <strong style={{ color: is2FAEnabled ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
+                                <strong className={is2FAEnabled ? 'tf-on' : 'tf-off'}>
                                     {is2FAEnabled ? 'ENABLED' : 'DISABLED'}
                                 </strong>
                             </p>
                         </div>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '50%',
-                            background: is2FAEnabled 
-                                ? 'rgba(34, 197, 94, 0.15)' 
-                                : 'rgba(239, 68, 68, 0.15)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.5rem'
-                        }}>
+                        <div className={`tf-status-icon ${is2FAEnabled ? 'on' : 'off'}`}>
                             {is2FAEnabled ? '✓' : '✗'}
                         </div>
                     </div>
@@ -152,131 +127,38 @@ const TwoFactorSettings = () => {
 
                 {is2FAEnabled ? (
                     <>
-                        {/* Backup Codes Card */}
-                        <div style={{
-                            background: 'var(--color-surface-2)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '1.5rem',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <h3 style={{ 
-                                color: 'var(--color-text)', 
-                                fontSize: '1rem', 
-                                fontWeight: 600,
-                                marginBottom: '0.5rem'
-                            }}>
-                                Backup Codes
-                            </h3>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                You have <strong style={{ color: 'var(--color-text)' }}>{backupCodesCount} backup codes</strong> remaining
+                        <div className="tf-panel">
+                            <h3 className="tf-panel-title">Backup Codes</h3>
+                            <p className="tf-text">
+                                You have <strong>{backupCodesCount} backup codes</strong> remaining
                             </p>
 
                             {newBackupCodes.length > 0 && (
-                                <div style={{
-                                    background: 'var(--color-bg)',
-                                    border: '1px solid var(--color-border)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: '1rem',
-                                    marginBottom: '1rem'
-                                }}>
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(2, 1fr)',
-                                        gap: '0.5rem',
-                                        fontFamily: 'monospace',
-                                        fontSize: '0.85rem',
-                                        color: 'var(--color-text)',
-                                        marginBottom: '1rem'
-                                    }}>
+                                <div className="tf-codes-box">
+                                    <div className="tf-codes">
                                         {newBackupCodes.map((code, idx) => (
-                                            <div key={idx} style={{
-                                                padding: '0.4rem',
-                                                background: 'var(--color-surface-2)',
-                                                borderRadius: '4px',
-                                                textAlign: 'center'
-                                            }}>
-                                                {code}
-                                            </div>
+                                            <div key={idx}>{code}</div>
                                         ))}
                                     </div>
-                                    <button
-                                        onClick={downloadBackupCodes}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(255,255,255,0.06)',
-                                            border: '1px solid var(--color-border)',
-                                            padding: '0.5rem',
-                                            borderRadius: 'var(--radius-sm)',
-                                            color: 'var(--color-text)',
-                                            cursor: 'pointer',
-                                            fontSize: '0.85rem'
-                                        }}
-                                    >
+                                    <button type="button" className="tf-btn tf-btn--sm" onClick={downloadBackupCodes}>
                                         📥 Download Backup Codes
                                     </button>
                                 </div>
                             )}
 
                             {!showRegenerateConfirm ? (
-                                <button
-                                    onClick={() => setShowRegenerateConfirm(true)}
-                                    style={{
-                                        background: 'rgba(255,255,255,0.06)',
-                                        border: '1px solid var(--color-border)',
-                                        padding: '0.75rem 1.5rem',
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: 'var(--color-text)',
-                                        cursor: 'pointer',
-                                        fontWeight: 600
-                                    }}
-                                >
+                                <button type="button" className="tf-btn" onClick={() => setShowRegenerateConfirm(true)}>
                                     Regenerate Backup Codes
                                 </button>
                             ) : (
-                                <div style={{
-                                    background: 'rgba(251, 191, 36, 0.1)',
-                                    border: '1px solid rgba(251, 191, 36, 0.3)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: '1rem'
-                                }}>
-                                    <p style={{ 
-                                        color: 'var(--color-warning)', 
-                                        fontSize: '0.9rem', 
-                                        marginBottom: '1rem',
-                                        fontWeight: 600
-                                    }}>
-                                        ⚠️ This will invalidate all existing backup codes
-                                    </p>
-                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                        <button
-                                            onClick={handleRegenerateBackupCodes}
-                                            disabled={isLoading}
-                                            style={{
-                                                flex: 1,
-                                                background: 'var(--color-warning)',
-                                                border: 'none',
-                                                padding: '0.75rem',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: '#000',
-                                                cursor: 'pointer',
-                                                fontWeight: 600
-                                            }}
-                                        >
+                                <div className="tf-confirm tf-confirm--warn">
+                                    <p>⚠️ This will invalidate all existing backup codes</p>
+                                    <div className="tf-confirm-actions">
+                                        <button type="button" className="tf-btn tf-btn--solid-warn"
+                                                onClick={handleRegenerateBackupCodes} disabled={isLoading}>
                                             {isLoading ? 'Generating...' : 'Confirm'}
                                         </button>
-                                        <button
-                                            onClick={() => setShowRegenerateConfirm(false)}
-                                            style={{
-                                                flex: 1,
-                                                background: 'rgba(255,255,255,0.06)',
-                                                border: '1px solid var(--color-border)',
-                                                padding: '0.75rem',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: 'var(--color-text)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
+                                        <button type="button" className="tf-btn" onClick={() => setShowRegenerateConfirm(false)}>
                                             Cancel
                                         </button>
                                     </div>
@@ -284,84 +166,23 @@ const TwoFactorSettings = () => {
                             )}
                         </div>
 
-                        {/* Disable 2FA Section */}
-                        <div style={{
-                            background: 'var(--color-surface-2)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '1.5rem'
-                        }}>
-                            <h3 style={{ 
-                                color: 'var(--color-text)', 
-                                fontSize: '1rem', 
-                                fontWeight: 600,
-                                marginBottom: '0.5rem'
-                            }}>
-                                Disable 2FA
-                            </h3>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                This will reduce your account security
-                            </p>
+                        <div className="tf-panel">
+                            <h3 className="tf-panel-title">Disable 2FA</h3>
+                            <p className="tf-text">This will reduce your account security</p>
 
                             {!showDisableConfirm ? (
-                                <button
-                                    onClick={() => setShowDisableConfirm(true)}
-                                    style={{
-                                        background: 'transparent',
-                                        border: '1px solid var(--color-red)',
-                                        padding: '0.75rem 1.5rem',
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: 'var(--color-red)',
-                                        cursor: 'pointer',
-                                        fontWeight: 600
-                                    }}
-                                >
+                                <button type="button" className="tf-btn tf-btn--danger" onClick={() => setShowDisableConfirm(true)}>
                                     Disable Two-Factor Authentication
                                 </button>
                             ) : (
-                                <div style={{
-                                    background: 'rgba(239, 68, 68, 0.1)',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: '1rem'
-                                }}>
-                                    <p style={{ 
-                                        color: 'var(--color-red)', 
-                                        fontSize: '0.9rem', 
-                                        marginBottom: '1rem',
-                                        fontWeight: 600
-                                    }}>
-                                        Are you sure you want to disable 2FA?
-                                    </p>
-                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                        <button
-                                            onClick={handleDisable2FA}
-                                            disabled={isLoading}
-                                            style={{
-                                                flex: 1,
-                                                background: 'var(--color-red)',
-                                                border: 'none',
-                                                padding: '0.75rem',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: '#fff',
-                                                cursor: 'pointer',
-                                                fontWeight: 600
-                                            }}
-                                        >
+                                <div className="tf-confirm tf-confirm--danger">
+                                    <p>Are you sure you want to disable 2FA?</p>
+                                    <div className="tf-confirm-actions">
+                                        <button type="button" className="tf-btn tf-btn--solid-danger"
+                                                onClick={handleDisable2FA} disabled={isLoading}>
                                             {isLoading ? 'Disabling...' : 'Yes, Disable'}
                                         </button>
-                                        <button
-                                            onClick={() => setShowDisableConfirm(false)}
-                                            style={{
-                                                flex: 1,
-                                                background: 'rgba(255,255,255,0.06)',
-                                                border: '1px solid var(--color-border)',
-                                                padding: '0.75rem',
-                                                borderRadius: 'var(--radius-sm)',
-                                                color: 'var(--color-text)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
+                                        <button type="button" className="tf-btn" onClick={() => setShowDisableConfirm(false)}>
                                             Cancel
                                         </button>
                                     </div>
@@ -370,41 +191,20 @@ const TwoFactorSettings = () => {
                         </div>
                     </>
                 ) : (
-                    /* Enable 2FA Card */
-                    <div style={{
-                        background: 'var(--color-surface-2)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '1.5rem',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔐</div>
-                        <h3 style={{ 
-                            color: 'var(--color-text)', 
-                            fontSize: '1.1rem', 
-                            fontWeight: 600,
-                            marginBottom: '0.5rem'
-                        }}>
-                            Secure Your Account
-                        </h3>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                    <div className="tf-panel tf-panel--center">
+                        <div className="tf-icon-lg">🔐</div>
+                        <h3 className="tf-panel-title" style={{ fontSize: '1.1rem' }}>Secure Your Account</h3>
+                        <p className="tf-text" style={{ marginBottom: '1.5rem' }}>
                             Enable Two-Factor Authentication for enhanced security
                         </p>
-                        <button
-                            onClick={() => navigate('/2fa/setup')}
-                            className="submit-btn"
-                        >
+                        <button type="button" className="submit-btn" onClick={() => navigate('/2fa/setup')}>
                             Enable Two-Factor Authentication
                         </button>
                     </div>
                 )}
 
                 <p className="switch-auth" style={{ marginTop: '1.5rem' }}>
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="link-btn"
-                        style={{ background: 'none', border: 'none' }}
-                    >
+                    <button type="button" className="link-btn" onClick={() => navigate('/dashboard')}>
                         ← Back to Dashboard
                     </button>
                 </p>

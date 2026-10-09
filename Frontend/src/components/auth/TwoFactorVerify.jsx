@@ -50,13 +50,20 @@ const TwoFactorVerify = () => {
         setBackupCode(value);
     };
 
+    const toggleBackup = () => {
+        setUseBackupCode(!useBackupCode);
+        setCode('');
+        setBackupCode('');
+        setError('');
+    };
+
     return (
         <div className="auth-container">
-            <div className="register-container" style={{ maxWidth: '450px' }}>
+            <div className="register-container tf-narrow">
                 <div className="auth-header">
                     <h2>Two-Factor Authentication</h2>
                     <p>
-                        {useBackupCode 
+                        {useBackupCode
                             ? 'Enter one of your backup codes'
                             : 'Enter the 6-digit code from your authenticator app'
                         }
@@ -73,6 +80,7 @@ const TwoFactorVerify = () => {
                                 type="text"
                                 id="code"
                                 name="code"
+                                className="tf-code-input tf-code-input--lg"
                                 placeholder="000000"
                                 value={code}
                                 onChange={handleCodeChange}
@@ -81,13 +89,6 @@ const TwoFactorVerify = () => {
                                 required
                                 disabled={isLoading}
                                 autoFocus
-                                style={{
-                                    textAlign: 'center',
-                                    fontSize: '2rem',
-                                    letterSpacing: '1rem',
-                                    fontFamily: 'monospace',
-                                    padding: '1.5rem'
-                                }}
                             />
                         </div>
                     ) : (
@@ -97,6 +98,7 @@ const TwoFactorVerify = () => {
                                 type="text"
                                 id="backupCode"
                                 name="backupCode"
+                                className="tf-code-input tf-code-input--backup"
                                 placeholder="XXXX-XXXX-XXXX"
                                 value={backupCode}
                                 onChange={handleBackupCodeChange}
@@ -104,20 +106,8 @@ const TwoFactorVerify = () => {
                                 required
                                 disabled={isLoading}
                                 autoFocus
-                                style={{
-                                    textAlign: 'center',
-                                    fontSize: '1.5rem',
-                                    letterSpacing: '0.25rem',
-                                    fontFamily: 'monospace'
-                                }}
                             />
-                            <small style={{ 
-                                color: 'var(--color-warning)', 
-                                display: 'block',
-                                marginTop: '0.5rem'
-                            }}>
-                                ⚠️ Each backup code can only be used once
-                            </small>
+                            <small className="tf-warning">⚠️ Each backup code can only be used once</small>
                         </div>
                     )}
 
@@ -131,28 +121,9 @@ const TwoFactorVerify = () => {
                     </button>
                 </form>
 
-                <div style={{
-                    marginTop: '1.5rem',
-                    textAlign: 'center'
-                }}>
-                    <button
-                        onClick={() => {
-                            setUseBackupCode(!useBackupCode);
-                            setCode('');
-                            setBackupCode('');
-                            setError('');
-                        }}
-                        className="link-btn"
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--color-accent-2)',
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            textDecoration: 'underline'
-                        }}
-                    >
-                        {useBackupCode 
+                <div className="tf-link-row">
+                    <button type="button" className="tf-link-btn" onClick={toggleBackup}>
+                        {useBackupCode
                             ? '← Use authenticator app instead'
                             : "Can't access your app? Use a backup code"
                         }
@@ -160,28 +131,15 @@ const TwoFactorVerify = () => {
                 </div>
 
                 <p className="switch-auth">
-                    <button
-                        onClick={() => navigate('/login')}
-                        className="link-btn"
-                        style={{ background: 'none', border: 'none' }}
-                    >
+                    <button type="button" className="link-btn" onClick={() => navigate('/login')}>
                         ← Back to Login
                     </button>
                 </p>
 
-                <div style={{
-                    marginTop: '2rem',
-                    padding: '1rem',
-                    background: 'rgba(124, 106, 255, 0.1)',
-                    border: '1px solid rgba(124, 106, 255, 0.2)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.85rem',
-                    color: 'var(--color-text-muted)'
-                }}>
-                    <strong style={{ color: 'var(--color-accent-2)' }}>💡 Tip:</strong> We recommend using apps like 
-                    <strong style={{ color: 'var(--color-text)' }}> Google Authenticator</strong>, 
-                    <strong style={{ color: 'var(--color-text)' }}> Authy</strong>, or 
-                    <strong style={{ color: 'var(--color-text)' }}> Microsoft Authenticator</strong>
+                <div className="tf-tip">
+                    <strong className="tf-tip-label">💡 Tip:</strong> We recommend using apps like{' '}
+                    <strong>Google Authenticator</strong>, <strong>Authy</strong>, or{' '}
+                    <strong>Microsoft Authenticator</strong>
                 </div>
             </div>
         </div>

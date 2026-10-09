@@ -512,3 +512,151 @@
 .error-icon {
   background: var(--color-red, #e74c3c);
 }
+
+/* ==========================================================================
+   Two-factor authentication screens (verify / setup / settings)
+   ========================================================================== */
+.register-container.tf-narrow { max-width: 450px; }
+.register-container.tf-medium { max-width: 500px; }
+.register-container.tf-wide   { max-width: 600px; }
+
+.tf-panel {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.tf-panel--center { text-align: center; }
+.tf-panel--flush-form .form-group { margin-bottom: 0; }
+
+.tf-panel-title {
+  margin: 0 0 0.5rem;
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.tf-panel-title--sm { font-size: 0.9rem; margin-bottom: 1rem; }
+.tf-text { margin: 0 0 1rem; color: var(--color-text-muted); font-size: 0.9rem; }
+.tf-text strong { color: var(--color-text); }
+.tf-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.tf-row .tf-text { margin: 0; }
+
+.tf-status-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.tf-status-icon.on  { background: rgba(34, 197, 94, 0.15); color: var(--color-green); }
+.tf-status-icon.off { background: rgba(239, 68, 68, 0.15); color: var(--color-red); }
+.tf-text strong.tf-on, .tf-on  { color: var(--color-green); }
+.tf-text strong.tf-off, .tf-off { color: var(--color-text-muted); }
+
+/* Code entry inputs */
+.form-group input.tf-code-input {
+  text-align: center;
+  font-family: monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.5rem;
+}
+.form-group input.tf-code-input--lg { font-size: 2rem; letter-spacing: 1rem; padding: 1.5rem; }
+.form-group input.tf-code-input--backup { letter-spacing: 0.25rem; }
+.tf-warning { display: block; margin-top: 0.5rem; color: var(--color-yellow); }
+
+/* QR + manual key */
+.tf-qr {
+  display: inline-block;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #fff; /* QR codes need a light quiet zone to scan */
+  border-radius: var(--radius-sm);
+}
+.tf-qr img, .tf-qr-placeholder { width: 200px; height: 200px; display: block; }
+.tf-qr-placeholder { display: flex; align-items: center; justify-content: center; }
+.tf-qr-placeholder .loading-spinner { border-color: #000; border-top-color: transparent; }
+.tf-secret {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg);
+  border-radius: 4px;
+  color: var(--color-accent-2);
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+/* Backup codes */
+.tf-codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.tf-codes > div { padding: 0.5rem; background: var(--color-bg); border-radius: 4px; text-align: center; }
+.tf-codes-box {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.tf-codes-box .tf-codes { margin-bottom: 1rem; font-size: 0.85rem; }
+.tf-codes-box .tf-codes > div { background: var(--color-surface-2); }
+
+/* Buttons */
+.tf-btn {
+  padding: 0.7rem 1.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font: 600 0.9rem var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.tf-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: var(--color-border-hover); }
+.tf-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.tf-btn--block { display: block; width: 100%; margin-bottom: 0.75rem; }
+.tf-btn--sm { padding: 0.5rem; font-size: 0.85rem; width: 100%; }
+.tf-btn--danger { background: transparent; border-color: var(--color-red); color: var(--color-red); }
+.tf-btn--danger:hover:not(:disabled) { background: rgba(239,68,68,0.12); border-color: var(--color-red); }
+.tf-btn--solid-danger { background: var(--color-red); border-color: var(--color-red); color: #fff; }
+.tf-btn--solid-danger:hover:not(:disabled) { background: #f05a5a; border-color: #f05a5a; }
+.tf-btn--solid-warn { background: var(--color-yellow); border-color: var(--color-yellow); color: #000; }
+.tf-btn--solid-warn:hover:not(:disabled) { background: #fcd34d; border-color: #fcd34d; }
+
+/* Inline confirmation boxes */
+.tf-confirm { padding: 1rem; border-radius: var(--radius-sm); }
+.tf-confirm p { margin: 0 0 1rem; font-size: 0.9rem; font-weight: 600; }
+.tf-confirm--warn   { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); }
+.tf-confirm--warn p { color: var(--color-yellow); }
+.tf-confirm--danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+.tf-confirm--danger p { color: var(--color-red); }
+.tf-confirm-actions { display: flex; gap: 0.75rem; }
+.tf-confirm-actions .tf-btn { flex: 1; }
+
+.tf-link-row { margin-top: 1.5rem; text-align: center; }
+.tf-link-btn {
+  background: none; border: none; padding: 0;
+  color: var(--color-accent-2);
+  font: inherit; font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.tf-link-btn:hover { color: #fff; }
+
+.tf-tip {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: rgba(124, 106, 255, 0.1);
+  border: 1px solid rgba(124, 106, 255, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+.tf-tip .tf-tip-label { color: var(--color-accent-2); }
+.tf-tip strong { color: var(--color-text); }
+.tf-icon-lg { font-size: 3rem; margin-bottom: 1rem; }
