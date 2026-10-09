@@ -103,7 +103,6 @@ class Program(models.Model):
         indexes = [
             models.Index(fields=['status', 'scope_type']),
             models.Index(fields=['company', 'status']),
-            models.Index(fields=['slug']),
         ]
 
     def __str__(self):
@@ -366,7 +365,6 @@ class ProgramStats(models.Model):
     class Meta:
         unique_together = ['program', 'date']
         ordering = ['-date']
-        indexes = [models.Index(fields=['program', 'date'])]
 
     def __str__(self):
         return f"{self.program.name} — {self.date}"

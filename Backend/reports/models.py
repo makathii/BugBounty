@@ -72,6 +72,17 @@ class BugReport(models.Model):
     
     verification_notes = models.TextField(blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="rpt_status_created"),
+            models.Index(fields=["program", "status"], name="rpt_program_status"),
+            models.Index(fields=["program", "-created_at"], name="rpt_program_created"),
+            models.Index(fields=["reporter", "-created_at"], name="rpt_reporter_created"),
+            models.Index(fields=["assigned_to", "status"], name="rpt_assignee_status"),
+            models.Index(fields=["-created_at"], name="rpt_created"),
+            models.Index(fields=["affected_url"], name="rpt_url"),
+        ]
+
     def __str__(self):
         return f"{self.title} ({self.status})"
 
@@ -89,16 +100,22 @@ class BugReport(models.Model):
 
         potential_duplicates = []
 
-        # Build query: same program + not self + not already a duplicate
-        queryset = BugReport.objects.filter(
-            Q(program=self.program) | Q(affected_url=self.affected_url)
-        ).exclude(
-            id=self.id
-        ).exclude(
+        # Candidates: same program, or same non-empty affected URL. An empty
+        # URL must not match every other URL-less report. Newest first so the
+        # 50-row cap below really means "most recent 50".
+        match = Q()
+        if self.program_id:
+            match |= Q(program_id=self.program_id)
+        if self.affected_url:
+            match |= Q(affected_url=self.affected_url)
+        if not match:
+            return []
+
+        queryset = BugReport.objects.filter(match).exclude(
             status='duplicate'
         ).exclude(
             duplicate_of__isnull=False
-        )
+        ).select_related('reporter').order_by('-created_at')
 
         if self.id:
             queryset = queryset.exclude(id=self.id)

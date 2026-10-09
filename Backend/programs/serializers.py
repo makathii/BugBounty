@@ -82,7 +82,9 @@ class ProgramListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_favorites_count(self, obj):
-        return obj.favorites.count()
+        # Annotated by ProgramViewSet.get_queryset(); fall back for other callers.
+        annotated = getattr(obj, 'favorites_total', None)
+        return annotated if annotated is not None else obj.favorites.count()
 
 
 class ProgramDetailSerializer(serializers.ModelSerializer):
@@ -120,13 +122,16 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_favorites_count(self, obj):
-        return obj.favorites.count()
+        # Annotated by ProgramViewSet.get_queryset(); fall back for other callers.
+        annotated = getattr(obj, 'favorites_total', None)
+        return annotated if annotated is not None else obj.favorites.count()
 
     def get_in_scope_count(self, obj):
-        return obj.scopes.filter(is_in_scope=True).count()
+        # .all() uses the prefetch cache when present; filter() would re-query.
+        return sum(1 for sc in obj.scopes.all() if sc.is_in_scope)
 
     def get_out_of_scope_count(self, obj):
-        return obj.scopes.filter(is_in_scope=False).count()
+        return sum(1 for sc in obj.scopes.all() if not sc.is_in_scope)
 
     def get_user_has_access(self, obj):              # ← new
         request = self.context.get('request')

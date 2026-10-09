@@ -124,10 +124,12 @@ Other tables:
 5. **Load:** k6/Locust against `/api/reports/?status=open`, `/api/leaderboard/`, `POST /api/reports/`; compare p50/p95 before/after.
 
 ## 7. Prioritized checklist
-- [ ] A: role cache, `select_related`, annotate counts, aggregate dashboards, pagination default
-- [ ] A: fix empty-`affected_url` duplicate match
-- [ ] B: `BugReport` composite indexes + trigram search (concurrent)
-- [ ] B: drop redundant `slug` / `(program,date)` indexes
+- [x] A: role cache (`core/roles.py`, reports + program views), `select_related`, annotated favorites count, aggregate triage dashboard
+- [ ] A: pagination default (deferred: changes list response shape, needs frontend coordination)
+- [x] A: fix empty-`affected_url` duplicate match + newest-first ordering
+- [x] B: `BugReport` composite indexes (migration `reports/0002`; plain `CREATE INDEX`, see note)
+- [ ] B: trigram search; build indexes `CONCURRENTLY` on a large live table
+- [x] B: drop redundant `slug` / `(program,date)` indexes (migration `programs/0002`)
 - [ ] C: remove post-save re-save; `on_commit` conditional `refresh_stats`
 - [ ] D: window-function leaderboard + cache
 - [ ] E: audit-log retention, connection pooling

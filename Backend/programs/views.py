@@ -6,7 +6,9 @@ from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, Sum, Avg
+from django.db.models import Count, Sum, Avg, OuterRef, Subquery, IntegerField
+from django.db.models.functions import Coalesce
+from core.roles import has_any_role
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
@@ -30,6 +32,24 @@ from .permissions import (
 # ---------------------------------------------------------------------------
 # Program
 # ---------------------------------------------------------------------------
+
+def with_favorites_total(qs):
+    """
+    Annotate ``favorites_total`` so ProgramListSerializer needn't COUNT per row.
+    Correlated subquery (not a JOIN) so the count is immune to row
+    multiplication from the invitation/application joins + distinct().
+    """
+    total = Coalesce(
+        Subquery(
+            ProgramFavorite.objects.filter(program=OuterRef('pk'))
+            .order_by().values('program')
+            .annotate(c=Count('pk')).values('c'),
+            output_field=IntegerField(),
+        ),
+        0,
+    )
+    return qs.annotate(favorites_total=total)
+
 
 class ProgramViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -55,16 +75,19 @@ class ProgramViewSet(viewsets.ModelViewSet):
         return [p() for p in perms]
 
     def get_queryset(self):
+        return with_favorites_total(self._visible_programs())
+
+    def _visible_programs(self):
         user = self.request.user
         qs = Program.objects.select_related('company')
 
         if _is_admin(user):
             return qs
 
-        if user.groups.filter(name='ProgramOwner').exists():
+        if has_any_role(self.request, 'ProgramOwner'):
             return qs.filter(company=user)
 
-        if user.groups.filter(name='Researcher').exists():
+        if has_any_role(self.request, 'Researcher'):
             public = qs.filter(scope_type__in=['public', 'vdp'], status='active')
             invited = qs.filter(
                 scope_type='private', status='active',
@@ -76,7 +99,7 @@ class ProgramViewSet(viewsets.ModelViewSet):
             )
             return (public | invited | applied).distinct()
 
-        if user.groups.filter(name='Triager').exists():
+        if has_any_role(self.request, 'Triager'):
             return qs.filter(status='active')
 
         return qs.none()
@@ -530,7 +553,9 @@ class ResearcherProgramListView(generics.ListAPIView):
             scope_type='private', status='active',
             applications__researcher=user, applications__status='approved'
         )
-        return (public | invited | applied).distinct().select_related('company')
+        return with_favorites_total(
+            (public | invited | applied).distinct().select_related('company')
+        )
 
 
 class CompanyProgramListView(generics.ListAPIView):
@@ -538,11 +563,11 @@ class CompanyProgramListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if not self.request.user.groups.filter(name='ProgramOwner').exists():
+        if not has_any_role(self.request, 'ProgramOwner'):
             return Program.objects.none()
-        return Program.objects.filter(
-            company=self.request.user
-        ).select_related('company')
+        return with_favorites_total(
+            Program.objects.filter(company=self.request.user).select_related('company')
+        )
 
 
 class PublicProgramListView(generics.ListAPIView):

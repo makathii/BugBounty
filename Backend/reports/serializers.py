@@ -41,10 +41,10 @@ class BugReportSerializer(serializers.ModelSerializer):
         ]
 
     def get_assigned_to_username(self, obj):
-        return obj.assigned_to.username if obj.assigned_to else None
+        return obj.assigned_to.username if obj.assigned_to_id else None
 
     def get_program_name(self, obj):
-        return obj.program.name if obj.program else None
+        return obj.program.name if obj.program_id else None
         
     def validate_title(self, value):
         if len(value)<10:

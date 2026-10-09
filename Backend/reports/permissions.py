@@ -1,5 +1,7 @@
 from rest_framework import permissions
 
+from core.roles import is_admin_or_triager
+
 
 class IsReporterOrTriagerOrAdmin(permissions.BasePermission):
     # Custom permission to only allow:
@@ -8,7 +10,7 @@ class IsReporterOrTriagerOrAdmin(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         # Triagers and Admins can access everything
-        if request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if is_admin_or_triager(request):
             return True
 
         # Reporters can only access their own reports
@@ -20,10 +22,10 @@ class CanChangeReportStatus(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if request.method in ['PUT', 'PATCH']:
-            return request.user.groups.filter(name__in=['Triager', 'Admin']).exists()
+            return is_admin_or_triager(request)
         return True
 
     def has_object_permission(self, request, view, obj):
         if request.method in ['PUT', 'PATCH']:
-            return request.user.groups.filter(name__in=['Triager', 'Admin']).exists()
+            return is_admin_or_triager(request)
         return True

@@ -26,6 +26,7 @@ from users.throttles import SubmissionThrottle, BurstRateThrottle
 from .captcha import verify_recaptcha
 from rest_framework.exceptions import ValidationError
 from users.models import Profile
+from core.roles import is_admin_or_triager, has_any_role
 from rest_framework.exceptions import PermissionDenied
 
 class BugReportViewSet(viewsets.ModelViewSet):
@@ -37,7 +38,7 @@ class BugReportViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = BugReport.objects.all().order_by("-created_at")
+        queryset = BugReport.objects.select_related("assigned_to", "program", "reporter").order_by("-created_at")
 
         # Apply filters for triage dashboard
         status_filter = self.request.query_params.get('status')
@@ -63,11 +64,11 @@ class BugReportViewSet(viewsets.ModelViewSet):
             )
 
         # Permission-based filtering
-        is_admin_or_triager = user.groups.filter(name__in=['Triager', 'Admin']).exists()
-        is_program_owner = user.groups.filter(name='ProgramOwner').exists()
+        admin_or_triager = is_admin_or_triager(self.request)
+        is_program_owner = has_any_role(self.request, 'ProgramOwner')
 
         # Admin / Triager → see everything
-        if is_admin_or_triager:
+        if admin_or_triager:
             return queryset
 
         # Program Owner → see reports for programs they own
@@ -121,25 +122,27 @@ class BugReportViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def triage_dashboard(self, request):
         """Specialized endpoint for triage dashboard with counts"""
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can access triage dashboard"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         # Get counts for dashboard
-        counts = {
-            'total': BugReport.objects.count(),
-            'open': BugReport.objects.filter(status='open').count(),
-            'triaged': BugReport.objects.filter(status='triaged').count(),
-            'accepted': BugReport.objects.filter(status='accepted').count(),
-            'rejected': BugReport.objects.filter(status='rejected').count(),
-            'assigned_to_me': BugReport.objects.filter(assigned_to=request.user).count(),
-            'unassigned': BugReport.objects.filter(assigned_to__isnull=True).count(),
-        }
+        counts = BugReport.objects.aggregate(
+            total=models.Count('id'),
+            open=models.Count('id', filter=Q(status='open')),
+            triaged=models.Count('id', filter=Q(status='triaged')),
+            accepted=models.Count('id', filter=Q(status='accepted')),
+            rejected=models.Count('id', filter=Q(status='rejected')),
+            assigned_to_me=models.Count('id', filter=Q(assigned_to=request.user)),
+            unassigned=models.Count('id', filter=Q(assigned_to__isnull=True)),
+        )
 
         # Get recent reports for the dashboard
-        recent_reports = BugReport.objects.filter(
+        recent_reports = BugReport.objects.select_related(
+            'assigned_to', 'program', 'reporter'
+        ).filter(
             status__in=['open', 'triaged']
         ).order_by('-created_at')[:10]
 
@@ -207,7 +210,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         report = self.get_object()
 
         # Check if user has permission to change status
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can change report status"},
                 status=status.HTTP_403_FORBIDDEN
@@ -294,7 +297,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
 
     def _can_access_report(self, report):
         u = self.request.user
-        return u.is_superuser or u == report.reporter or u.groups.filter(name__in=['Triager', 'Admin']).exists()
+        return u.is_superuser or u == report.reporter or is_admin_or_triager(self.request)
 
     @action(detail=True, methods=["GET"])
     def attachments(self, request, pk=None):
@@ -403,7 +406,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         """Assign report to current user"""
         report = self.get_object()
 
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can assign reports"},
                 status=status.HTTP_403_FORBIDDEN
@@ -424,7 +427,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         """Accept a report for bounty"""
         report = self.get_object()
 
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can accept reports"},
                 status=status.HTTP_403_FORBIDDEN
@@ -460,7 +463,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         """Reject a report"""
         report = self.get_object()
 
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can reject reports"},
                 status=status.HTTP_403_FORBIDDEN
@@ -492,7 +495,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         """Reopen a closed report"""
         report = self.get_object()
 
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can reopen reports"},
                 status=status.HTTP_403_FORBIDDEN
@@ -519,7 +522,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         """Mark a report as duplicate of another report"""
         report = self.get_object()
 
-        if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if not is_admin_or_triager(request):
             return Response(
                 {"error": "Only Triagers and Admins can mark reports as duplicates"},
                 status=status.HTTP_403_FORBIDDEN
@@ -640,7 +643,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         # Persist to the report if requested and user is privileged
         should_save = str(request.data.get('save', 'false')).lower() in ('true', '1', 'yes')
         if should_save:
-            if not request.user.groups.filter(name__in=['Triager', 'Admin']).exists():
+            if not is_admin_or_triager(request):
                 return Response(
                     {'detail': 'Only Triagers and Admins can save CVSS scores to reports.'},
                     status=status.HTTP_403_FORBIDDEN,
@@ -677,7 +680,7 @@ class CommentViewSet(viewsets.ReadOnlyModelViewSet):
        # Users can see comments only for reports they have access to
         user = self.request.user
 
-        if user.groups.filter(name__in=['Triager', 'Admin']).exists():
+        if is_admin_or_triager(self.request):
             return Comment.objects.all().order_by("-created_at")
         else:
             # Researchers see comments only on their own reports
