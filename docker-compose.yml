@@ -118,6 +118,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: bugbounty-frontend
+    # node_modules lives in an anonymous volume (below), which survives rebuilds and goes stale
+    # when package.json changes (e.g. a new dependency). Syncing at start keeps it correct.
+    command: sh -c "npm install --legacy-peer-deps --no-audit --no-fund && npm start"
     ports:
       - "3000:3000"
     environment:

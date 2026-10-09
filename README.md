@@ -22,6 +22,11 @@ cp .env.example .env            # set DJANGO_SECRET_KEY at minimum
 docker compose up --build       # db, redis, backend, celery worker + beat, frontend, clamav
 ```
 
+`docker compose up` reuses images it already built. After pulling changes that touch
+`backend/` or `frontend/` (new files, new dependencies, renamed folders) run
+`docker compose up --build` so the images are rebuilt; a stale backend image fails with
+`ModuleNotFoundError: No module named 'config'`.
+
 Frontend: http://localhost:3000, API: http://localhost:8000/api. Demo data and accounts: `DEMO_ACCOUNTS.md`.
 
 ## Test
