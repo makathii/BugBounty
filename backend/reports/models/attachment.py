@@ -1,8 +1,12 @@
-import hashlib, os, uuid
-from django.db import models
+import hashlib
+import os
+import uuid
+
 from django.contrib.auth.models import User
-from django.conf import settings
-from .models import BugReport
+from django.db import models
+
+from .bugreport import BugReport
+
 
 def report_upload_path(instance, filename):
     ext = os.path.splitext(filename)[1].lower()

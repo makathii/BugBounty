@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import BugReport, Comment, ActivityLog
-from .models_attachment import Attachment
+from .models import Attachment
 from .sanitizers import sanitize_html
 
 

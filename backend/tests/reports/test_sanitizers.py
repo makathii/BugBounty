@@ -3,7 +3,7 @@ Tests for input sanitization utilities.
 """
 import pytest
 from django.core.exceptions import ValidationError
-from .sanitizers import (
+from reports.sanitizers import (
     sanitize_html,
     sanitize_text_field,
     validate_no_path_traversal,

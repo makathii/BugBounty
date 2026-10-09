@@ -114,7 +114,7 @@ class TestRateLimiting:
         """
         import os, re
         views_path = os.path.join(
-            os.path.dirname(__file__), '..', 'users', 'views', 'password_reset.py'
+            os.path.dirname(__file__), '..', '..', 'users', 'views', 'password_reset.py'
         )
         source = open(views_path).read()
         # Find the PasswordResetRequestView class definition and check that

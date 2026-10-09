@@ -44,6 +44,6 @@ docker logs bugbounty-backend --tail 50 | grep -o 'http://localhost:3000/verify-
 ## Re-seeding
 
 ```bash
-docker exec -i bugbounty-backend python manage.py shell < backend/seed_demo.py
+docker exec -i bugbounty-backend python manage.py shell < backend/scripts/seed_demo.py
 docker exec bugbounty-backend python manage.py recompute_leaderboard
 ```

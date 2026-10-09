@@ -36,7 +36,7 @@ def disable_throttling(monkeypatch):
 @pytest.fixture(autouse=True)
 def disable_recaptcha(monkeypatch):
     """Make verify_recaptcha a no-op so registration tests don't need a captcha token"""
-    monkeypatch.setattr('reports.captcha.verify_recaptcha', lambda *args, **kwargs: None)
+    monkeypatch.setattr('core.captcha.verify_recaptcha', lambda *args, **kwargs: None)
     monkeypatch.setattr('users.views.accounts.verify_recaptcha', lambda *args, **kwargs: None)
 
 

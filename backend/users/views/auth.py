@@ -196,30 +196,22 @@ def logout(request):
         or request.COOKIES.get(settings.JWT_AUTH_REFRESH_COOKIE)
     )
 
-    blacklisted = False
     if refresh_token:
         try:
             RefreshToken(refresh_token).blacklist()
-            blacklisted = True
         except Exception:
             # An invalid token shouldn't break logout — we still clear cookies.
             pass
 
     # Also deactivate the matching UserSession row (best-effort — failure
-    # here must never block logout).
+    # here must never block logout). Sessions are keyed by the *access* token's
+    # JTI (see login), so match on the access token of this request; the refresh
+    # token carries a different JTI and would never match.
     try:
-        from .models import UserSession
-        if refresh_token and blacklisted:
-            import jwt as pyjwt
-            decoded = pyjwt.decode(
-                refresh_token,
-                settings.SECRET_KEY,
-                algorithms=['HS256'],
-                options={"verify_exp": False},
-            )
-            jti = decoded.get('jti')
-            if jti:
-                UserSession.objects.filter(user=request.user, jti=jti).update(is_active=False)
+        access = getattr(request, 'auth', None)
+        jti = access.get('jti') if access is not None else None
+        if jti:
+            UserSession.objects.filter(user=request.user, jti=jti).update(is_active=False)
     except Exception:
         pass
 

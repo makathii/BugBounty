@@ -9,8 +9,8 @@ from rest_framework.response import Response
 
 from core.roles import is_admin_or_triager
 
-from ..captcha import verify_recaptcha
-from ..models_attachment import Attachment
+from core.captcha import verify_recaptcha
+from ..models import Attachment
 from ..serializers import AttachmentSerializer
 from ..validators import (
     detect_mime,

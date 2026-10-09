@@ -12,7 +12,7 @@ echo "===================="
 docker compose exec \
     -e DJANGO_SETTINGS_MODULE=config.test_settings \
     backend \
-    pytest tests/ reports/test_file_upload_security.py --create-db -q "$@"
+    pytest --create-db -q "$@"
 
 echo ""
 echo "===================="

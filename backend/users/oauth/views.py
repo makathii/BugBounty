@@ -38,10 +38,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .jwt_cookies import set_jwt_cookies
-from .models import Profile, SocialAccount, UserSession
-from .oauth_providers import OAuthError, OAuthProvider, PROVIDERS
-from .throttles import OAuthCallbackThrottle, OAuthInitThrottle
+from ..jwt_cookies import set_jwt_cookies
+from ..models import Profile, SocialAccount, UserSession
+from .providers import OAuthError, OAuthProvider, PROVIDERS
+from ..throttles import OAuthCallbackThrottle, OAuthInitThrottle
 
 
 STATE_COOKIE_NAME = "bb_oauth_state"

@@ -146,3 +146,23 @@ class TestRevokeAllSessions:
     def test_unauthenticated_returns_401(self, api_client):
         resp = api_client.delete(self.URL)
         assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+class TestLoginAndLogoutTrackSessions:
+    """Session bookkeeping is best-effort (wrapped in try/except), so a broken
+    import there is silent; this pins that login records a session and logout
+    deactivates it."""
+
+    def test_login_creates_session_and_logout_deactivates_it(self, api_client, verified_user):
+        resp = api_client.post(
+            '/api/token/', {'username': verified_user.username, 'password': 'SafePass123!'}, format='json'
+        )
+        assert resp.status_code == 200
+        assert UserSession.objects.filter(user=verified_user, is_active=True).count() == 1
+
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {resp.data['access']}")
+        out = api_client.post('/api/users/logout/', {'refresh_token': resp.data['refresh']}, format='json')
+
+        assert out.status_code in (200, 205)
+        assert UserSession.objects.filter(user=verified_user, is_active=True).count() == 0

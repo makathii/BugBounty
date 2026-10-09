@@ -152,8 +152,8 @@ def test_callback_creates_user_and_sets_jwt_cookies(api_client, github_configure
             return R()
         raise AssertionError(f"Unexpected GET to {url}")
 
-    with patch("users.oauth_providers.requests.post", side_effect=fake_post), \
-         patch("users.oauth_providers.requests.get", side_effect=fake_get):
+    with patch("users.oauth.providers.requests.post", side_effect=fake_post), \
+         patch("users.oauth.providers.requests.get", side_effect=fake_get):
         response = api_client.get(
             f"/api/users/oauth/github/callback/?code=auth-code-xyz&state={state_cookie}",
             follow=False,
@@ -206,8 +206,8 @@ def test_callback_links_existing_user_by_verified_email(
         return R()
 
     user_count_before = User.objects.count()
-    with patch("users.oauth_providers.requests.post", side_effect=fake_post), \
-         patch("users.oauth_providers.requests.get", side_effect=fake_get):
+    with patch("users.oauth.providers.requests.post", side_effect=fake_post), \
+         patch("users.oauth.providers.requests.get", side_effect=fake_get):
         response = api_client.get(
             f"/api/users/oauth/github/callback/?code=abc&state={state_cookie}",
             follow=False,

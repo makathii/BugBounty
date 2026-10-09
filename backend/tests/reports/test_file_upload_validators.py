@@ -4,8 +4,8 @@ Tests for file upload security.
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
-from .validators import validate_extension, validate_size, validate_mime
-from .models_attachment import Attachment
+from reports.validators import validate_extension, validate_size, validate_mime
+from reports.models import Attachment
 
 
 @pytest.mark.django_db
@@ -73,7 +73,7 @@ class TestFileUploadSecurity:
 
     def test_mime_detection(self):
         """Test MIME detection from file content."""
-        from .validators import detect_mime
+        from reports.validators import detect_mime
         import tempfile
         import os
 
@@ -126,7 +126,7 @@ class TestExifStripping:
         img_path = str(tmp_path / "gps_test.jpg")
         self._make_jpeg_with_exif(img_path)
 
-        from .validators import strip_exif
+        from reports.validators import strip_exif
         result = strip_exif(img_path)
         assert result is True
 
@@ -141,7 +141,7 @@ class TestExifStripping:
     def test_strip_exif_preserves_image_content(self, tmp_path):
         """Stripped image must still be a valid, openable image."""
         from PIL import Image
-        from .validators import strip_exif
+        from reports.validators import strip_exif
 
         img_path = str(tmp_path / "preserve_test.jpg")
         self._make_plain_jpeg(img_path)
@@ -152,14 +152,14 @@ class TestExifStripping:
 
     def test_strip_exif_skips_non_image_files(self, tmp_path):
         """strip_exif must return False (no-op) for non-image extensions."""
-        from .validators import strip_exif
+        from reports.validators import strip_exif
         txt_path = str(tmp_path / "document.txt")
         with open(txt_path, "w") as f:
             f.write("hello")
         assert strip_exif(txt_path) is False
 
     def test_strip_exif_skips_pdf(self, tmp_path):
-        from .validators import strip_exif
+        from reports.validators import strip_exif
         pdf_path = str(tmp_path / "report.pdf")
         with open(pdf_path, "wb") as f:
             f.write(b"%PDF-1.4 fake pdf content")
@@ -179,14 +179,14 @@ class TestImageDimensionValidation:
         img.save(path, fmt)
 
     def test_normal_image_passes(self, tmp_path):
-        from .validators import validate_image_dimensions
+        from reports.validators import validate_image_dimensions
         img_path = str(tmp_path / "ok.png")
         self._make_image(img_path, 800, 600)
         validate_image_dimensions(img_path)  # must not raise
 
     def test_oversized_width_rejected(self, tmp_path):
         from django.core.exceptions import ValidationError as DjValidationError
-        from .validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
+        from reports.validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
         img_path = str(tmp_path / "wide.png")
         self._make_image(img_path, MAX_IMAGE_DIMENSION + 100, 100)
         with pytest.raises(DjValidationError):
@@ -194,7 +194,7 @@ class TestImageDimensionValidation:
 
     def test_oversized_height_rejected(self, tmp_path):
         from django.core.exceptions import ValidationError as DjValidationError
-        from .validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
+        from reports.validators import validate_image_dimensions, MAX_IMAGE_DIMENSION
         img_path = str(tmp_path / "tall.png")
         self._make_image(img_path, 100, MAX_IMAGE_DIMENSION + 100)
         with pytest.raises(DjValidationError):
@@ -202,14 +202,14 @@ class TestImageDimensionValidation:
 
     def test_non_image_file_skipped(self, tmp_path):
         """Dimension check must be a no-op for non-image file types."""
-        from .validators import validate_image_dimensions
+        from reports.validators import validate_image_dimensions
         txt_path = str(tmp_path / "notes.txt")
         with open(txt_path, "w") as f:
             f.write("not an image")
         validate_image_dimensions(txt_path)  # must not raise
 
     def test_pdf_skipped(self, tmp_path):
-        from .validators import validate_image_dimensions
+        from reports.validators import validate_image_dimensions
         pdf_path = str(tmp_path / "file.pdf")
         with open(pdf_path, "wb") as f:
             f.write(b"%PDF-1.4 fake")

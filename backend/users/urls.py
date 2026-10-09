@@ -11,7 +11,7 @@ from .views import (
     mfa_enroll_setup, mfa_enroll_confirm,
     CSRFTokenView,
 )
-from .oauth_views import oauth_start, oauth_callback
+from .oauth import oauth_start, oauth_callback
 from programs.views import CompanyViewSet
 
 
