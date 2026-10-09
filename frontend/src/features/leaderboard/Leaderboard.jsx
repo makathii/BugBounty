@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './leaderboard.css';
 import { leaderboardAPI } from '../../services/api';
 import LevelChip from '../../components/levels/LevelChip';
+import Character from '../../components/character/Character';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -21,44 +22,12 @@ const SEV_CONFIG = {
     low:      { cls: 'sev-low',      label: 'Low'       },
 };
 
-const AVATAR_COLORS = [
-    '#7c6aff', '#22c55e', '#fbbf24', '#ef4444',
-    '#a78bfa', '#38bdf8', '#fb923c', '#f472b6',
-];
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function colorFor(id) {
-    return AVATAR_COLORS[id % AVATAR_COLORS.length];
-}
-
-function initials(username = '') {
-    return username.split(/[_\-.]/).map(p => p[0]).join('').toUpperCase().slice(0, 2) || '??';
-}
-
 function SevBadge({ severity }) {
     const cfg = SEV_CONFIG[severity] || SEV_CONFIG.medium;
     return <span className={`sev-badge ${cfg.cls}`}>{cfg.label}</span>;
-}
-
-function Avatar({ id, username, size = 32 }) {
-    const color = colorFor(id);
-    return (
-        <div
-            className="lb-avatar"
-            style={{
-                width: size,
-                height: size,
-                fontSize: size * 0.32,
-                background: `${color}18`,
-                color,
-                borderColor: `${color}40`,
-            }}
-        >
-            {initials(username)}
-        </div>
-    );
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +79,9 @@ function Podium({ rows }) {
             {slots.map(({ row, cls, emoji }) => (
                 <div key={row.researcher_id} className={`lb-pod lb-pod-${cls}`}>
                     <div className="lb-pod-emoji">{emoji}</div>
-                    <Avatar id={row.researcher_id} username={row.username} size={44} />
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <Character loadout={row.loadout} size={52} label={`${row.username}'s character`} />
+                    </div>
                     <div className="lb-pod-name">{row.username}</div>
                     <LevelChip level={row.level} title={row.level_title} />
                     <div className="lb-pod-pts">{row.total_points.toLocaleString()}</div>
@@ -127,7 +98,7 @@ function EntryRow({ row, rank, isMe }) {
             <div className={`lb-rank${rank <= 3 ? ' lb-rank-top' : ''}`}>{rank}</div>
 
             <div className="lb-user-cell">
-                <Avatar id={row.researcher_id} username={row.username} size={30} />
+                <Character loadout={row.loadout} size={34} label={`${row.username}'s character`} />
                 <span className="lb-username">{row.username}</span>
                 <LevelChip level={row.level} title={row.level_title} />
                 {isMe && <span className="lb-you-tag">you</span>}

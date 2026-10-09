@@ -314,3 +314,22 @@ def test_seed_store_is_idempotent_and_keeps_edits():
     assert Item.objects.count() == count
     assert Item.objects.get(slug="party-hat").price == 77
     assert len({i.slug for i in Item.objects.all()}) == count
+
+
+@pytest.mark.django_db
+class TestLeaderboardShowsOutfits:
+    def test_rows_carry_the_loadout(self, api_client, rich, second_verified_user, program):
+        earn(second_verified_user, program, "low")
+        hat = make_item("cap", price=10, art="🧢")
+        services.purchase(rich, hat)
+        services.equip(rich, hat)
+        api_client.force_authenticate(user=rich)
+        rows = {r["username"]: r for r in api_client.get("/api/leaderboard/").data["results"]}
+        assert rows[rich.username]["loadout"]["hat"]["art"] == "🧢"
+        assert rows[second_verified_user.username]["loadout"] == {}
+        me = api_client.get("/api/leaderboard/me/").data["result"]
+        assert me["loadout"]["hat"]["slug"] == "cap"
+
+    def test_loadouts_for_is_one_query(self, rich, second_verified_user, django_assert_num_queries):
+        with django_assert_num_queries(1):
+            services.loadouts_for([rich.pk, second_verified_user.pk])

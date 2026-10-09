@@ -16,3 +16,5 @@ class LeaderboardEntrySerializer(serializers.Serializer):
     # Lifetime level (not the window's points); filled in by the view.
     level = serializers.IntegerField(required=False)
     level_title = serializers.CharField(required=False)
+    # What the researcher's character is wearing, by slot (see store.services.loadouts_for).
+    loadout = serializers.DictField(required=False)

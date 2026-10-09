@@ -96,6 +96,19 @@ def unequip(user, item):
     return deleted > 0
 
 
+def loadouts_for(user_ids):
+    """``{user_id: {slot: {slug, name, slot, rarity, art, image_url}}}`` in one query, for lists."""
+    out = {}
+    rows = EquippedItem.objects.filter(user_id__in=list(user_ids)).select_related("user_item__item")
+    for row in rows:
+        item = row.user_item.item
+        out.setdefault(row.user_id, {})[row.slot] = {
+            "slug": item.slug, "name": item.name, "slot": item.slot,
+            "rarity": item.rarity, "art": item.art, "image_url": item.image_url,
+        }
+    return out
+
+
 def loadout(user_id):
     """``{slot: Item}`` for what the user is wearing."""
     rows = EquippedItem.objects.filter(user_id=user_id).select_related("user_item__item")

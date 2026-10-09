@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import api, { reportAPI, walletAPI } from '../../services/api';
+import api, { reportAPI, walletAPI, storeAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
 import { formatPoints } from '../../utils/points';
 import LevelCard from '../../components/levels/LevelCard';
 import BadgeShelf from '../../components/badges/BadgeShelf';
+import Character from '../../components/character/Character';
 
 const ResearcherDashboard = () => {
     const { user } = useAuth();
@@ -16,23 +17,26 @@ const ResearcherDashboard = () => {
     const [programs, setPrograms] = useState([]);
     const [leaderboard, setLeaderboard] = useState([]);
     const [wallet, setWallet] = useState(null);
+    const [loadout, setLoadout] = useState({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const load = async () => {
             try {
-                const [statsRes, subsRes, programsRes, lbRes, walletRes] = await Promise.all([
+                const [statsRes, subsRes, programsRes, lbRes, walletRes, loadoutRes] = await Promise.all([
                     reportAPI.getStats().catch(() => null),
                     reportAPI.getMySubmissions().catch(() => null),
                     api.get('/programs/researcher/').catch(() => null),
                     api.get('/leaderboard/', { params: { limit: 5 } }).catch(() => null),
                     walletAPI.getWallet().catch(() => null),
+                    storeAPI.getLoadout().catch(() => null),
                 ]);
                 if (statsRes) setStats(statsRes.data);
                 if (subsRes) setSubmissions(subsRes.data.results || subsRes.data || []);
                 if (programsRes) setPrograms(programsRes.data.results || programsRes.data || []);
                 if (lbRes) setLeaderboard(lbRes.data.results || []);
                 if (walletRes) setWallet(walletRes.data);
+                if (loadoutRes) setLoadout(loadoutRes.data);
             } finally {
                 setLoading(false);
             }
@@ -66,12 +70,17 @@ const ResearcherDashboard = () => {
 
     return (
         <div className="ui-page">
-            <header className="ui-page-header">
-                <h1 className="ui-title">Researcher Dashboard</h1>
-                <p className="ui-subtitle">
-                    Welcome back, {user?.first_name || user?.username}!
-                    {myRank ? ` You're ranked #${myRank} on the leaderboard.` : ''}
-                </p>
+            <header className="ui-page-header ui-row" style={{ gap: '1.25rem' }}>
+                <Link to="/store" title="Dress up your character in the store">
+                    <Character loadout={loadout} size={84} label="Your character" />
+                </Link>
+                <div>
+                    <h1 className="ui-title">Researcher Dashboard</h1>
+                    <p className="ui-subtitle">
+                        Welcome back, {user?.first_name || user?.username}!
+                        {myRank ? ` You're ranked #${myRank} on the leaderboard.` : ''}
+                    </p>
+                </div>
             </header>
 
             <LevelCard level={wallet?.level} />

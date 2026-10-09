@@ -2,6 +2,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from store import services as store_services
+
 from . import levels, services
 from .serializers import LeaderboardEntrySerializer
 
@@ -35,11 +37,14 @@ def _parse_params(request):
 
 
 def _with_levels(rows):
-    """Attach each researcher's lifetime level to ranking rows (one query for the page)."""
-    info = levels.level_info_for_users([row["researcher_id"] for row in rows])
+    """Attach each researcher's lifetime level and outfit to ranking rows (one query each per page)."""
+    ids = [row["researcher_id"] for row in rows]
+    info = levels.level_info_for_users(ids)
+    outfits = store_services.loadouts_for(ids)
     return [
         {**row, "level": info[row["researcher_id"]]["level"],
-         "level_title": info[row["researcher_id"]]["title"]}
+         "level_title": info[row["researcher_id"]]["title"],
+         "loadout": outfits.get(row["researcher_id"], {})}
         for row in rows
     ]
 

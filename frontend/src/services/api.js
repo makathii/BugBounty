@@ -210,6 +210,15 @@ export const reportAPI = {
     getStats:             ()     => api.get('/reports/stats/'),
 };
 
+export const storeAPI = {
+    getItems:     (params) => api.get('/store/items/', { params }),
+    getInventory: () => api.get('/store/inventory/'),
+    getLoadout:   (userId) => api.get(userId ? `/store/loadout/${userId}/` : '/store/loadout/'),
+    purchase:     (slug) => api.post(`/store/items/${slug}/purchase/`),
+    equip:        (slug) => api.post(`/store/items/${slug}/equip/`),
+    unequip:      (slug) => api.post(`/store/items/${slug}/unequip/`),
+};
+
 export const badgeAPI = {
     getBadges: () => api.get('/badges/'),
 };

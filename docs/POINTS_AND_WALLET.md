@@ -93,6 +93,14 @@ Items are cosmetics for a researcher's character, bought with wallet points.
 - Refunds go through `store.services.refund` (admin action on the inventory): the points go back
   and the item is taken off.
 
+**In the app:** `/store` has a Shop tab and a My items tab, slot filters, a live character preview
+with a "Try on" button on every item (so you can see an item before paying), and buy / wear / take
+off buttons that explain themselves (needs level N, X pts short, ...). Your character appears on
+the dashboard and next to every name on the leaderboard. The character is drawn by
+`components/character/Character.jsx` from each item's `art` emoji or `image_url`, so swapping in
+real artwork later only means filling in `image_url` on the items; leaderboard rows include each
+researcher's `loadout` for this.
+
 Set up the starter catalogue with `python manage.py seed_store` (idempotent; it never overwrites
 prices you changed). Edit items, prices and levels in the Django admin.
 
