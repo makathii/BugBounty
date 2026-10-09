@@ -1,6 +1,7 @@
-// src/components/auth/ResetPassword.jsx
-import React, { useState } from 'react';
+// src/features/auth/ResetPassword.jsx
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { authAPI } from '../../services/api';
 import './auth.css';
 
 const ResetPassword = () => {
@@ -13,6 +14,9 @@ const ResetPassword = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [success, setSuccess] = useState(false);
+    const redirectTimer = useRef(null);
+
+    useEffect(() => () => clearTimeout(redirectTimer.current), []);
 
     const handleChange = (e) => {
         setFormData({
@@ -51,22 +55,23 @@ const ResetPassword = () => {
         setErrors({});
 
         try {
-            // TODO: Replace with actual API call
-            // await api.post(`/users/password-reset/confirm/`, {
-            //     token: token,
-            //     new_password: formData.password
-            // });
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await authAPI.confirmPasswordReset(token, formData.password, formData.confirmPassword);
             setSuccess(true);
-            
-            // Redirect to login after 2 seconds
-            setTimeout(() => navigate('/login'), 2000);
+            redirectTimer.current = setTimeout(() => navigate('/login'), 2000);
         } catch (err) {
-            setErrors({ 
-                general: err.response?.data?.error || 'Failed to reset password. Link may be expired.' 
-            });
+            const data = err.response?.data || {};
+            const first = (v) => (Array.isArray(v) ? v[0] : v);
+            if (err.response?.status === 429) {
+                setErrors({ general: 'Too many attempts. Please wait a while and try again.' });
+            } else if (data.token) {
+                // Invalid, expired or already-used link: the user needs a fresh one.
+                setErrors({ general: first(data.token), expiredLink: true });
+            } else if (data.password || data.password2) {
+                // Django password validators (too common, too similar, numeric only...)
+                setErrors({ password: Array.isArray(data.password) ? data.password.join(' ') : first(data.password || data.password2) });
+            } else {
+                setErrors({ general: 'Failed to reset password. Please try again.' });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -94,9 +99,7 @@ const ResetPassword = () => {
                         ✓ You can now login with your new password
                     </div>
 
-                    <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                        Redirecting to login...
-                    </p>
+                    <p className="auth-hint">Redirecting to login...</p>
                 </div>
             </div>
         );
@@ -111,7 +114,12 @@ const ResetPassword = () => {
                 </div>
 
                 {errors.general && (
-                    <div className="error-message">{errors.general}</div>
+                    <div className="error-message">
+                        {errors.general}
+                        {errors.expiredLink && (
+                            <> <Link to="/forgot-password" className="link-btn">Request a new link</Link></>
+                        )}
+                    </div>
                 )}
 
                 <form onSubmit={handleSubmit}>
@@ -129,7 +137,7 @@ const ResetPassword = () => {
                             disabled={isLoading}
                         />
                         {errors.password && <span className="error-text">{errors.password}</span>}
-                        {strength && (
+                        {strength && !errors.password && (
                             <div className={`password-strength ${strength.class}`}>
                                 Password strength: {strength.text}
                             </div>

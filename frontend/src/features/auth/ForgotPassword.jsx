@@ -1,12 +1,13 @@
-// src/components/auth/ForgotPassword.jsx
+// src/features/auth/ForgotPassword.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { authAPI } from '../../services/api';
 import './auth.css';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
@@ -15,47 +16,43 @@ const ForgotPassword = () => {
         setIsLoading(true);
 
         try {
-            // TODO: Replace with actual API call
-            // await api.post('/users/password-reset/', { email });
-            
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setSuccess(true);
+            // The backend answers 200 whether or not the address has an account,
+            // so "sent" never reveals whether the email is registered.
+            await authAPI.requestPasswordReset(email.trim());
+            setSent(true);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send reset email');
+            if (err.response?.status === 429) {
+                setError('Too many reset requests. Please wait a while before trying again.');
+            } else {
+                setError(err.response?.data?.email?.[0] || 'Could not send the reset email. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (success) {
+    if (sent) {
         return (
             <div className="auth-container">
                 <div className="login-container">
                     <div className="auth-header">
                         <h2>Check Your Email</h2>
-                        <p>We've sent password reset instructions to {email}</p>
+                        <p>If an account exists for {email}, we've sent password reset instructions.</p>
                     </div>
 
-                    <div className="success-message">
-                        ✓ Reset link sent successfully
-                    </div>
+                    <div className="success-message">✓ Request received</div>
 
-                    <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: '1rem 0' }}>
-                        Didn't receive the email? Check your spam folder or try again.
+                    <p className="auth-hint">
+                        Didn't receive it? Check your spam folder. The link expires after 1 hour.
                     </p>
 
-                    <Link to="/login" className="btn-ghost" style={{ 
-                        width: '100%', 
-                        textDecoration: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '0.75rem',
-                        borderRadius: 'var(--radius-sm)'
-                    }}>
-                        Back to Login
-                    </Link>
+                    <button type="button" className="auth-secondary-btn" onClick={() => setSent(false)}>
+                        Try a different email
+                    </button>
+
+                    <p className="switch-auth">
+                        <Link to="/login" className="link-btn">Back to Login</Link>
+                    </p>
                 </div>
             </div>
         );
@@ -69,9 +66,7 @@ const ForgotPassword = () => {
                     <p>Enter your email to receive a password reset link</p>
                 </div>
 
-                {error && (
-                    <div className="error-message">{error}</div>
-                )}
+                {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -83,16 +78,14 @@ const ForgotPassword = () => {
                             placeholder="Enter your email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="email"
+                            autoFocus
                             required
                             disabled={isLoading}
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="submit-btn"
-                    >
+                    <button type="submit" disabled={isLoading} className="submit-btn">
                         {isLoading && <span className="loading-spinner"></span>}
                         {isLoading ? 'Sending...' : 'Send Reset Link'}
                     </button>
@@ -100,9 +93,7 @@ const ForgotPassword = () => {
 
                 <p className="switch-auth">
                     Remember your password?{' '}
-                    <Link to="/login" className="link-btn">
-                        Back to Login
-                    </Link>
+                    <Link to="/login" className="link-btn">Back to Login</Link>
                 </p>
             </div>
         </div>

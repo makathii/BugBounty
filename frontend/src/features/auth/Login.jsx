@@ -111,6 +111,10 @@ const Login = () => {
                         {errors.password && <span className="error-text">{errors.password}</span>}
                     </div>
 
+                    <div className="forgot-link">
+                        <Link to="/forgot-password">Forgot your password?</Link>
+                    </div>
+
                     {showTotp && (
                         <div className="form-group">
                             <label htmlFor="totp_code">2FA Code</label>

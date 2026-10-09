@@ -27,6 +27,8 @@ import Login from './features/auth/Login';
 import ResearcherRegister from './features/auth/register/ResearcherRegister';
 import CompanyRegister from './features/auth/register/CompanyRegister';
 import VerifyEmail from './features/auth/VerifyEmail';
+import ForgotPassword from './features/auth/ForgotPassword';
+import ResetPassword from './features/auth/ResetPassword';
 import SubmitReport from './features/reports/SubmitReport';
 import Reports from './features/reports/Reports';
 import ReportDetail from './features/reports/ReportDetail';
@@ -78,6 +80,8 @@ function AppContent() {
                     <Route path="/register/researcher" element={<ResearcherRegister />} />
                     <Route path="/register/company" element={<CompanyRegister />} />
                     <Route path="/verify-email/:token" element={<VerifyEmail />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password/:token" element={<ResetPassword />} />
 
                     {/*Leaderboard */}
                     <Route path="/leaderboard" element={<Leaderboard />} />

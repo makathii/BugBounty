@@ -70,6 +70,11 @@ export const authAPI = {
     logout:               (data) => api.post('/users/logout/', data),
     verifyEmail:          (token)=> api.get(`/users/verify-email/${token}/`),
 
+    // Password reset: the request always answers 200 (no account enumeration)
+    requestPasswordReset: (email) => api.post('/users/password-reset/', { email }),
+    confirmPasswordReset: (token, password, password2) =>
+        api.post('/users/password-reset/confirm/', { token, password, password2 }),
+
     // OAuth
     oauthStart: (provider, next = window.location.origin + '/oauth/success') =>
         api.get(`/users/oauth/${provider}/start/`, {

@@ -636,3 +636,26 @@
 
 
 .tf-icon-lg { font-size: 3rem; margin-bottom: 1rem; }
+
+/* Forgot / reset password */
+.auth-hint {
+  margin: 1rem 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.auth-secondary-btn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font: 600 0.9rem var(--font-sans);
+  cursor: pointer;
+}
+.auth-secondary-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--color-border-hover); }
+.forgot-link { text-align: right; margin: -0.4rem 0 1rem; font-size: 0.85rem; }
+.forgot-link a { color: var(--color-accent-2); text-decoration: none; }
+.forgot-link a:hover { color: #fff; text-decoration: underline; }
