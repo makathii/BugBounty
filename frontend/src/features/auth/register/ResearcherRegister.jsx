@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Recaptcha, { captchaEnabled } from './Recaptcha';
 import RegistrationSuccessModal from './RegistrationSuccessModal';
 import { useAuth } from '../AuthContext';
 import './register.css';
@@ -20,57 +21,6 @@ const ResearcherRegister = () => {
         lastName: ''
     });
     const captchaRef = useRef(null);
-    const widgetIdRef = useRef(null);
-
-    // Use test key if environment variable is not set
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
-    useEffect(() => {
-        if (!siteKey) {
-            console.error('reCAPTCHA site key is missing');
-            return;
-        }
-
-        const loadRecaptcha = () => {
-            if (!window.grecaptcha) {
-                const script = document.createElement('script');
-                script.src = 'https://www.google.com/recaptcha/api.js';
-                script.async = true;
-                script.defer = true;
-                document.head.appendChild(script);
-
-                script.onload = () => {
-                    renderCaptcha();
-                };
-            } else if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-                renderCaptcha();
-            }
-        };
-
-        const renderCaptcha = () => {
-            try {
-                if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-                    widgetIdRef.current = window.grecaptcha.render(captchaRef.current, {
-                        sitekey: siteKey,
-                    });
-                }
-            } catch (error) {
-                console.error('Error rendering reCAPTCHA:', error);
-            }
-        };
-
-        loadRecaptcha();
-
-        return () => {
-            if (window.grecaptcha && widgetIdRef.current !== null) {
-                try {
-                    window.grecaptcha.reset(widgetIdRef.current);
-                } catch (error) {
-                    console.error('Error resetting captcha:', error);
-                }
-            }
-        };
-    }, [siteKey]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -135,10 +85,9 @@ const ResearcherRegister = () => {
             return;
         }
 
-        const tokenInput = document.querySelector('textarea[name="g-recaptcha-response"]');
-        const token = tokenInput ? tokenInput.value : '';
+        const token = captchaRef.current?.getToken() || '';
 
-        if (!token) {
+        if (captchaEnabled && !token) {
             setErrors({ captcha: 'Please complete the security verification' });
             return;
         }
@@ -163,11 +112,7 @@ const ResearcherRegister = () => {
                 // Show the popup first: the account exists now, and a hiccup resetting the
                 // captcha widget must not hide that (it would land in the generic error branch).
                 setRegisteredEmail(formData.email);
-                try {
-                    window.grecaptcha?.reset?.();
-                } catch {
-                    /* widget already gone: nothing to reset */
-                }
+                captchaRef.current?.reset();
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
@@ -186,17 +131,13 @@ const ResearcherRegister = () => {
                 }
 
                 // Reset captcha on error
-                if (window.grecaptcha && window.grecaptcha.reset) {
-                    window.grecaptcha.reset();
-                }
+                captchaRef.current?.reset();
             }
         } catch (error) {
             console.error('Registration error:', error);
             setErrors({ general: 'An unexpected error occurred' });
 
-            if (window.grecaptcha && window.grecaptcha.reset) {
-                window.grecaptcha.reset();
-            }
+            captchaRef.current?.reset();
         } finally {
             setLoading(false);
         }
@@ -325,16 +266,15 @@ const ResearcherRegister = () => {
                         </div>
                     </div>
 
-                    <div className="form-section">
-                        <h3>Security Verification</h3>
-                        <div className="form-group">
-                            <div
-                                className="g-recaptcha"
-                                ref={captchaRef}
-                            />
-                            {errors.captcha && <div className="error-text">{errors.captcha}</div>}
+                    {captchaEnabled && (
+                        <div className="form-section">
+                            <h3>Security Verification</h3>
+                            <div className="form-group">
+                                <Recaptcha ref={captchaRef} />
+                                {errors.captcha && <div className="error-text">{errors.captcha}</div>}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="oauth-register">
                         <div className="auth-divider">

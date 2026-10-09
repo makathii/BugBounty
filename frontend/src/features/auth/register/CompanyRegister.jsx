@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Recaptcha, { captchaEnabled } from './Recaptcha';
 import RegistrationSuccessModal from './RegistrationSuccessModal';
 import { useAuth } from '../AuthContext';
 import './register.css';
@@ -20,18 +21,6 @@ const CompanyRegister = () => {
         companyName: ''
     });
     const captchaRef = useRef(null);
-    const widgetIdRef = useRef(null);
-
-    // Use test key if environment variable is not set
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
-    useEffect(() => {
-        if (window.grecaptcha && captchaRef.current && widgetIdRef.current === null) {
-            widgetIdRef.current = window.grecaptcha.render(captchaRef.current, {
-                sitekey: siteKey,
-            });
-        }
-    }, [siteKey]);
 
     const handleChange = (e) => {
         setFormData({
@@ -96,8 +85,12 @@ const CompanyRegister = () => {
             return;
         }
 
-        const tokenInput = document.querySelector('textarea[name="g-recaptcha-response"]');
-        const token = tokenInput ? tokenInput.value : '';
+        const token = captchaRef.current?.getToken() || '';
+
+        if (captchaEnabled && !token) {
+            setErrors({ captcha: 'Please complete the security verification' });
+            return;
+        }
 
         setLoading(true);
 
@@ -120,11 +113,7 @@ const CompanyRegister = () => {
                 // Show the popup first: the account exists now, and a hiccup resetting the
                 // captcha widget must not hide that (it would land in the generic error branch).
                 setRegisteredEmail(formData.email);
-                try {
-                    window.grecaptcha?.reset?.();
-                } catch {
-                    /* widget already gone: nothing to reset */
-                }
+                captchaRef.current?.reset();
             } else {
                 if (result.error) {
                     if (typeof result.error === 'object') {
@@ -142,16 +131,12 @@ const CompanyRegister = () => {
                     setErrors({ general: 'Registration failed' });
                 }
 
-                if (window.grecaptcha && window.grecaptcha.reset) {
-                    window.grecaptcha.reset();
-                }
+                captchaRef.current?.reset();
             }
         } catch (error) {
             setErrors({ general: 'An unexpected error occurred' });
 
-            if (window.grecaptcha && window.grecaptcha.reset) {
-                window.grecaptcha.reset();
-            }
+            captchaRef.current?.reset();
         } finally {
             setLoading(false);
         }
@@ -295,19 +280,17 @@ const CompanyRegister = () => {
                         </div>
                     </div>
 
-                    {/* CAPTCHA */}
-                    <div className='form-section'>
-                        <h3>Security Verification</h3>
-                        <div className='form-group'>
-                            <div
-                                className="g-recaptcha"
-                                ref={captchaRef}
-                            />
-                            {errors.captcha && (
-                                <span className='error-text'>{errors.captcha}</span>
-                            )}
+                    {captchaEnabled && (
+                        <div className='form-section'>
+                            <h3>Security Verification</h3>
+                            <div className='form-group'>
+                                <Recaptcha ref={captchaRef} />
+                                {errors.captcha && (
+                                    <span className='error-text'>{errors.captcha}</span>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="terms-section">
                         <label className="checkbox-label">
