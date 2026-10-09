@@ -59,7 +59,7 @@ Severity: **H** fix soon · **M** plan it · **L** opportunistic.
 |---|---|---|---|
 | T1 | **H** | Plaintext credentials in comments (superuser/test/researcher passwords). They are in git history, so **rotate them** even after deleting the comment. | `Backend/Backend/settings.py` (end of file), also `DEMO_ACCOUNTS.md` |
 | T2 | **H** | Insecure `SECRET_KEY` fallback only *warns* when `DEBUG` is false. Should fail to start. | `settings.py` top |
-| T3 | **H** | `DATABASES` is hardcoded (`HOST='db'`, `postgres/postgres`); `DATABASE_URL`/`POSTGRES_*` passed by compose are ignored. No `CONN_MAX_AGE`. | `settings.py` ~L238 |
+| T3 | ~~H~~ ✅ | `DATABASES` was hardcoded and ignored `DATABASE_URL`/`POSTGRES_*`, no `CONN_MAX_AGE`. Now built from env in `Backend/db_config.py` (same defaults), persistent connections with health checks. | `settings.py`, `Backend/db_config.py` |
 | T4 | M | Backend container runs `manage.py runserver` (dev server); no gunicorn/uvicorn, no static serving plan. | `docker-compose.yml` |
 | T5 | M | Public reCAPTCHA *test* key is the frontend default; works in any environment so a missing env var fails open. | `CompanyRegister.jsx` |
 

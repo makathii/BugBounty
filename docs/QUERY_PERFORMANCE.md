@@ -66,8 +66,10 @@ Report list/detail/triage dashboard (`reports/views.py`), program list/stats/das
 **3.8 Role-scoped visibility queries — *Medium*.**
 `ProgramViewSet.get_queryset` (researcher branch) and `ResearcherProgramList` OR three querysets then `.distinct()` (`programs/views.py:57-80, 522-533`). `DISTINCT` over a join forces sort/hash. Replace with `Q(...) | Q(pk__in=Subquery)` / `Exists()` so no duplicates are produced and `distinct()` can go.
 
-**3.9 Audit log write path — *Medium*.**
-Middleware inserts a row synchronously per 403/admin hit; the table carries 5 indexes (write-amplified) and has no retention. *Fix:* keep `timestamp`, `(user,-ts)`, `(action,-ts)`; drop `severity` and `ip` composites unless a query needs them (check `pg_stat_user_indexes.idx_scan`); add retention (monthly partitions or a purge job).
+**3.9 Audit log write path — *Medium; retention ✅ done (phase E), index pruning pending data*.**
+Middleware inserts a row synchronously per 403/admin hit; the table carries 5 indexes (write-amplified) and had no retention.
+*Done:* `manage.py purge_audit_logs` (`--days`, `--batch-size`, `--dry-run`; default `AUDIT_LOG_RETENTION_DAYS`=365, 0 = keep forever) deletes in small batches so it never holds long locks. Schedule it daily from cron/your scheduler.
+*Not done:* dropping the `severity` / `ip_address` composite indexes. Decide from `pg_stat_user_indexes.idx_scan` on real traffic; removing them blind could slow the admin audit views.
 
 **3.10 Unbounded list endpoints — *Medium*.**
 `REST_FRAMEWORK` has no `DEFAULT_PAGINATION_CLASS`; list views that don't set one return full tables (e.g. `Comment` list, `triage` filters). Set a global `LimitOffsetPagination`/`PageNumberPagination` default (`PAGE_SIZE=25`, max 100).
@@ -120,7 +122,7 @@ Other tables:
 | **B – Indexes** (1 d + review) | §4.1 `BugReport` indexes (concurrently), §4.2 removals, trigram search | Filter/sort/search move from seq scan to index scan | Low–Med (index build time/lock if not concurrent) |
 | **C – Write path** (2–3 d) | 3.5 ✅ derived fields in `save()` + conditional stats/ledger; ⏳ `on_commit`/queue, 3.11 atomic bulk recompute | Report save 8 → 4 queries (1 for unrelated edits); fewer index writes | Med (behavior of signals tested in `test_leaderboard`, `test_reports_workflow`) |
 | **D – Leaderboard** (2 d) ✅ | 3.4 SQL window ranking + 30 s cache, atomic bulk recompute | Page cost independent of researcher count; cache hit = 0 queries | Med (tie-break parity with current ordering) |
-| **E – Scale** (as needed) | Task queue for stats/email, audit-log retention/partitioning (3.9), `CONN_MAX_AGE` + PgBouncer, read replica | Headroom beyond ~1M reports | Higher (ops) |
+| **E – Scale** (as needed) | ✅ `CONN_MAX_AGE` + env-driven DB config, shared Redis cache, audit-log retention; ⏳ task queue (Celery) for stats/email, PgBouncer, read replica, audit partitioning | Headroom beyond ~1M reports | Higher (ops) |
 
 ## 6. How to validate (do this before and after each phase)
 
@@ -140,4 +142,5 @@ Other tables:
 - [x] C: remove post-save re-save; conditional stats/ledger work (1–4 queries per save instead of 4–8)
 - [ ] C: `on_commit`/queued `refresh_stats` (see 3.5)
 - [x] D: window-function leaderboard + cache (see 3.4 caveat on LocMemCache)
-- [ ] E: audit-log retention, connection pooling
+- [x] E: audit-log retention command, env-driven DB config + persistent connections, optional shared Redis cache
+- [ ] E: task queue for stats/email, read replica, audit index pruning (need production data / an infra decision)

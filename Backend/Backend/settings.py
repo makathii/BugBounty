@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 
+from .db_config import build_caches, build_databases
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -235,16 +237,14 @@ WSGI_APPLICATION = 'Backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bug_bounty_db',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'db',
-        'PORT': '5432',
-    }
-}
+DATABASES = build_databases(os.environ)
+
+# Shared Redis cache when REDIS_URL is set (throttles, leaderboard); else locmem.
+CACHES = build_caches(os.environ)
+
+# Security audit log rows older than this are removed by
+# `manage.py purge_audit_logs` (run it from cron). 0 / unset-by-flag = keep forever.
+AUDIT_LOG_RETENTION_DAYS = int(os.environ.get('AUDIT_LOG_RETENTION_DAYS', '365'))
 
 
 
