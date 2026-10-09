@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-<<<<<<< HEAD
-=======
 import api from '../../services/api';
 
 /* 18181f 8888aa*/
@@ -31,7 +29,6 @@ const badge = (color, text) => ({
     textTransform: 'uppercase',
     text,
 });
->>>>>>> origin/trailer
 
 const ProgramBrowser = () => {
     const [programs, setPrograms] = useState([]);
@@ -489,8 +486,6 @@ const ProgramBrowser = () => {
                 </div>
             )}
 
-<<<<<<< HEAD
-=======
             {/* Loading */}
             {loading && (
                 <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -731,7 +726,6 @@ const ProgramBrowser = () => {
                 </>
             )}
 
->>>>>>> origin/trailer
             {/* Legend */}
             <div style={{
                 background: 'white',
