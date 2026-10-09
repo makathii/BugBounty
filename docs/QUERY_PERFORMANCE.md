@@ -44,9 +44,11 @@ Report list/detail/triage dashboard (`reports/views.py`), program list/stats/das
 - Cost grows with total researchers × events; "all" period can never use the date index.
 *Fix (in order):* (1) push ranking into SQL with `Window(RowNumber/Rank)` and paginate in the DB, `rank_for` filters one row; (2) cache per `(period, program)` for 30–60 s, invalidated by `sync_report_score`; (3) if still hot, maintain a `ResearcherScore` rollup table.
 
-**3.5 Signal write amplification on every report save — *High confidence*.**
-One `BugReport.save()` triggers: `reports/signals.on_report_saved` → possible second `save()` (re-fires all post_save receivers) → `program.refresh_stats()` (~9 queries + upsert) → `leaderboard.on_report_saved` → `ScoreEvent` select + maybe insert/update. Roughly 15+ queries per save, run synchronously in the request.
-*Fix:* compute `severity_score` / timing fields in `save()` (or `pre_save`) instead of a post-save re-save; run `refresh_stats` via `transaction.on_commit` and debounce/queue it; only refresh when `status`, `severity`, `bounty_amount` or `program` changed.
+**3.5 Signal write amplification on every report save — *High confidence; ✅ done (phase C)*.**
+`reports/signals.on_report_saved` computed derived fields post-save and re-`save()`d the instance, which re-fired every `post_save` receiver (program stats and the leaderboard ledger ran twice); stats and ledger work also ran on edits that couldn't affect them. *Measured on SQLite with `CaptureQueriesContext` (earlier drafts of this doc over-estimated this at ~15):* create 8 queries, status change to triaged 8, unrelated field edit 4.
+*Done:* derived fields (`severity_score`, `time_to_*`) are now set in `BugReport.save()` before the write; `BugReport` remembers loaded values so `save()` flags whether stats (`_stats_programs`, including the *old* program when a report moves) or the ledger (`_score_dirty`) need work; `Program.refresh_stats_for(id)` is one aggregate + one `UPDATE` with no model fetch; the blanket `except Exception: pass` is gone.
+*Result (same measurement):* create 4, status change 4, unrelated edit **1**, accept 5 (UPDATE + 2 stats + ledger lookup/insert).
+*Not done:* deferring `refresh_stats` to `transaction.on_commit` / a task queue. pytest-django's transaction-wrapped tests never run on-commit callbacks, so the existing suite would need `django_capture_on_commit_callbacks` first; revisit with phase E. Note `ProgramStats.snapshot_for` (≈9 queries) is *not* called from the signal path — only the cheap `refresh_stats` is.
 
 **3.6 `icontains` search on `title` and `description` — *High confidence*.**
 `Q(title__icontains)|Q(description__icontains)` (`reports/views.py:60-63`) is a sequential scan on a `TextField`. B-tree indexes cannot help.
@@ -111,7 +113,7 @@ Other tables:
 |---|---|---|---|
 | **A – No-schema quick wins** (1–2 d) | 3.1 role cache; 3.2 `select_related` + annotated counts; 3.3 single-aggregate dashboards; 3.10 default pagination; 3.7 empty-URL fix + ordering | Query count per list request drops from O(rows) to O(1); dashboard 7→1 queries | Low |
 | **B – Indexes** (1 d + review) | §4.1 `BugReport` indexes (concurrently), §4.2 removals, trigram search | Filter/sort/search move from seq scan to index scan | Low–Med (index build time/lock if not concurrent) |
-| **C – Write path** (2–3 d) | 3.5 move derived fields to `save()`, `on_commit` + conditional stats refresh, 3.11 atomic bulk recompute | Report save ~15 → ~4 queries; fewer index writes | Med (behavior of signals tested in `test_leaderboard`, `test_reports_workflow`) |
+| **C – Write path** (2–3 d) | 3.5 ✅ derived fields in `save()` + conditional stats/ledger; ⏳ `on_commit`/queue, 3.11 atomic bulk recompute | Report save 8 → 4 queries (1 for unrelated edits); fewer index writes | Med (behavior of signals tested in `test_leaderboard`, `test_reports_workflow`) |
 | **D – Leaderboard** (2 d) | 3.4 SQL window ranking + 30–60 s cache | Constant-time page + rank | Med (tie-break parity with current ordering) |
 | **E – Scale** (as needed) | Task queue for stats/email, audit-log retention/partitioning (3.9), `CONN_MAX_AGE` + PgBouncer, read replica | Headroom beyond ~1M reports | Higher (ops) |
 
@@ -130,6 +132,7 @@ Other tables:
 - [x] B: `BugReport` composite indexes (migration `reports/0002`; plain `CREATE INDEX`, see note)
 - [ ] B: trigram search; build indexes `CONCURRENTLY` on a large live table
 - [x] B: drop redundant `slug` / `(program,date)` indexes (migration `programs/0002`)
-- [ ] C: remove post-save re-save; `on_commit` conditional `refresh_stats`
+- [x] C: remove post-save re-save; conditional stats/ledger work (1–4 queries per save instead of 4–8)
+- [ ] C: `on_commit`/queued `refresh_stats` (see 3.5)
 - [ ] D: window-function leaderboard + cache
 - [ ] E: audit-log retention, connection pooling

@@ -149,26 +149,36 @@ class Program(models.Model):
 
     def refresh_stats(self):
         """Recompute cached stat fields from live report data."""
+        self.refresh_stats_for(self.pk)
+        self.refresh_from_db(fields=[
+            'total_reports', 'total_bounties', 'avg_severity_score',
+            'avg_time_to_triage', 'avg_time_to_resolution',
+        ])
+
+    @classmethod
+    def refresh_stats_for(cls, program_id):
+        """
+        Recompute cached stats for one program with exactly two queries
+        (one aggregate, one UPDATE) and no model fetch. Safe to call from
+        signal handlers.
+        """
         from django.db.models import Count, Sum, Avg
         from reports.models import BugReport
 
-        reports = BugReport.objects.filter(program=self)
-        agg = reports.aggregate(
+        agg = BugReport.objects.filter(program_id=program_id).aggregate(
             total=Count('id'),
             bounties=Sum('bounty_amount'),
             avg_severity=Avg('severity_score'),
             avg_triage=Avg('time_to_triage'),
             avg_resolution=Avg('time_to_resolution'),
         )
-        self.total_reports = agg['total'] or 0
-        self.total_bounties = agg['bounties'] or 0
-        self.avg_severity_score = agg['avg_severity'] or 0
-        self.avg_time_to_triage = agg['avg_triage'] or 0
-        self.avg_time_to_resolution = agg['avg_resolution'] or 0
-        self.save(update_fields=[
-            'total_reports', 'total_bounties', 'avg_severity_score',
-            'avg_time_to_triage', 'avg_time_to_resolution',
-        ])
+        cls.objects.filter(pk=program_id).update(
+            total_reports=agg['total'] or 0,
+            total_bounties=agg['bounties'] or 0,
+            avg_severity_score=agg['avg_severity'] or 0,
+            avg_time_to_triage=agg['avg_triage'] or 0,
+            avg_time_to_resolution=agg['avg_resolution'] or 0,
+        )
 
 
 # ---------------------------------------------------------------------------

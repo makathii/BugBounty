@@ -14,9 +14,10 @@ from .services import sync_report_score
 
 @receiver(post_save, sender=BugReport, dispatch_uid="leaderboard_sync_on_save")
 def on_report_saved(sender, instance, **kwargs):
-    # reports/signals.py may re-save the instance to backfill severity_score /
-    # timing fields; sync_report_score is idempotent so the extra call is fine.
-    sync_report_score(instance)
+    # BugReport.save() flags whether any score-relevant field changed; skip the
+    # ledger lookup otherwise. Missing flag (raw load) -> sync to be safe.
+    if getattr(instance, "_score_dirty", True):
+        sync_report_score(instance)
 
 
 @receiver(post_delete, sender=BugReport, dispatch_uid="leaderboard_sync_on_delete")
