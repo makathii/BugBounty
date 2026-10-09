@@ -82,7 +82,7 @@ class TestAdminMFAGate:
     def test_admin_site_class_is_mfa_required(self):
         """The global admin.site must be the MFA-gated subclass."""
         from django.contrib import admin
-        from Backend.admin_site import MFARequiredAdminSite
+        from config.admin_site import MFARequiredAdminSite
         assert isinstance(admin.site, MFARequiredAdminSite), (
             "admin.site must be an instance of MFARequiredAdminSite."
         )

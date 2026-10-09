@@ -166,7 +166,7 @@ class TestRateLimiting:
         intentionally empties DEFAULT_THROTTLE_CLASSES to disable throttling
         in tests.
         """
-        from Backend import settings as prod_settings
+        from config import settings as prod_settings
         throttle_classes = prod_settings.REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
         assert "rest_framework.throttling.AnonRateThrottle" in throttle_classes
         assert "rest_framework.throttling.UserRateThrottle" in throttle_classes

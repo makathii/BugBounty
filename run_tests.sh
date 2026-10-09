@@ -10,7 +10,7 @@ echo "Running all tests..."
 echo "===================="
 
 docker compose exec \
-    -e DJANGO_SETTINGS_MODULE=Backend.test_settings \
+    -e DJANGO_SETTINGS_MODULE=config.test_settings \
     backend \
     pytest tests/ reports/test_file_upload_security.py --create-db -q "$@"
 

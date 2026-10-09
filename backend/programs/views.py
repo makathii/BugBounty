@@ -1,6 +1,5 @@
 from django.shortcuts import get_object_or_404
 from urllib3 import request
-#from Backend.tests.conftest import program
 from rest_framework import viewsets, generics, permissions, status, filters
 from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action, api_view, permission_classes

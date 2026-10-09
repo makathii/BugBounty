@@ -13,7 +13,7 @@ from reports.tasks import refresh_program_stats, send_report_submission_notifica
 
 
 def test_registered_and_autodiscovered():
-    from Backend.celery import app
+    from config.celery import app
     app.loader.import_default_modules()
     for name in ("reports.tasks.refresh_program_stats",
                  "reports.tasks.send_report_submission_notification",
@@ -96,7 +96,7 @@ class TestTaskBodies:
 
 def test_beat_schedule_points_at_real_task():
     from django.conf import settings
-    from Backend.celery import app
+    from config.celery import app
     app.loader.import_default_modules()
     for entry in settings.CELERY_BEAT_SCHEDULE.values():
         assert entry["task"] in app.tasks

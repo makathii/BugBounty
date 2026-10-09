@@ -1,5 +1,5 @@
 """
-WSGI config for Backend project.
+WSGI config for the BugBounty backend.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

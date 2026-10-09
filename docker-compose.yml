@@ -34,10 +34,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # Django Backend
+  # Django backend
   backend:
     build: 
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: bugbounty-backend
     command: >
@@ -62,7 +62,7 @@ services:
       - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-365}
       # Secrets & tunables come from .env (same directory, auto-loaded by
       # docker compose). Defaults here keep the stack bootable without one.
-      - DJANGO_SETTINGS_MODULE=Backend.settings
+      - DJANGO_SETTINGS_MODULE=config.settings
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-bug_bounty_db}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -83,10 +83,10 @@ services:
   # Celery worker — runs background tasks (program stats refresh, notification emails)
   celery-worker:
     build:
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: bugbounty-celery-worker
-    command: celery -A Backend worker --loglevel=info --concurrency=2
+    command: celery -A config worker --loglevel=info --concurrency=2
     depends_on:
       db:
         condition: service_healthy
@@ -100,10 +100,10 @@ services:
   # Celery beat — scheduler for periodic tasks (daily audit-log retention). Run exactly one.
   celery-beat:
     build:
-      context: ./Backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: bugbounty-celery-beat
-    command: celery -A Backend beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
     depends_on:
       redis:
         condition: service_healthy
@@ -112,10 +112,10 @@ services:
       - bugbounty-network
     restart: on-failure
 
-  # React Frontend
+  # React frontend
   frontend:
     build: 
-      context: ./Frontend
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: bugbounty-frontend
     ports:
@@ -127,7 +127,7 @@ services:
       - WATCHPACK_POLLING=true    # For hot reload in Docker
       - NODE_OPTIONS=--openssl-legacy-provider  # Required for react-scripts 5 on Node 17+
     volumes:
-      - ./Frontend:/app
+      - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend

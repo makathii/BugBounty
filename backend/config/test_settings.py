@@ -2,7 +2,7 @@
 Test settings for BugBounty backend.
 Uses SQLite for faster tests, no Docker required.
 """
-from Backend.settings import *
+from config.settings import *
 
 DATABASES = {
     'default': {

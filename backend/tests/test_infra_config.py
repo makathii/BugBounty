@@ -6,7 +6,7 @@ import pytest
 from django.core.management import call_command
 from django.utils import timezone
 
-from Backend.db_config import build_caches, build_databases, parse_database_url
+from config.db_config import build_caches, build_databases, parse_database_url
 from audit.models import SecurityAuditLog
 
 

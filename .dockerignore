@@ -21,8 +21,8 @@ env
 node_modules
 npm-debug.log
 
-# Frontend (separate)
-Frontend/
+# frontend (separate)
+frontend/
 
 # IDEs
 .vscode
