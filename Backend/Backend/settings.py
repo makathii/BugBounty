@@ -242,8 +242,28 @@ DATABASES = build_databases(os.environ)
 # Shared Redis cache when REDIS_URL is set (throttles, leaderboard); else locmem.
 CACHES = build_caches(os.environ)
 
-# Security audit log rows older than this are removed by
-# `manage.py purge_audit_logs` (run it from cron). 0 / unset-by-flag = keep forever.
+# ---------------------------------------------------------------------------
+# Celery (background tasks)
+# ---------------------------------------------------------------------------
+# Broker: CELERY_BROKER_URL, else REDIS_URL. With no broker at all, tasks run
+# inline (EAGER) so local dev and the test-suite need no extra services.
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or os.environ.get('REDIS_URL') or ''
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', '') == 'True' or not CELERY_BROKER_URL
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_RESULT_BACKEND = None          # fire-and-forget tasks; nothing reads results
+CELERY_TASK_ACKS_LATE = True          # re-deliver if a worker dies mid-task (tasks are idempotent)
+CELERY_TASK_TIME_LIMIT = 300
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = 'UTC'
+CELERY_BEAT_SCHEDULE = {
+    'purge-audit-logs-daily': {
+        'task': 'audit.tasks.purge_audit_logs',
+        'schedule': 24 * 60 * 60,
+    },
+}
+
+# Security audit log rows older than this are removed by `manage.py purge_audit_logs`
+# (scheduled daily by Celery beat). 0 = keep forever.
 AUDIT_LOG_RETENTION_DAYS = int(os.environ.get('AUDIT_LOG_RETENTION_DAYS', '365'))
 
 

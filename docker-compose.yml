@@ -55,7 +55,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
+    environment: &backend-env
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL-redis://redis:6379/0}   # empty -> tasks run inline in the web process
       - REDIS_URL=${REDIS_URL-redis://redis:6379/1}   # set REDIS_URL= (empty) to use the in-process cache
       - DB_CONN_MAX_AGE=${DB_CONN_MAX_AGE:-60}
       - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-365}
@@ -75,6 +76,38 @@ services:
       - CLAMAV_PORT=3310
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
+  # Celery worker — runs background tasks (program stats refresh, notification emails)
+  celery-worker:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: bugbounty-celery-worker
+    command: celery -A Backend worker --loglevel=info --concurrency=2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *backend-env
+    networks:
+      - bugbounty-network
+    restart: on-failure
+
+  # Celery beat — scheduler for periodic tasks (daily audit-log retention). Run exactly one.
+  celery-beat:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: bugbounty-celery-beat
+    command: celery -A Backend beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment: *backend-env
     networks:
       - bugbounty-network
     restart: on-failure

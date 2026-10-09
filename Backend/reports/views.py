@@ -27,6 +27,8 @@ from .captcha import verify_recaptcha
 from rest_framework.exceptions import ValidationError
 from users.models import Profile
 from core.roles import is_admin_or_triager, has_any_role
+from core.tasks import enqueue_after_commit
+from .tasks import send_report_submission_notification
 from rest_framework.exceptions import PermissionDenied
 
 class BugReportViewSet(viewsets.ModelViewSet):
@@ -162,37 +164,11 @@ class BugReportViewSet(viewsets.ModelViewSet):
         report=serializer.save(reporter=self.request.user)
         self.send_submission_notification(report)
 
-    def send_submission_notification(self,report):
-        # send email notif to adming regarding new submission
+    def send_submission_notification(self, report):
+        # Email Admin users about the new submission, off the request path.
         try:
-            subject = f"New Bug Report Submitted: {report.title}"
-            message = f"""
-New bug report has been submitted:
-
-Title: {report.title}
-Reporter: {report.reporter.username}
-Severity: {report.severity}
-Description: {report.description[:200]}...
-
-View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
-            """
-
-            # send to all admin users
-            from django.contrib.auth.models import User
-            admin_emails=User.objects.filter(
-                groups__name='Admin',
-                email__isnull=False
-            ).values_list('email',flat=True)
-
-            if admin_emails and hasattr(settings, 'EMAIL_BACKEND'):
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    list(admin_emails),
-                    fail_silently=True,
-                )
-        except Exception as e:
+            enqueue_after_commit(send_report_submission_notification, report.id)
+        except Exception as e:  # never fail a submission because of mail
             print(f"Error sending mail: {e}")
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
