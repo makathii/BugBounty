@@ -1,6 +1,11 @@
+import logging
+
 import requests
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
+
 
 def verify_recaptcha(token: str, remote_ip: str | None = None):
     """
@@ -30,4 +35,7 @@ def verify_recaptcha(token: str, remote_ip: str | None = None):
         raise ValidationError("Captcha verification failed, please try again.")
 
     if not payload.get("success"):
+        # e.g. ['invalid-input-secret'] / ['invalid-keys-or-key-mismatch'] when the site key the
+        # frontend uses and RECAPTCHA_SECRET_KEY do not belong to the same reCAPTCHA pair.
+        logger.warning("reCAPTCHA rejected the token: %s", payload.get("error-codes"))
         raise ValidationError("Invalid captcha, please try again.")
