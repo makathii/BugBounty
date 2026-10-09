@@ -10,17 +10,16 @@ const RoleBasedDashboard = () => {
 
     if (loading) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div>Loading dashboard...</div>
+            <div className="ui-loading">
+                <div className="ui-spinner" />
+                <p>Loading dashboard...</p>
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div>Please log in to access the dashboard.</div>
-            </div>
+            <div className="ui-loading">Please log in to access the dashboard.</div>
         );
     }
 
@@ -34,12 +33,12 @@ const RoleBasedDashboard = () => {
     } else {
         // Fallback for users without specific role
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <h1>Welcome, {user.username}!</h1>
-                <p>Your account doesn't have a specific role assigned yet.</p>
-                <p>Please contact support to assign your user role.</p>
-                <div style={{ marginTop: '1rem', color: '#666' }}>
-                    <p>Available roles: Researcher, Company, Triager, Admin</p>
+            <div className="ui-page ui-page--narrow">
+                <div className="ui-card ui-empty">
+                    <h1 className="ui-title">Welcome, {user.username}!</h1>
+                    <p>Your account doesn't have a specific role assigned yet.</p>
+                    <p>Please contact support to assign your user role.</p>
+                    <p className="ui-small">Available roles: Researcher, Company, Triager, Admin</p>
                 </div>
             </div>
         );

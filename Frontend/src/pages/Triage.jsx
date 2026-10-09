@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { reportAPI } from '../services/api';
+import { statusTone, severityTone } from '../utils/tones';
 
 const TriageDashboard = () => {
     const [dashboardData, setDashboardData] = useState(null);
@@ -53,45 +55,51 @@ const TriageDashboard = () => {
         }));
     };
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) {
+        return (
+            <div className="ui-loading">
+                <div className="ui-spinner" />
+                <p>Loading...</p>
+            </div>
+        );
+    }
+
+    const counts = dashboardData?.counts;
+    const statCards = counts ? [
+        { label: 'Total Reports', value: counts.total, tone: 'accent' },
+        { label: 'Awaiting Review', value: counts.triaged, tone: 'yellow' },
+        { label: 'Assigned to Me', value: counts.assigned_to_me, tone: 'blue' },
+        { label: 'Unassigned', value: counts.unassigned, tone: 'orange' },
+    ] : [];
 
     return (
-        <div className="triage-dashboard">
-            <h1>Triage Dashboard</h1>
+        <div className="ui-page">
+            <header className="ui-page-header">
+                <h1 className="ui-title">Triage Dashboard</h1>
+                <p className="ui-subtitle">Review, assign and prioritise incoming reports</p>
+            </header>
 
-            {/* Dashboard Stats */}
-            {dashboardData && (
-                <div className="dashboard-stats">
-                    <div className="stat-cards">
-                        <div className="stat-card">
-                            <h3>{dashboardData.counts.total}</h3>
-                            <p>Total Reports</p>
+            {counts && (
+                <div className="ui-grid ui-grid--stats">
+                    {statCards.map(({ label, value, tone }) => (
+                        <div key={label} className={`ui-stat tone-${tone}`}>
+                            <div className="ui-stat-value">{value}</div>
+                            <div className="ui-stat-label">{label}</div>
                         </div>
-                        <div className="stat-card">
-                            <h3>{dashboardData.counts.triaged}</h3>
-                            <p>Awaiting Review</p>
-                        </div>
-                        <div className="stat-card">
-                            <h3>{dashboardData.counts.assigned_to_me}</h3>
-                            <p>Assigned to Me</p>
-                        </div>
-                        <div className="stat-card">
-                            <h3>{dashboardData.counts.unassigned}</h3>
-                            <p>Unassigned</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             )}
 
-            {/* Filters */}
-            <div className="filters">
+            <div className="ui-toolbar">
                 <input
                     type="text"
+                    className="ui-input ui-input--grow"
                     placeholder="Search reports..."
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                 />
                 <select
+                    className="ui-select"
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
                 >
@@ -102,6 +110,7 @@ const TriageDashboard = () => {
                     <option value="rejected">Rejected</option>
                 </select>
                 <select
+                    className="ui-select"
                     value={filters.assigned_to}
                     onChange={(e) => handleFilterChange('assigned_to', e.target.value)}
                 >
@@ -111,38 +120,44 @@ const TriageDashboard = () => {
                 </select>
             </div>
 
-            {/* Reports List */}
-            <div className="reports-list">
-                {reports.map(report => (
-                    <div key={report.id} className="report-item">
-                        <div className="report-header">
-                            <h3>{report.title}</h3>
-                            <span className={`severity-badge severity-${report.severity}`}>
-                {report.severity}
-              </span>
-                        </div>
-                        <div className="report-meta">
-                            <span>By: {report.reporter}</span>
-                            <span>Status: {report.status}</span>
-                            <span>Assigned: {report.assigned_to || 'Unassigned'}</span>
-                        </div>
-                        <p className="report-description">
-                            {report.description.substring(0, 200)}...
-                        </p>
-                        <div className="report-actions">
-                            {!report.assigned_to && (
-                                <button
-                                    onClick={() => handleAssignToMe(report.id)}
-                                    className="btn btn-primary"
-                                >
-                                    Assign to Me
-                                </button>
-                            )}
-                            <button className="btn btn-secondary">View Details</button>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            {reports.length === 0 ? (
+                <div className="ui-card ui-empty">
+                    <div className="ui-empty-icon">📭</div>
+                    <h3>No reports found</h3>
+                    <p>No reports match the current filters.</p>
+                </div>
+            ) : (
+                <div className="ui-stack" style={{ gap: '1rem' }}>
+                    {reports.map(report => (
+                        <article key={report.id} className="ui-card ui-card--hover">
+                            <div className="ui-row ui-row--between ui-row--nowrap" style={{ marginBottom: '0.6rem' }}>
+                                <h3 className="ui-section-title" style={{ margin: 0 }}>{report.title}</h3>
+                                <div className="ui-row" style={{ gap: '0.4rem' }}>
+                                    <span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity}</span>
+                                    <span className={`ui-badge ${statusTone(report.status)}`}>{report.status}</span>
+                                </div>
+                            </div>
+                            <div className="ui-row ui-muted ui-small" style={{ gap: '1.25rem', marginBottom: '0.75rem' }}>
+                                <span>By: {report.reporter_username || report.reporter}</span>
+                                <span>Assigned: {report.assigned_to_username || report.assigned_to || 'Unassigned'}</span>
+                            </div>
+                            <p className="ui-muted ui-small" style={{ margin: '0 0 1rem', lineHeight: 1.55 }}>
+                                {report.description.substring(0, 200)}...
+                            </p>
+                            <div className="ui-row">
+                                {!report.assigned_to && (
+                                    <button className="ui-btn ui-btn--sm" onClick={() => handleAssignToMe(report.id)}>
+                                        Assign to Me
+                                    </button>
+                                )}
+                                <Link to={`/reports/${report.id}`} className="ui-btn ui-btn--ghost ui-btn--sm">
+                                    View Details
+                                </Link>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

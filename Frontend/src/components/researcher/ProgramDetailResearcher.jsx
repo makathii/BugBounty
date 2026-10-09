@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
+import { statusTone, scopeTone } from '../../utils/tones';
 
-const SCOPE_COLORS = {
-    public: '#3498db',
-    private: '#9b59b6',
-    vdp: '#e67e22',
-};
+
+const TextBlock = ({ children }) => <div className="ui-pre" style={{ marginBottom: '1.5rem' }}>{children}</div>;
 
 const ProgramDetailResearcher = () => {
     const { id } = useParams();
@@ -95,7 +93,7 @@ const ProgramDetailResearcher = () => {
         if (scope_type === 'public' || scope_type === 'vdp') {
             return {
                 label: joining ? 'Joining...' : 'Join Program',
-                color: scope_type === 'vdp' ? '#e67e22' : '#2ecc71',
+                cls: scope_type === 'vdp' ? 'ui-btn--warn' : 'ui-btn--green',
                 onClick: handleJoin,
                 disabled: joining,
             };
@@ -105,7 +103,7 @@ const ProgramDetailResearcher = () => {
             if (invitation_only) {
                 return {
                     label: 'Accept Invitation',
-                    color: '#9b59b6',
+                    cls: '',
                     onClick: handleJoin,
                     disabled: joining,
                 };
@@ -113,14 +111,14 @@ const ProgramDetailResearcher = () => {
             if (requires_application) {
                 return {
                     label: joining ? 'Submitting...' : 'Apply to Program',
-                    color: '#9b59b6',
+                    cls: '',
                     onClick: handleJoin,
                     disabled: joining,
                 };
             }
             return {
                 label: 'Request Access',
-                color: '#95a5a6',
+                cls: 'ui-btn--ghost',
                 onClick: handleJoin,
                 disabled: joining,
             };
@@ -131,14 +129,9 @@ const ProgramDetailResearcher = () => {
 
     if (loading) {
         return (
-            <div style={{ padding: '3rem', textAlign: 'center' }}>
-                <div style={{
-                    border: '4px solid #f3f3f3', borderTop: '4px solid #3498db',
-                    borderRadius: '50%', width: '40px', height: '40px',
-                    animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
-                }} />
-                <p style={{ color: '#666' }}>Loading program details...</p>
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <div className="ui-loading">
+                <div className="ui-spinner" />
+                <p>Loading program details...</p>
             </div>
         );
     }
@@ -151,129 +144,73 @@ const ProgramDetailResearcher = () => {
         };
         const { title, body } = messages[error] || messages.generic;
         return (
-            <div style={{ padding: '3rem', textAlign: 'center' }}>
-                <h2>{title}</h2>
-                <p style={{ color: '#666', marginBottom: '1.5rem' }}>{body}</p>
-                <Link
-                    to="/programs"
-                    style={{
-                        padding: '0.75rem 1.5rem', background: '#3498db',
-                        color: 'white', textDecoration: 'none', borderRadius: '4px'
-                    }}
-                >
-                    Browse Programs
-                </Link>
+            <div className="ui-page ui-page--narrow">
+                <div className="ui-card ui-empty">
+                    <h2 className="ui-title">{title}</h2>
+                    <p>{body}</p>
+                    <Link to="/programs" className="ui-btn">Browse Programs</Link>
+                </div>
             </div>
         );
     }
 
-    const scopeColor = SCOPE_COLORS[program.scope_type] || '#7f8c8d';
     const joinBtn = joinButtonProps();
     const tabs = ['overview', 'scope', 'policy', 'guidelines'];
+    const statCards = [
+        { label: 'Total Reports', value: program.total_reports ?? 0, tone: 'accent' },
+        { label: 'Total Bounties', value: `$${parseFloat(program.total_bounties || 0).toLocaleString()}`, tone: 'blue' },
+        { label: 'Avg Severity', value: program.avg_severity_score?.toFixed(1) ?? '—', tone: 'orange' },
+        { label: 'In-Scope Targets', value: program.in_scope_count ?? program.scopes?.filter(s => s.is_in_scope).length ?? 0, tone: 'green' },
+    ];
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-
-            {/* Join message banner */}
+        <div className="ui-page">
             {joinMessage && (
-                <div style={{
-                    padding: '1rem 1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                    background: joinMessage.type === 'success' ? '#d4edda' : '#f8d7da',
-                    color: joinMessage.type === 'success' ? '#155724' : '#721c24',
-                    border: `1px solid ${joinMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
+                <div className={`ui-alert ui-row ui-row--between ${joinMessage.type === 'success' ? 'tone-green' : 'tone-red'}`}>
                     <span>{joinMessage.text}</span>
-                    <button
-                        onClick={() => setJoinMessage(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-                    >
-                        ×
-                    </button>
+                    <button className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => setJoinMessage(null)} aria-label="Dismiss">×</button>
                 </div>
             )}
 
-            {/* Application modal */}
             {showApplicationForm && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: 'white', borderRadius: '8px', padding: '2rem',
-                        maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto'
-                    }}>
-                        <h3 style={{ margin: '0 0 1.5rem 0' }}>Apply to {program.name}</h3>
+                <div className="ui-overlay">
+                    <div className="ui-modal" style={{ maxWidth: '600px' }}>
+                        <h3 className="ui-section-title">Apply to {program.name}</h3>
 
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Why do you want to join?
-                            </label>
+                        <div className="ui-field">
+                            <label className="ui-label">Why do you want to join?</label>
                             <textarea
+                                className="ui-textarea"
                                 value={applicationData.message}
                                 onChange={e => setApplicationData(d => ({ ...d, message: e.target.value }))}
                                 rows={3}
                                 placeholder="Tell the company why you're interested..."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
                             />
                         </div>
-
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Relevant experience
-                            </label>
+                        <div className="ui-field">
+                            <label className="ui-label">Relevant experience</label>
                             <textarea
+                                className="ui-textarea"
                                 value={applicationData.experience}
                                 onChange={e => setApplicationData(d => ({ ...d, experience: e.target.value }))}
                                 rows={3}
                                 placeholder="Describe your security research experience..."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
                             />
                         </div>
-
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Qualifications / certifications
-                            </label>
+                        <div className="ui-field">
+                            <label className="ui-label">Qualifications / certifications</label>
                             <textarea
+                                className="ui-textarea"
                                 value={applicationData.qualifications}
                                 onChange={e => setApplicationData(d => ({ ...d, qualifications: e.target.value }))}
                                 rows={2}
                                 placeholder="OSCP, CVEs, HackerOne profile, etc."
-                                style={{
-                                    width: '100%', padding: '0.75rem', border: '1px solid #ddd',
-                                    borderRadius: '4px', fontSize: '1rem', fontFamily: 'inherit'
-                                }}
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setShowApplicationForm(false)}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#95a5a6',
-                                    color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSubmitApplication}
-                                disabled={submittingApplication}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#9b59b6',
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: submittingApplication ? 'not-allowed' : 'pointer',
-                                    opacity: submittingApplication ? 0.7 : 1
-                                }}
-                            >
+                        <div className="ui-row" style={{ justifyContent: 'flex-end' }}>
+                            <button className="ui-btn ui-btn--ghost" onClick={() => setShowApplicationForm(false)}>Cancel</button>
+                            <button className="ui-btn" onClick={handleSubmitApplication} disabled={submittingApplication}>
                                 {submittingApplication ? 'Submitting...' : 'Submit Application'}
                             </button>
                         </div>
@@ -281,132 +218,63 @@ const ProgramDetailResearcher = () => {
                 </div>
             )}
 
-            {/* Header */}
-            <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div>
-                        <h1 style={{ margin: '0 0 0.75rem 0' }}>{program.name}</h1>
-                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            <span style={{
-                                padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                fontWeight: '600', background: scopeColor + '20', color: scopeColor
-                            }}>
-                                {program.scope_type_display || program.scope_type.toUpperCase()}
-                            </span>
-                            <span style={{
-                                padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                fontWeight: '600', background: '#2ecc7120', color: '#2ecc71'
-                            }}>
-                                {program.status_display || program.status.toUpperCase()}
-                            </span>
-                            {program.bounty_range && program.bounty_range !== 'Not specified' && (
-                                <span style={{
-                                    padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem',
-                                    fontWeight: '600', background: '#27ae6020', color: '#27ae60'
-                                }}>
-                                    {program.bounty_range}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                        {joinBtn && (
-                            <button
-                                onClick={joinBtn.onClick}
-                                disabled={joinBtn.disabled}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: joinBtn.color,
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: joinBtn.disabled ? 'not-allowed' : 'pointer',
-                                    fontSize: '1rem', fontWeight: '500',
-                                    opacity: joinBtn.disabled ? 0.7 : 1
-                                }}
-                            >
-                                {joinBtn.label}
-                            </button>
-                        )}
-                        {program.can_accept_submissions && (
-                            <button
-                                onClick={() => navigate(`/submit?program=${id}`)}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#3498db',
-                                    color: 'white', border: 'none', borderRadius: '4px',
-                                    cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
-                                }}
-                            >
-                                Submit Report
-                            </button>
+            <header className="ui-page-header ui-page-header--row">
+                <div>
+                    <h1 className="ui-title">{program.name}</h1>
+                    <div className="ui-row">
+                        <span className={`ui-badge ${scopeTone(program.scope_type)}`}>
+                            {program.scope_type_display || program.scope_type}
+                        </span>
+                        <span className={`ui-badge ${statusTone(program.status)}`}>
+                            {program.status_display || program.status}
+                        </span>
+                        {program.bounty_range && program.bounty_range !== 'Not specified' && (
+                            <span className="ui-badge ui-badge--plain tone-green">{program.bounty_range}</span>
                         )}
                     </div>
                 </div>
-            </div>
 
-            {/* Stats bar */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                gap: '1rem', marginBottom: '2rem'
-            }}>
-                {[
-                    { label: 'Total Reports', value: program.total_reports ?? 0, color: '#3498db' },
-                    { label: 'Total Bounties', value: `$${parseFloat(program.total_bounties || 0).toLocaleString()}`, color: '#9b59b6' },
-                    { label: 'Avg Severity', value: program.avg_severity_score?.toFixed(1) ?? '—', color: '#e67e22' },
-                    { label: 'In-Scope Targets', value: program.in_scope_count ?? program.scopes?.filter(s => s.is_in_scope).length ?? 0, color: '#2ecc71' },
-                ].map(({ label, value, color }) => (
-                    <div key={label} style={{
-                        background: 'white', padding: '1.5rem', borderRadius: '8px',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
-                    }}>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color }}>{value}</div>
-                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{label}</div>
+                <div className="ui-row">
+                    {joinBtn && (
+                        <button className={`ui-btn ${joinBtn.cls}`} onClick={joinBtn.onClick} disabled={joinBtn.disabled}>
+                            {joinBtn.label}
+                        </button>
+                    )}
+                    {program.can_accept_submissions && (
+                        <button className="ui-btn" onClick={() => navigate(`/submit?program=${id}`)}>Submit Report</button>
+                    )}
+                </div>
+            </header>
+
+            <div className="ui-grid ui-grid--stats">
+                {statCards.map(({ label, value, tone }) => (
+                    <div key={label} className={`ui-stat tone-${tone}`}>
+                        <div className="ui-stat-value">{value}</div>
+                        <div className="ui-stat-label">{label}</div>
                     </div>
                 ))}
             </div>
 
-            {/* Tabs */}
-            <div style={{ borderBottom: '2px solid #e9ecef', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '0' }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: '0.75rem 1.5rem',
-                                background: 'transparent',
-                                color: activeTab === tab ? '#3498db' : '#666',
-                                border: 'none',
-                                borderBottom: `3px solid ${activeTab === tab ? '#3498db' : 'transparent'}`,
-                                cursor: 'pointer',
-                                fontSize: '0.95rem',
-                                fontWeight: activeTab === tab ? '600' : '400',
-                                textTransform: 'capitalize',
-                                transition: 'all 0.15s',
-                            }}
-                        >
-                            {tab === 'policy' ? 'Bounty Policy' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
-                </div>
+            <div className="ui-tabs">
+                {tabs.map(tab => (
+                    <button
+                        key={tab}
+                        className={`ui-tab${activeTab === tab ? ' is-active' : ''}`}
+                        onClick={() => setActiveTab(tab)}
+                    >
+                        {tab === 'policy' ? 'Bounty Policy' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                ))}
             </div>
 
-            {/* Tab content */}
-            <div style={{
-                background: 'white', padding: '2rem', borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', marginBottom: '2rem'
-            }}>
+            <div className="ui-card ui-mb-lg">
                 {activeTab === 'overview' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>About This Program</h3>
-                        <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                            {program.description}
-                        </div>
-                        <div style={{
-                            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                            gap: '2rem', background: '#18181f', padding: '1.5rem', borderRadius: '8px'
-                        }}>
+                        <h3 className="ui-section-title">About This Program</h3>
+                        <TextBlock>{program.description}</TextBlock>
+                        <div className="ui-card--inset ui-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem', padding: '1.5rem' }}>
                             <div>
-                                <h4 style={{ margin: '0 0 1rem 0', color: '#8888aa' }}>Program Details</h4>
+                                <h4 className="ui-eyebrow">Program Details</h4>
                                 {[
                                     ['Company', program.company?.username],
                                     ['Type', program.scope_type_display || program.scope_type],
@@ -414,34 +282,23 @@ const ProgramDetailResearcher = () => {
                                     ['Published', program.published_at ? new Date(program.published_at).toLocaleDateString() : '—'],
                                     ['Ends', program.end_date || 'No end date'],
                                 ].map(([k, v]) => (
-                                    <div key={k} style={{
-                                        display: 'flex', justifyContent: 'space-between',
-                                        padding: '0.4rem 0', borderBottom: '1px solid #e9ecef'
-                                    }}>
-                                        <span style={{ color: '#666' }}>{k}</span>
-                                        <span style={{ fontWeight: '500', color: '#8888aa' }}>{v || '—'}</span>
+                                    <div key={k} className="ui-row ui-row--between ui-detail-row">
+                                        <span className="ui-muted">{k}</span>
+                                        <span className="ui-strong">{v || '—'}</span>
                                     </div>
                                 ))}
                             </div>
                             <div>
-                                <h4 style={{ margin: '0 0 1rem 0', color: '#8888aa' }}>Program Flags</h4>
+                                <h4 className="ui-eyebrow">Program Flags</h4>
                                 {[
                                     ['Anonymous submissions', program.allow_anonymous],
                                     ['NDA required', program.require_ndas],
                                     ['Invitation only', program.invitation_only],
                                     ['Application required', program.requires_application],
                                 ].map(([k, v]) => (
-                                    <div key={k} style={{
-                                        display: 'flex', justifyContent: 'space-between',
-                                        padding: '0.4rem 0', borderBottom: '1px solid #e9ecef'
-                                    }}>
-                                        <span style={{ color: '#666' }}>{k}</span>
-                                        <span style={{
-                                            fontWeight: '600',
-                                            color: v ? '#27ae60' : '#95a5a6'
-                                        }}>
-                                            {v ? 'Yes' : 'No'}
-                                        </span>
+                                    <div key={k} className="ui-row ui-row--between ui-detail-row">
+                                        <span className="ui-muted">{k}</span>
+                                        <span className={`ui-strong ui-tone-text ${v ? 'tone-green' : 'tone-gray'}`}>{v ? 'Yes' : 'No'}</span>
                                     </div>
                                 ))}
                             </div>
@@ -451,41 +308,30 @@ const ProgramDetailResearcher = () => {
 
                 {activeTab === 'scope' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Program Scope</h3>
+                        <h3 className="ui-section-title">Program Scope</h3>
 
                         {[true, false].map(inScope => {
                             const items = program.scopes?.filter(s => s.is_in_scope === inScope) || [];
                             if (items.length === 0 && inScope) return (
-                                <p key="empty" style={{ color: '#666' }}>No in-scope targets defined.</p>
+                                <p key="empty" className="ui-muted">No in-scope targets defined.</p>
                             );
                             if (items.length === 0) return null;
                             return (
-                                <div key={String(inScope)} style={{ marginBottom: '2rem' }}>
-                                    <h4 style={{ color: inScope ? '#27ae60' : '#e74c3c', marginBottom: '1rem' }}>
+                                <div key={String(inScope)} className={inScope ? 'tone-green' : 'tone-red'} style={{ marginBottom: '2rem' }}>
+                                    <h4 className="ui-tone-text" style={{ marginBottom: '1rem' }}>
                                         {inScope ? 'In-Scope Targets' : 'Out-of-Scope Targets'}
                                     </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div className="ui-stack">
                                         {items.map(scope => (
-                                            <div key={scope.id} style={{
-                                                border: `1px solid ${inScope ? '#d4edda' : '#f8d7da'}`,
-                                                background: inScope ? '#f8fff8' : '#fff8f8',
-                                                borderRadius: '8px', padding: '1.25rem'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: scope.description ? '0.5rem' : 0 }}>
-                                                    <strong>{scope.target}</strong>
-                                                    <span style={{
-                                                        padding: '0.2rem 0.6rem', borderRadius: '4px',
-                                                        fontSize: '0.8rem',
-                                                        background: inScope ? '#e3f2fd' : '#f8d7da',
-                                                        color: inScope ? '#1565c0' : '#721c24',
-                                                    }}>
+                                            <div key={scope.id} className="ui-scope-item">
+                                                <div className="ui-row" style={{ marginBottom: scope.description ? '0.5rem' : 0 }}>
+                                                    <strong className="ui-strong">{scope.target}</strong>
+                                                    <span className="ui-badge ui-badge--plain">
                                                         {scope.target_type_display || scope.target_type.replace(/_/g, ' ')}
                                                     </span>
                                                 </div>
                                                 {scope.description && (
-                                                    <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                                                        {scope.description}
-                                                    </p>
+                                                    <p className="ui-muted ui-small" style={{ margin: 0 }}>{scope.description}</p>
                                                 )}
                                             </div>
                                         ))}
@@ -498,27 +344,22 @@ const ProgramDetailResearcher = () => {
 
                 {activeTab === 'policy' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Bounty Policy</h3>
+                        <h3 className="ui-section-title">Bounty Policy</h3>
                         {program.bounty_policy ? (
-                            <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                {program.bounty_policy}
-                            </div>
+                            <TextBlock>{program.bounty_policy}</TextBlock>
                         ) : (
-                            <p style={{ color: '#666' }}>No bounty policy specified.</p>
+                            <p className="ui-muted">No bounty policy specified.</p>
                         )}
-                        <div style={{
-                            background: '#f8f9fa', padding: '1.5rem',
-                            borderRadius: '8px', marginBottom: '1.5rem'
-                        }}>
-                            <h4 style={{ margin: '0 0 1rem 0' }}>Bounty Range</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
+                        <div className="ui-card--inset" style={{ padding: '1.5rem' }}>
+                            <h4 className="ui-eyebrow">Bounty Range</h4>
+                            <div className="ui-grid ui-grid--2">
                                 {[
                                     ['Minimum', program.min_bounty ? `$${program.min_bounty}` : 'Not specified'],
                                     ['Maximum', program.max_bounty ? `$${program.max_bounty}` : 'Not specified'],
                                 ].map(([k, v]) => (
                                     <div key={k}>
-                                        <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>{k} Bounty</div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#27ae60' }}>{v}</div>
+                                        <div className="ui-kv-label">{k} Bounty</div>
+                                        <div className="ui-stat-value tone-green" style={{ fontSize: '1.5rem' }}>{v}</div>
                                     </div>
                                 ))}
                             </div>
@@ -528,54 +369,37 @@ const ProgramDetailResearcher = () => {
 
                 {activeTab === 'guidelines' && (
                     <div>
-                        <h3 style={{ marginTop: 0 }}>Testing Guidelines</h3>
+                        <h3 className="ui-section-title">Testing Guidelines</h3>
                         {program.testing_guidelines ? (
-                            <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                {program.testing_guidelines}
-                            </div>
+                            <TextBlock>{program.testing_guidelines}</TextBlock>
                         ) : (
-                            <p style={{ color: '#666' }}>No testing guidelines provided.</p>
+                            <p className="ui-muted">No testing guidelines provided.</p>
                         )}
 
                         {program.report_guidelines && (
                             <>
-                                <h4>Report Guidelines</h4>
-                                <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', marginBottom: '2rem', color: '#444' }}>
-                                    {program.report_guidelines}
-                                </div>
+                                <h4 className="ui-section-title">Report Guidelines</h4>
+                                <TextBlock>{program.report_guidelines}</TextBlock>
                             </>
                         )}
 
                         {program.disclosure_policy && (
                             <>
-                                <h4>Disclosure Policy</h4>
-                                <div style={{ whiteSpace: 'pre-line', lineHeight: '1.7', color: '#444' }}>
-                                    {program.disclosure_policy}
-                                </div>
+                                <h4 className="ui-section-title">Disclosure Policy</h4>
+                                <TextBlock>{program.disclosure_policy}</TextBlock>
                             </>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* CTA */}
             {program.can_accept_submissions && (
-                <div style={{
-                    background: 'white', padding: '2rem', borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
-                }}>
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Ready to submit a report?</h3>
-                    <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
+                <div className="ui-card ui-card--center">
+                    <h3 className="ui-section-title">Ready to submit a report?</h3>
+                    <p className="ui-muted" style={{ margin: '0 0 1.5rem' }}>
                         Found a security vulnerability? Submit your findings now.
                     </p>
-                    <button
-                        onClick={() => navigate(`/submit?program=${id}`)}
-                        style={{
-                            padding: '0.75rem 2rem', background: '#3498db',
-                            color: 'white', border: 'none', borderRadius: '4px',
-                            cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
-                        }}
-                    >
+                    <button className="ui-btn ui-btn--lg" onClick={() => navigate(`/submit?program=${id}`)}>
                         Submit Report to {program.company?.username}
                     </button>
                 </div>

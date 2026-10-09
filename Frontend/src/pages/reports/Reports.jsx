@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
+import { statusTone, severityTone } from '../../utils/tones';
 
 const Reports = () => {
     const [reports, setReports] = useState([]);
@@ -48,344 +49,131 @@ const Reports = () => {
         }));
     };
 
-    const getStatusColor = (status) => {
-        switch(status) {
-            case 'open': return '#3498db';
-            case 'triaged': return '#9b59b6';
-            case 'accepted': return '#2ecc71';
-            case 'rejected': return '#e74c3c';
-            case 'resolved': return '#27ae60';
-            case 'closed': return '#95a5a6';
-            default: return '#7f8c8d';
-        }
-    };
-
-    const getSeverityColor = (severity) => {
-        switch(severity) {
-            case 'critical': return '#e74c3c';
-            case 'high': return '#e67e22';
-            case 'medium': return '#f1c40f';
-            case 'low': return '#2ecc71';
-            default: return '#7f8c8d';
-        }
-    };
+    const bounty = reports.reduce((sum, r) => sum + (r.bounty_amount ? Number(r.bounty_amount) : 0), 0);
+    const statCards = [
+        { label: 'Total Submissions', value: stats.total_submissions || 0, tone: 'accent' },
+        { label: 'Accepted', value: (stats.by_status?.accepted || 0) + (stats.by_status?.resolved || 0), tone: 'green' },
+        { label: 'High Severity', value: (stats.by_severity?.high || 0) + (stats.by_severity?.critical || 0), tone: 'orange' },
+        { label: 'Total Bounty', value: `$${bounty.toLocaleString()}`, tone: 'blue' },
+    ];
 
     if (loading) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div style={{
-                    border: '4px solid #f3f3f3',
-                    borderTop: '4px solid #3498db',
-                    borderRadius: '50%',
-                    width: '40px',
-                    height: '40px',
-                    animation: 'spin 1s linear infinite',
-                    margin: '0 auto 1rem'
-                }}></div>
+            <div className="ui-loading">
+                <div className="ui-spinner" />
                 <p>Loading reports...</p>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1>My Reports</h1>
-                <p style={{ color: '#666' }}>View and manage your submitted bug reports</p>
+        <div className="ui-page ui-page--wide">
+            <header className="ui-page-header">
+                <h1 className="ui-title">My Reports</h1>
+                <p className="ui-subtitle">View and manage your submitted bug reports</p>
+            </header>
+
+            <div className="ui-grid ui-grid--stats">
+                {statCards.map(({ label, value, tone }) => (
+                    <div key={label} className={`ui-stat tone-${tone}`}>
+                        <div className="ui-stat-value">{value}</div>
+                        <div className="ui-stat-label">{label}</div>
+                    </div>
+                ))}
             </div>
 
-            {/* Stats Overview */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '2rem'
-            }}>
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>
-                        {stats.total_submissions || 0}
-                    </div>
-                    <div style={{ color: '#666' }}>Total Submissions</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>
-                        {(stats.by_status?.accepted || 0) + (stats.by_status?.resolved || 0)}
-                    </div>
-                    <div style={{ color: '#666' }}>Accepted</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f1c40f' }}>
-                        {(stats.by_severity?.high || 0) + (stats.by_severity?.critical || 0)}
-                    </div>
-                    <div style={{ color: '#666' }}>High Severity</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>
-                        ${reports.reduce((sum, r) => sum + (r.bounty_amount ? Number(r.bounty_amount) : 0), 0).toLocaleString()}
-                    </div>
-                    <div style={{ color: '#666' }}>Total Bounty</div>
-                </div>
+            <div className="ui-toolbar">
+                <input
+                    type="text"
+                    className="ui-input ui-input--grow"
+                    placeholder="Search reports..."
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                />
+                <select
+                    className="ui-select"
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                    <option value="">All Status</option>
+                    <option value="open">Open</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                </select>
+                <select
+                    className="ui-select"
+                    value={filters.severity}
+                    onChange={(e) => handleFilterChange('severity', e.target.value)}
+                >
+                    <option value="">All Severity</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
             </div>
 
-            {/* Filters */}
-            <div style={{
-                background: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginBottom: '2rem'
-            }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: '200px' }}>
-                        <input
-                            type="text"
-                            placeholder="Search reports..."
-                            value={filters.search}
-                            onChange={(e) => handleFilterChange('search', e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem'
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <select
-                            value={filters.status}
-                            onChange={(e) => handleFilterChange('status', e.target.value)}
-                            style={{
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem',
-                                minWidth: '120px'
-                            }}
-                        >
-                            <option value="">All Status</option>
-                            <option value="open">Open</option>
-                            <option value="triaged">Triaged</option>
-                            <option value="accepted">Accepted</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="closed">Closed</option>
-                        </select>
-
-                        <select
-                            value={filters.severity}
-                            onChange={(e) => handleFilterChange('severity', e.target.value)}
-                            style={{
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem',
-                                minWidth: '120px'
-                            }}
-                        >
-                            <option value="">All Severity</option>
-                            <option value="critical">Critical</option>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            {/* Reports Table */}
-            <div style={{
-                background: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                overflow: 'hidden'
-            }}>
+            <div className="ui-card ui-card--flush">
                 {reports.length > 0 ? (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                        <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e9ecef' }}>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Title</th>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Status</th>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Severity</th>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Date</th>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Bounty</th>
-                            <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {reports.map((report) => (
-                            <tr
-                                key={report.id}
-                                style={{
-                                    borderBottom: '1px solid #e9ecef',
-                                    cursor: 'pointer',
-                                    transition: 'background 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                            >
-                                <td style={{ padding: '1rem' }}>
-                                    <div style={{ fontWeight: '500' }}>{report.title}</div>
-                                    <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
-                                        {report.description.substring(0, 80)}...
-                                    </div>
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                        <span style={{
-                                            padding: '0.4rem 0.8rem',
-                                            background: getStatusColor(report.status) + '20',
-                                            color: getStatusColor(report.status),
-                                            borderRadius: '20px',
-                                            fontSize: '0.85rem',
-                                            fontWeight: '500',
-                                            display: 'inline-block'
-                                        }}>
-                                            {report.status.toUpperCase()}
-                                        </span>
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                        <span style={{
-                                            padding: '0.4rem 0.8rem',
-                                            background: getSeverityColor(report.severity) + '20',
-                                            color: getSeverityColor(report.severity),
-                                            borderRadius: '20px',
-                                            fontSize: '0.85rem',
-                                            fontWeight: '500',
-                                            display: 'inline-block'
-                                        }}>
-                                            {report.severity.toUpperCase()}
-                                        </span>
-                                </td>
-                                <td style={{ padding: '1rem', color: '#666' }}>
-                                    {new Date(report.created_at).toLocaleDateString()}
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                    {report.bounty_amount ? (
-                                        <span style={{ color: '#27ae60', fontWeight: '500' }}>
-                                                ${report.bounty_amount}
-                                            </span>
-                                    ) : (
-                                        <span style={{ color: '#95a5a6' }}>—</span>
-                                    )}
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                    <Link
-                                        to={`/reports/${report.id}`}
-                                        style={{
-                                            padding: '0.4rem 0.8rem',
-                                            background: '#3498db',
-                                            color: 'white',
-                                            textDecoration: 'none',
-                                            borderRadius: '4px',
-                                            fontSize: '0.85rem'
-                                        }}
-                                    >
-                                        View
-                                    </Link>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
+                    <div className="ui-table-wrap">
+                        <table className="ui-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Severity</th>
+                                    <th>Date</th>
+                                    <th>Bounty</th>
+                                    <th />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reports.map((report) => (
+                                    <tr key={report.id}>
+                                        <td>
+                                            <Link to={`/reports/${report.id}`} className="ui-link--title">{report.title}</Link>
+                                            <div className="ui-muted ui-small" style={{ marginTop: '0.2rem' }}>
+                                                {report.description.substring(0, 80)}...
+                                            </div>
+                                        </td>
+                                        <td><span className={`ui-badge ${statusTone(report.status)}`}>{report.status}</span></td>
+                                        <td><span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity}</span></td>
+                                        <td className="ui-muted">{new Date(report.created_at).toLocaleDateString()}</td>
+                                        <td>
+                                            {report.bounty_amount
+                                                ? <span className="ui-tone-text tone-green ui-strong">${report.bounty_amount}</span>
+                                                : <span className="ui-muted">—</span>}
+                                        </td>
+                                        <td>
+                                            <Link to={`/reports/${report.id}`} className="ui-btn ui-btn--ghost ui-btn--sm">View</Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 ) : (
-                    <div style={{ padding: '3rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>📋</div>
-                        <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>No Reports Yet</h3>
-                        <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
-                            You haven't submitted any bug reports yet.
-                        </p>
-                        <Link
-                            to="/submit"
-                            style={{
-                                padding: '0.75rem 1.5rem',
-                                background: '#3498db',
-                                color: 'white',
-                                textDecoration: 'none',
-                                borderRadius: '4px',
-                                fontSize: '1rem',
-                                display: 'inline-block'
-                            }}
-                        >
-                            Submit Your First Report
-                        </Link>
+                    <div className="ui-empty">
+                        <div className="ui-empty-icon">📋</div>
+                        <h3>No Reports Yet</h3>
+                        <p>You haven't submitted any bug reports yet.</p>
+                        <Link to="/submit" className="ui-btn">Submit Your First Report</Link>
                     </div>
                 )}
             </div>
 
-            {/* Severity Legend */}
-            <div style={{
-                background: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginTop: '2rem'
-            }}>
-                <h4 style={{ margin: '0 0 1rem 0' }}>Severity Legend</h4>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#e74c3c'
-                        }}></div>
-                        <span>Critical</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#e67e22'
-                        }}></div>
-                        <span>High</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#f1c40f'
-                        }}></div>
-                        <span>Medium</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#2ecc71'
-                        }}></div>
-                        <span>Low</span>
-                    </div>
+            <div className="ui-card ui-mt">
+                <h4 className="ui-section-title">Severity Legend</h4>
+                <div className="ui-row" style={{ gap: '1.5rem' }}>
+                    {['critical', 'high', 'medium', 'low'].map((level) => (
+                        <div key={level} className={`ui-row ${severityTone(level)}`} style={{ gap: '0.5rem' }}>
+                            <span className="ui-dot" />
+                            <span className="ui-muted" style={{ textTransform: 'capitalize' }}>{level}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

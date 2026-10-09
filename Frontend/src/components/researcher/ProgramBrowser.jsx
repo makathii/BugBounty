@@ -1,768 +1,227 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { statusTone, scopeTone } from '../../utils/tones';
 
-/* 18181f 8888aa*/
+const LEGEND = [
+    { scope: 'public', label: 'Public', desc: 'Open to all researchers' },
+    { scope: 'private', label: 'Private', desc: 'Invitation or application required' },
+    { scope: 'vdp', label: 'VDP', desc: 'Vulnerability Disclosure — no bounties' },
+];
 
-
-const SCOPE_COLORS = {
-    public: '#3498db',
-    private: '#9b59b6',
-    vdp: '#e67e22',
-};
-
-const STATUS_COLORS = {
-    active: '#2ecc71',
-    draft: '#f39c12',
-    paused: '#e74c3c',
-    closed: '#95a5a6',
-};
-
-const badge = (color, text) => ({
-    display: 'inline-block',
-    padding: '0.25rem 0.75rem',
-    background: color + '20',
-    color,
-    borderRadius: '20px',
-    fontSize: '0.8rem',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    text,
-});
+const JOIN_LABEL = { public: 'Join', private: 'Request Access', vdp: 'Participate' };
 
 const ProgramBrowser = () => {
     const [programs, setPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filters, setFilters] = useState({
-        scope_type: 'all',
-        status: 'active',
-        min_bounty: '',
-        max_bounty: '',
-        search: ''
-    });
+    const [error, setError] = useState(null);
+    const [joining, setJoining] = useState(null); // program id currently being joined
+    const [filters, setFilters] = useState({ scope_type: '', search: '' });
 
-    useEffect(() => {
-        loadPrograms();
-    }, [filters]);
-
-    const loadPrograms = async () => {
+    const loadPrograms = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
-            // For now, we'll simulate data. Replace with actual API call:
-            // const response = await api.get('/programs/researcher/');
+            const params = {};
+            if (filters.scope_type) params.scope_type = filters.scope_type;
+            if (filters.search) params.search = filters.search;
 
-            // Simulated data for testing
-            setTimeout(() => {
-                setPrograms([
-                    {
-                        id: 1,
-                        name: 'Acme Corp Public Bug Bounty',
-                        description: 'Public bug bounty program for Acme Corp web applications. Looking for security vulnerabilities in our customer-facing platforms.',
-                        company_name: 'Acme Corporation',
-                        scope_type: 'public',
-                        status: 'active',
-                        min_bounty: 100,
-                        max_bounty: 10000,
-                        total_reports: 42,
-                        total_payout: 12500,
-                        created_at: '2024-01-15T10:30:00Z'
-                    },
-                    {
-                        id: 2,
-                        name: 'TechSecure API Security Program',
-                        description: 'Private program focused on API security testing. Invitation-only for trusted researchers.',
-                        company_name: 'TechSecure Inc.',
-                        scope_type: 'private',
-                        status: 'active',
-                        min_bounty: 500,
-                        max_bounty: 20000,
-                        total_reports: 18,
-                        total_payout: 8500,
-                        created_at: '2024-02-20T14:45:00Z'
-                    },
-                    {
-                        id: 3,
-                        name: 'FinTrust VDP',
-                        description: 'Vulnerability Disclosure Program for FinTrust banking applications.',
-                        company_name: 'FinTrust Bank',
-                        scope_type: 'vdp',
-                        status: 'active',
-                        min_bounty: 0,
-                        max_bounty: 5000,
-                        total_reports: 25,
-                        total_payout: 3200,
-                        created_at: '2024-03-10T09:15:00Z'
-                    }
-                ]);
-                setLoading(false);
-            }, 1000);
-        } catch (error) {
-            console.error('Failed to load programs:', error);
+            const response = await api.get('/programs/researcher/', { params });
+            setPrograms(response.data.results ?? response.data);
+        } catch (err) {
+            setError('Failed to load programs. Please try again.');
+            console.error(err);
+        } finally {
             setLoading(false);
         }
-    };
+    }, [filters]);
 
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => ({
-            ...prev,
-            [key]: value
-        }));
-    };
+    useEffect(() => {
+        const debounce = setTimeout(loadPrograms, 300);
+        return () => clearTimeout(debounce);
+    }, [loadPrograms]);
 
-    const getStatusColor = (status) => {
-        switch(status) {
-            case 'active': return '#2ecc71';
-            case 'draft': return '#f39c12';
-            case 'paused': return '#e74c3c';
-            case 'closed': return '#95a5a6';
-            default: return '#7f8c8d';
+    // Public / VDP programs are joined directly; private ones create an access request.
+    // Both go through the same endpoint, the backend decides what the call means.
+    const handleJoin = async (program) => {
+        setJoining(program.id);
+        try {
+            const response = await api.post(`/programs/programs/${program.id}/join/`);
+            alert(response.data.message);
+            loadPrograms(); // refresh so the button state updates
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to join program.');
+        } finally {
+            setJoining(null);
         }
     };
 
-    const getScopeTypeColor = (scope_type) => {
-        switch(scope_type) {
-            case 'public': return '#3498db';
-            case 'private': return '#9b59b6';
-            case 'vdp': return '#e67e22';
-            default: return '#7f8c8d';
-        }
-    };
+    const clearFilters = () => setFilters({ scope_type: '', search: '' });
 
-    if (loading) {
-        return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div style={{
-                    border: '4px solid #f3f3f3',
-                    borderTop: '4px solid #3498db',
-                    borderRadius: '50%',
-                    width: '40px',
-                    height: '40px',
-                    animation: 'spin 1s linear infinite',
-                    margin: '0 auto 1rem'
-                }}></div>
-                <p>Loading programs...</p>
-            </div>
-        );
-    }
+    const stats = [
+        { label: 'Total Programs', value: programs.length, tone: 'accent' },
+        { label: 'Public Programs', value: programs.filter(p => p.scope_type === 'public').length, tone: 'green' },
+        {
+            label: 'Total Paid Out',
+            value: `$${programs.reduce((sum, p) => sum + (parseFloat(p.total_bounties) || 0), 0).toLocaleString()}`,
+            tone: 'blue',
+        },
+        { label: 'Total Reports', value: programs.reduce((sum, p) => sum + (p.total_reports || 0), 0), tone: 'orange' },
+    ];
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1>Browse Bug Bounty Programs</h1>
-                <p style={{ color: '#666' }}>Discover security research programs from companies worldwide</p>
+        <div className="ui-page ui-page--wide">
+            <header className="ui-page-header">
+                <h1 className="ui-title">Browse Bug Bounty Programs</h1>
+                <p className="ui-subtitle">Discover security research programs from companies worldwide</p>
+            </header>
+
+            <div className="ui-toolbar">
+                <input
+                    type="text"
+                    className="ui-input ui-input--grow"
+                    placeholder="Search programs..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                />
+                <select
+                    className="ui-select"
+                    value={filters.scope_type}
+                    onChange={(e) => setFilters(f => ({ ...f, scope_type: e.target.value }))}
+                >
+                    <option value="">All Types</option>
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                    <option value="vdp">VDP</option>
+                </select>
+                {(filters.search || filters.scope_type) && (
+                    <button className="ui-btn ui-btn--ghost" onClick={clearFilters}>Clear</button>
+                )}
             </div>
 
-            {/* Filters */}
-            <div style={{
-                background: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginBottom: '2rem'
-            }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: '200px' }}>
-                        <input
-                            type="text"
-                            placeholder="Search programs..."
-                            value={filters.search}
-                            onChange={(e) => handleFilterChange('search', e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem'
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <select
-                            value={filters.scope_type}
-                            onChange={(e) => handleFilterChange('scope_type', e.target.value)}
-                            style={{
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem',
-                                minWidth: '120px'
-                            }}
-                        >
-                            <option value="all">All Types</option>
-                            <option value="public">Public</option>
-                            <option value="private">Private</option>
-                            <option value="vdp">VDP</option>
-                        </select>
-
-                        <select
-                            value={filters.status}
-                            onChange={(e) => handleFilterChange('status', e.target.value)}
-                            style={{
-                                padding: '0.75rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                fontSize: '1rem',
-                                minWidth: '120px'
-                            }}
-                        >
-                            <option value="active">Active</option>
-                            <option value="all">All Status</option>
-                            <option value="draft">Draft</option>
-                            <option value="paused">Paused</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            {/* Program Stats */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '2rem'
-            }}>
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>
-                        {programs.length}
-                    </div>
-                    <div style={{ color: '#666' }}>Total Programs</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>
-                        {programs.filter(p => p.scope_type === 'public').length}
-                    </div>
-                    <div style={{ color: '#666' }}>Public Programs</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>
-                        ${programs.reduce((sum, p) => sum + (p.total_payout || 0), 0).toLocaleString()}
-                    </div>
-                    <div style={{ color: '#666' }}>Total Paid Out</div>
-                </div>
-
-                <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e67e22' }}>
-                        {programs.reduce((sum, p) => sum + (p.total_reports || 0), 0)}
-                    </div>
-                    <div style={{ color: '#666' }}>Total Reports</div>
-                </div>
-            </div>
-
-            {/* Programs Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2rem'
-            }}>
-                {programs.map((program) => (
-                    <div
-                        key={program.id}
-                        style={{
-                            background: 'white',
-                            borderRadius: '8px',
-                            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                            overflow: 'hidden',
-                            transition: 'transform 0.2s, box-shadow 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-4px)';
-                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-                        }}
-                    >
-                        <div style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                <div>
-                                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>
-                                        <Link
-                                            to={`/programs/${program.id}`}
-                                            style={{ color: '#2c3e50', textDecoration: 'none' }}
-                                        >
-                                            {program.name}
-                                        </Link>
-                                    </h3>
-                                    <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
-                                        {program.company_name}
-                                    </p>
-                                </div>
-                                <span style={{
-                                    padding: '0.25rem 0.75rem',
-                                    background: getScopeTypeColor(program.scope_type) + '20',
-                                    color: getScopeTypeColor(program.scope_type),
-                                    borderRadius: '20px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: '500',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {program.scope_type}
-                                </span>
-                            </div>
-
-                            <p style={{
-                                color: '#666',
-                                marginBottom: '1.5rem',
-                                lineHeight: '1.5',
-                                fontSize: '0.95rem'
-                            }}>
-                                {program.description.length > 150
-                                    ? `${program.description.substring(0, 150)}...`
-                                    : program.description
-                                }
-                            </p>
-
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(2, 1fr)',
-                                gap: '1rem',
-                                background: '#f8f9fa',
-                                padding: '1rem',
-                                borderRadius: '6px',
-                                marginBottom: '1.5rem'
-                            }}>
-                                <div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                                        Bounty Range
-                                    </div>
-                                    <div style={{ fontWeight: '500', color: '#27ae60' }}>
-                                        ${program.min_bounty || '0'} - ${program.max_bounty || 'Unlimited'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                                        Total Reports
-                                    </div>
-                                    <div style={{ fontWeight: '500' }}>
-                                        {program.total_reports || 0}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                                        Total Payout
-                                    </div>
-                                    <div style={{ fontWeight: '500', color: '#9b59b6' }}>
-                                        ${program.total_payout?.toLocaleString() || '0'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                                        Status
-                                    </div>
-                                    <span style={{
-                                        padding: '0.25rem 0.5rem',
-                                        background: getStatusColor(program.status) + '20',
-                                        color: getStatusColor(program.status),
-                                        borderRadius: '4px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '500'
-                                    }}>
-                                        {program.status}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.85rem', color: '#7f8c8d' }}>
-                                    Created: {new Date(program.created_at).toLocaleDateString()}
-                                </span>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <Link
-                                        to={`/programs/${program.id}`}
-                                        style={{
-                                            padding: '0.5rem 1rem',
-                                            background: '#3498db',
-                                            color: 'white',
-                                            textDecoration: 'none',
-                                            borderRadius: '4px',
-                                            fontSize: '0.9rem',
-                                            fontWeight: '500'
-                                        }}
-                                    >
-                                        View Details
-                                    </Link>
-                                    {program.scope_type === 'public' ? (
-                                        <button
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: '#2ecc71',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                fontSize: '0.9rem',
-                                                fontWeight: '500',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Join Program
-                                        </button>
-                                    ) : (
-                                        <button
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: '#95a5a6',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                fontSize: '0.9rem',
-                                                fontWeight: '500',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Request Access
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+            <div className="ui-grid ui-grid--stats">
+                {stats.map(({ label, value, tone }) => (
+                    <div key={label} className={`ui-stat tone-${tone}`}>
+                        <div className="ui-stat-value">{value}</div>
+                        <div className="ui-stat-label">{label}</div>
                     </div>
                 ))}
             </div>
 
-            {programs.length === 0 && (
-                <div style={{
-                    background: 'white',
-                    padding: '3rem',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>🎯</div>
-                    <h3 style={{ margin: '0 0 1rem 0' }}>No Programs Found</h3>
-                    <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
-                        {filters.search
-                            ? `No programs match "${filters.search}". Try a different search.`
-                            : 'There are currently no active bug bounty programs matching your filters.'
-                        }
-                    </p>
-                    <button
-                        onClick={() => setFilters({
-                            scope_type: 'all',
-                            status: 'active',
-                            min_bounty: '',
-                            max_bounty: '',
-                            search: ''
-                        })}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            background: '#3498db',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '1rem'
-                        }}
-                    >
-                        Clear Filters
-                    </button>
+            {error && (
+                <div className="ui-alert tone-red ui-row ui-row--between">
+                    <span>{error}</span>
+                    <button className="ui-btn ui-btn--danger ui-btn--sm" onClick={loadPrograms}>Retry</button>
                 </div>
             )}
 
-            {/* Loading */}
             {loading && (
-                <div style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div style={{
-                        border: '4px solid #f3f3f3', borderTop: '4px solid #3498db',
-                        borderRadius: '50%', width: '40px', height: '40px',
-                        animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
-                    }} />
-                    <p style={{ color: '#666' }}>Loading programs...</p>
+                <div className="ui-loading">
+                    <div className="ui-spinner" />
+                    <p>Loading programs...</p>
                 </div>
             )}
 
-            {/* Programs grid */}
-            {!loading && (
-                <>
-                    {programs.length === 0 ? (
-                        <div style={{
-                            background: '18181f', padding: '3rem', borderRadius: '8px',
-                            boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.4 }}>🎯</div>
-                            <h3 style={{ margin: '0 0 0.5rem 0' }}>No Programs Found</h3>
-                            <p style={{ color: '#666', margin: '0 0 1.5rem 0' }}>
-                                {filters.search
-                                    ? `No programs match "${filters.search}".`
-                                    : 'No active programs match your filters.'}
-                            </p>
-                            <button
-                                onClick={() => setFilters({ scope_type: '', search: '' })}
-                                style={{
-                                    padding: '0.75rem 1.5rem', background: '#3498db',
-                                    color: 'white', border: 'none',
-                                    borderRadius: '4px', cursor: 'pointer'
-                                }}
-                            >
-                                Clear Filters
-                            </button>
-                        </div>
-                    ) : (
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-                            gap: '1.5rem', marginBottom: '2rem'
-                        }}>
-                            {programs.map((program) => {
-                                const scopeColor = SCOPE_COLORS[program.scope_type] || '#7f8c8d';
-                                const statusColor = STATUS_COLORS[program.status] || '#7f8c8d';
-                                const isJoining = joining === program.id;
-                                const canAccept = program.can_accept_submissions;
+            {!loading && programs.length === 0 && (
+                <div className="ui-card ui-empty">
+                    <div className="ui-empty-icon">🎯</div>
+                    <h3>No Programs Found</h3>
+                    <p>
+                        {filters.search
+                            ? `No programs match "${filters.search}".`
+                            : 'No active programs match your filters.'}
+                    </p>
+                    <button className="ui-btn" onClick={clearFilters}>Clear Filters</button>
+                </div>
+            )}
 
-                                return (
-                                    <div
-                                        key={program.id}
-                                        style={{
-                                            background: 'white', borderRadius: '8px',
-                                            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                                            overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s'
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.transform = 'translateY(-4px)';
-                                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-                                        }}
-                                    >
-                                        <div style={{ padding: '1.5rem' }}>
-                                            {/* Header */}
-                                            <div style={{
-                                                display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'flex-start', marginBottom: '1rem'
-                                            }}>
-                                                <div style={{ flex: 1, marginRight: '1rem' }}>
-                                                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>
-                                                        <Link
-                                                            to={`/programs/${program.id}`}
-                                                            style={{ color: 'white', textDecoration: 'none' }}
-                                                        >
-                                                            {program.name}
-                                                        </Link>
-                                                    </h3>
-                                                    <p style={{ color: '#666', fontSize: '0.85rem', margin: 0 }}>
-                                                        {program.company?.username || '—'}
-                                                    </p>
-                                                </div>
-                                                <span style={{
-                                                    padding: '0.25rem 0.75rem',
-                                                    background: scopeColor + '20',
-                                                    color: scopeColor,
-                                                    borderRadius: '20px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: '600',
-                                                    textTransform: 'uppercase',
-                                                    whiteSpace: 'nowrap',
-                                                }}>
-                                                    {program.scope_type_display || program.scope_type}
-                                                </span>
-                                            </div>
+            {!loading && programs.length > 0 && (
+                <div className="ui-grid ui-grid--cards">
+                    {programs.map((program) => {
+                        const isJoining = joining === program.id;
+                        return (
+                            <article key={program.id} className="ui-card ui-card--hover ui-stack">
+                                <div className="ui-row ui-row--between ui-row--start ui-row--nowrap">
+                                    <div className="ui-grow">
+                                        <h3 className="ui-section-title" style={{ margin: 0 }}>
+                                            <Link to={`/programs/${program.id}`} className="ui-link--title">
+                                                {program.name}
+                                            </Link>
+                                        </h3>
+                                        <p className="ui-muted ui-small" style={{ margin: '0.2rem 0 0' }}>
+                                            {program.company?.username || '—'}
+                                        </p>
+                                    </div>
+                                    <span className={`ui-badge ${scopeTone(program.scope_type)}`}>
+                                        {program.scope_type_display || program.scope_type}
+                                    </span>
+                                </div>
 
-                                            {/* Description */}
-                                            <p style={{
-                                                color: '#555', marginBottom: '1.25rem',
-                                                lineHeight: '1.5', fontSize: '0.9rem',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 3,
-                                                WebkitBoxOrient: 'vertical',
-                                                overflow: 'hidden',
-                                            }}>
-                                                {program.short_description || program.description}
-                                            </p>
+                                <p className="ui-muted ui-small ui-clamp-3" style={{ margin: 0, lineHeight: 1.55 }}>
+                                    {program.short_description || program.description}
+                                </p>
 
-                                            {/* Stats grid */}
-                                            <div style={{
-                                                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
-                                                gap: '0.75rem', background: '#18181f',
-                                                padding: '1rem', borderRadius: '6px', marginBottom: '1.25rem'
-                                            }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
-                                                        Bounty Range
-                                                    </div>
-                                                    <div style={{ fontWeight: '600', color: '#27ae60', fontSize: '0.9rem' }}>
-                                                        {program.bounty_range || 'Not specified'}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
-                                                        Total Reports
-                                                    </div>
-                                                    <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>
-                                                        {program.total_reports ?? 0}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
-                                                        Total Bounties
-                                                    </div>
-                                                    <div style={{ fontWeight: '600', color: '#9b59b6', fontSize: '0.9rem' }}>
-                                                        ${parseFloat(program.total_bounties || 0).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.2rem' }}>
-                                                        Status
-                                                    </div>
-                                                    <span style={{
-                                                        padding: '0.2rem 0.5rem',
-                                                        background: statusColor + '20',
-                                                        color: statusColor,
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.75rem', fontWeight: '600',
-                                                    }}>
-                                                        {program.status_display || program.status}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div style={{
-                                                display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'center'
-                                            }}>
-                                                <span style={{ fontSize: '0.8rem', color: '#999' }}>
-                                                    {program.published_at
-                                                        ? `Published ${new Date(program.published_at).toLocaleDateString()}`
-                                                        : `Created ${new Date(program.created_at).toLocaleDateString()}`
-                                                    }
-                                                </span>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <Link
-                                                        to={`/programs/${program.id}`}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            background: '#3498db', color: 'white',
-                                                            textDecoration: 'none', borderRadius: '4px',
-                                                            fontSize: '0.85rem', fontWeight: '500'
-                                                        }}
-                                                    >
-                                                        View
-                                                    </Link>
-                                                    {canAccept && program.scope_type === 'public' && (
-                                                        <button
-                                                            onClick={() => handleJoin(program)}
-                                                            disabled={isJoining}
-                                                            style={{
-                                                                padding: '0.5rem 1rem',
-                                                                background: '#2ecc71', color: 'white',
-                                                                border: 'none', borderRadius: '4px',
-                                                                fontSize: '0.85rem', fontWeight: '500',
-                                                                cursor: isJoining ? 'not-allowed' : 'pointer',
-                                                                opacity: isJoining ? 0.7 : 1,
-                                                            }}
-                                                        >
-                                                            {isJoining ? '...' : 'Join'}
-                                                        </button>
-                                                    )}
-                                                    {canAccept && program.scope_type === 'private' && (
-                                                        <button
-                                                            onClick={() => handleRequestAccess(program)}
-                                                            disabled={isJoining}
-                                                            style={{
-                                                                padding: '0.5rem 1rem',
-                                                                background: '#9b59b6', color: 'white',
-                                                                border: 'none', borderRadius: '4px',
-                                                                fontSize: '0.85rem', fontWeight: '500',
-                                                                cursor: isJoining ? 'not-allowed' : 'pointer',
-                                                                opacity: isJoining ? 0.7 : 1,
-                                                            }}
-                                                        >
-                                                            {isJoining ? '...' : 'Request Access'}
-                                                        </button>
-                                                    )}
-                                                    {canAccept && program.scope_type === 'vdp' && (
-                                                        <button
-                                                            onClick={() => handleJoin(program)}
-                                                            disabled={isJoining}
-                                                            style={{
-                                                                padding: '0.5rem 1rem',
-                                                                background: '#e67e22', color: 'white',
-                                                                border: 'none', borderRadius: '4px',
-                                                                fontSize: '0.85rem', fontWeight: '500',
-                                                                cursor: isJoining ? 'not-allowed' : 'pointer',
-                                                                opacity: isJoining ? 0.7 : 1,
-                                                            }}
-                                                        >
-                                                            {isJoining ? '...' : 'Participate'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+                                <div className="ui-card--inset ui-kv">
+                                    <div>
+                                        <div className="ui-kv-label">Bounty Range</div>
+                                        <div className="ui-kv-value tone-green ui-tone-text">
+                                            {program.bounty_range || 'Not specified'}
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </>
+                                    <div>
+                                        <div className="ui-kv-label">Total Reports</div>
+                                        <div className="ui-kv-value">{program.total_reports ?? 0}</div>
+                                    </div>
+                                    <div>
+                                        <div className="ui-kv-label">Total Bounties</div>
+                                        <div className="ui-kv-value">
+                                            ${parseFloat(program.total_bounties || 0).toLocaleString()}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="ui-kv-label">Status</div>
+                                        <span className={`ui-badge ${statusTone(program.status)}`}>
+                                            {program.status_display || program.status}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="ui-row ui-row--between">
+                                    <span className="ui-muted ui-small">
+                                        {program.published_at
+                                            ? `Published ${new Date(program.published_at).toLocaleDateString()}`
+                                            : `Created ${new Date(program.created_at).toLocaleDateString()}`}
+                                    </span>
+                                    <div className="ui-row">
+                                        <Link to={`/programs/${program.id}`} className="ui-btn ui-btn--ghost ui-btn--sm">
+                                            View
+                                        </Link>
+                                        {program.can_accept_submissions && JOIN_LABEL[program.scope_type] && (
+                                            <button
+                                                className="ui-btn ui-btn--sm"
+                                                onClick={() => handleJoin(program)}
+                                                disabled={isJoining}
+                                            >
+                                                {isJoining ? '...' : JOIN_LABEL[program.scope_type]}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
             )}
 
-            {/* Legend */}
-            <div style={{
-                background: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                marginTop: '2rem'
-            }}>
-                <h4 style={{ margin: '0 0 1rem 0' }}>Program Types</h4>
-                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#3498db'
-                        }}></div>
-                        <span><strong>Public:</strong> Open to all researchers</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#9b59b6'
-                        }}></div>
-                        <span><strong>Private:</strong> Invitation or application required</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            background: '#e67e22'
-                        }}></div>
-                        <span><strong>VDP:</strong> Vulnerability Disclosure Program (no bounties)</span>
-                    </div>
+            <div className="ui-card">
+                <h4 className="ui-section-title">Program Types</h4>
+                <div className="ui-row" style={{ gap: '2rem' }}>
+                    {LEGEND.map(({ scope, label, desc }) => (
+                        <div key={scope} className={`ui-row ${scopeTone(scope)}`} style={{ gap: '0.5rem' }}>
+                            <span className="ui-dot" />
+                            <span className="ui-muted"><strong className="ui-strong">{label}:</strong> {desc}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
