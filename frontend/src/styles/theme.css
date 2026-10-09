@@ -412,7 +412,7 @@ a:not([class]):hover { color: #fff; text-decoration: underline; }
     background: rgba(var(--tone-rgb), 0.07);
     border-color: rgba(var(--tone-rgb), 0.35);
 }
-.ui-comment--deleted { opacity: 0.6; font-style: italic; }
+.ui-comment--deleted > .ui-row, .ui-comment--deleted > .ui-pre { opacity: 0.6; font-style: italic; }
 .ui-comment-replies {
     margin-top: 0.75rem;
     padding-left: 1rem;

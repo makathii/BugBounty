@@ -188,9 +188,15 @@ const ReportDetail = () => {
                                         <div className="ui-muted ui-small">{log.action_display}</div>
                                         {log.details && Object.keys(log.details).length > 0 && (
                                             <div className="ui-muted ui-small" style={{ marginTop: '0.25rem' }}>
-                                                {Object.entries(log.details).map(([key, value]) => (
-                                                    <div key={key}>{key}: {value}</div>
-                                                ))}
+                                                {log.details.message ? (
+                                                    <div>{log.details.message}</div>
+                                                ) : (
+                                                    Object.entries(log.details)
+                                                        .filter(([, value]) => typeof value !== 'boolean' && value !== null)
+                                                        .map(([key, value]) => (
+                                                            <div key={key}>{key}: {String(value)}</div>
+                                                        ))
+                                                )}
                                             </div>
                                         )}
                                     </div>
