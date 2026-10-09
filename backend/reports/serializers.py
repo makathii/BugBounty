@@ -2,23 +2,32 @@ from rest_framework import serializers
 from .models import BugReport, Comment, ActivityLog
 from .models import Attachment
 from core.roles import is_admin_or_triager
+from store.services import loadouts_for
 from .sanitizers import sanitize_html
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Flat comment. Pass ``request`` in the context to get ``can_edit``/``can_delete``."""
+    """Flat comment. Pass ``request`` in the context to get ``can_edit``/``can_delete``.
+
+    ``author_loadout`` (what the author's character is wearing) is read from
+    ``context["loadouts"]`` when the caller prefetched it for many comments
+    (see ``with_author_loadouts``); a lone comment looks its author up itself.
+    """
 
     author = serializers.StringRelatedField(read_only=True)
     text = serializers.CharField(max_length=5000)
     is_deleted = serializers.BooleanField(read_only=True)
     can_edit = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
+    author_id = serializers.IntegerField(read_only=True)
+    author_loadout = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = (
             "id", "author", "text", "created_at", "edited_at", "parent",
             "is_internal", "is_deleted", "can_edit", "can_delete",
+            "author_id", "author_loadout",
         )
         read_only_fields = ("id", "author", "created_at", "edited_at", "parent", "is_internal")
 
@@ -44,6 +53,14 @@ class CommentSerializer(serializers.ModelSerializer):
     def _request(self):
         return self.context.get("request")
 
+    def get_author_loadout(self, obj):
+        if obj.is_deleted or obj.author_id is None:
+            return {}
+        loadouts = self.context.get("loadouts")
+        if loadouts is None:
+            loadouts = loadouts_for([obj.author_id])
+        return loadouts.get(obj.author_id, {})
+
     def get_can_edit(self, obj):
         request = self._request()
         return bool(
@@ -57,6 +74,12 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.author_id == request.user.id or is_admin_or_triager(request)
 
 
+def with_author_loadouts(comments, context=None):
+    """``context`` plus every author's outfit, fetched in one query for the whole list."""
+    ids = {c.author_id for c in comments if c.author_id is not None and not c.is_deleted}
+    return {**(context or {}), "loadouts": loadouts_for(ids)}
+
+
 def build_comment_tree(comments, context=None):
     """Nest a flat, chronologically ordered comment list into ``replies`` trees.
 
@@ -65,8 +88,9 @@ def build_comment_tree(comments, context=None):
     this viewer) is promoted to the top level rather than dropped.
     """
     nodes = {}
+    context = with_author_loadouts(comments, context)
     for comment in comments:
-        node = CommentSerializer(comment, context=context or {}).data
+        node = CommentSerializer(comment, context=context).data
         node["replies"] = []
         nodes[comment.id] = node
 

@@ -333,3 +333,77 @@ class TestLeaderboardShowsOutfits:
     def test_loadouts_for_is_one_query(self, rich, second_verified_user, django_assert_num_queries):
         with django_assert_num_queries(1):
             services.loadouts_for([rich.pk, second_verified_user.pk])
+
+
+@pytest.mark.django_db
+class TestCommentOutfits:
+    """Comments show what their author's character is wearing."""
+
+    def thread(self, client, report):
+        return client.get(f"/api/reports/{report.id}/comments/").data
+
+    def test_comment_carries_the_authors_outfit(self, api_client, rich, own_report):
+        hat = make_item("cap", price=10, art="🧢")
+        services.purchase(rich, hat)
+        services.equip(rich, hat)
+        api_client.force_authenticate(user=rich)
+        created = api_client.post(
+            f"/api/reports/{own_report.id}/comments/", {"text": "hello there"}, format="json"
+        )
+        assert created.status_code == 201
+        assert created.data["author_loadout"]["hat"]["art"] == "🧢"
+        assert created.data["author_id"] == rich.pk
+        assert self.thread(api_client, own_report)[0]["author_loadout"]["hat"]["slug"] == "cap"
+
+    def test_each_author_gets_their_own_outfit(
+        self, api_client, rich, triager_user, own_report
+    ):
+        hat = make_item("cap", price=10)
+        services.purchase(rich, hat)
+        services.equip(rich, hat)
+        from reports.models import Comment
+        Comment.objects.create(report=own_report, author=rich, text="mine")
+        Comment.objects.create(report=own_report, author=triager_user, text="theirs")
+        api_client.force_authenticate(user=rich)
+        mine, theirs = self.thread(api_client, own_report)
+        assert "hat" in mine["author_loadout"] and theirs["author_loadout"] == {}
+
+    def test_deleted_comments_show_no_outfit(self, api_client, rich, own_report):
+        hat = make_item("cap", price=10)
+        services.purchase(rich, hat)
+        services.equip(rich, hat)
+        from reports.models import Comment
+        comment = Comment.objects.create(report=own_report, author=rich, text="oops")
+        comment.soft_delete()
+        api_client.force_authenticate(user=rich)
+        assert self.thread(api_client, own_report)[0]["author_loadout"] == {}
+
+    def test_outfit_lookup_is_one_query_however_long_the_thread(
+        self, api_client, rich, triager_user, own_report, django_assert_max_num_queries
+    ):
+        from reports.models import Comment
+        for n in range(20):
+            Comment.objects.create(
+                report=own_report, author=rich if n % 2 else triager_user, text=f"c{n}"
+            )
+        api_client.force_authenticate(user=rich)
+        with django_assert_max_num_queries(9):
+            assert len(self.thread(api_client, own_report)) == 20
+
+    def test_flat_comment_feed_does_not_n_plus_one(
+        self, api_client, triager_user, rich, own_report, django_assert_max_num_queries
+    ):
+        from reports.models import Comment
+        for n in range(15):
+            Comment.objects.create(report=own_report, author=rich, text=f"c{n}")
+        api_client.force_authenticate(user=triager_user)
+        with django_assert_max_num_queries(8):
+            data = api_client.get("/api/comments/").data
+        assert len(data) == 15 and "author_loadout" in data[0]
+
+    def test_comment_without_an_author_is_fine(self, api_client, rich, own_report):
+        from reports.models import Comment
+        Comment.objects.create(report=own_report, author=None, text="from a deleted user")
+        api_client.force_authenticate(user=rich)
+        row = self.thread(api_client, own_report)[0]
+        assert row["author_id"] is None and row["author_loadout"] == {}
