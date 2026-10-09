@@ -77,3 +77,9 @@ class MfaCodeThrottle(UserRateThrottle):
     authenticated user, so a stolen session cannot brute-force the 6-digit
     code (or disable 2FA) at full speed."""
     scope = 'mfa_code'
+
+
+class MfaEnrollThrottle(AnonRateThrottle):
+    """Pre-login 2FA enrollment endpoints, keyed by IP (the caller has no
+    session yet; the signed enrollment token is the credential)."""
+    scope = 'mfa_enroll'

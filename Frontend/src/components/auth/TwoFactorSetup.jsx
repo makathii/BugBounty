@@ -1,6 +1,6 @@
 // src/components/auth/TwoFactorSetup.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { mfaAPI } from '../../services/api';
 import { downloadBackupCodes } from './backupCodes';
@@ -8,8 +8,13 @@ import './auth.css';
 
 const errorText = (err, fallback) => err.response?.data?.detail || fallback;
 
-const TwoFactorSetup = () => {
+// `enrollment` mode: a pre-login flow for Admin/Triager accounts that must have 2FA
+// before they can sign in. It authenticates with the enrollment token from the login
+// response (passed through router state) instead of a session.
+const TwoFactorSetup = ({ enrollment = false }) => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const enrollmentToken = location.state?.enrollmentToken;
     const [step, setStep] = useState(1); // 1: scan + verify, 2: backup codes
     const [provisioningUri, setProvisioningUri] = useState('');
     const [secret, setSecret] = useState('');
@@ -23,10 +28,17 @@ const TwoFactorSetup = () => {
 
     useEffect(() => {
         if (requested.current) return;
+        if (enrollment && !enrollmentToken) return; // renders <Navigate to="/login"> below
         requested.current = true;
 
         const init = async () => {
             try {
+                if (enrollment) {
+                    const { data } = await mfaAPI.enrollSetup(enrollmentToken);
+                    setSecret(data.secret);
+                    setProvisioningUri(data.provisioning_uri);
+                    return;
+                }
                 // An already-enabled account must not be handed its secret again.
                 const { data: status } = await mfaAPI.getStatus();
                 if (status.is_enabled) {
@@ -41,7 +53,7 @@ const TwoFactorSetup = () => {
             }
         };
         init();
-    }, [navigate]);
+    }, [navigate, enrollment, enrollmentToken]);
 
     const handleVerify = async (e) => {
         e.preventDefault();
@@ -49,7 +61,9 @@ const TwoFactorSetup = () => {
         setError('');
 
         try {
-            const { data } = await mfaAPI.confirm(verificationCode);
+            const { data } = enrollment
+                ? await mfaAPI.enrollConfirm(enrollmentToken, verificationCode)
+                : await mfaAPI.confirm(verificationCode);
             setBackupCodes(data.backup_codes || []);
             setStep(2);
         } catch (err) {
@@ -58,6 +72,11 @@ const TwoFactorSetup = () => {
             setIsLoading(false);
         }
     };
+
+    // No token (e.g. page reload): the setup link is gone, start over from login.
+    if (enrollment && !enrollmentToken) {
+        return <Navigate to="/login" replace />;
+    }
 
     if (step === 2) {
         return (
@@ -82,8 +101,8 @@ const TwoFactorSetup = () => {
                         📥 Download Backup Codes
                     </button>
 
-                    <button type="button" className="submit-btn" onClick={() => navigate('/dashboard')}>
-                        Continue to Dashboard
+                    <button type="button" className="submit-btn" onClick={() => navigate(enrollment ? '/login' : '/dashboard')}>
+                        {enrollment ? 'Continue to Sign In' : 'Continue to Dashboard'}
                     </button>
                 </div>
             </div>
@@ -95,7 +114,11 @@ const TwoFactorSetup = () => {
             <div className="register-container tf-medium">
                 <div className="auth-header">
                     <h2>Setup Two-Factor Authentication</h2>
-                    <p>Scan the QR code with your authenticator app</p>
+                    <p>
+                        {enrollment
+                            ? 'Your role requires two-factor authentication. Scan the QR code with your authenticator app to finish setting up your account.'
+                            : 'Scan the QR code with your authenticator app'}
+                    </p>
                 </div>
 
                 {error && <div className="error-message">{error}</div>}
@@ -152,9 +175,15 @@ const TwoFactorSetup = () => {
                 </form>
 
                 <p className="switch-auth">
-                    <button type="button" className="link-btn" onClick={() => navigate('/dashboard')}>
-                        Skip for now
-                    </button>
+                    {enrollment ? (
+                        <button type="button" className="link-btn" onClick={() => navigate('/login')}>
+                            ← Back to Login
+                        </button>
+                    ) : (
+                        <button type="button" className="link-btn" onClick={() => navigate('/dashboard')}>
+                            Skip for now
+                        </button>
+                    )}
                 </p>
             </div>
         </div>

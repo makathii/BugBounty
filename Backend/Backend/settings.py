@@ -120,6 +120,8 @@ REST_FRAMEWORK = {
         'token_refresh': '30/min',
         # TOTP / backup code checks for logged-in users (confirm, disable, regenerate)
         'mfa_code': '10/min',
+        # Pre-login 2FA enrollment for Admin/Triager (keyed by IP)
+        'mfa_enroll': '20/min',
     }
 }
 

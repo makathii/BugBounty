@@ -48,6 +48,9 @@ const Login = () => {
 
             if (result.success) {
                 navigate('/dashboard');
+            } else if (result.enrollmentToken) {
+                // Required-2FA role that has not enrolled yet: guide them through setup.
+                navigate('/2fa/enroll', { state: { enrollmentToken: result.enrollmentToken } });
             } else {
                 const message = result.error || 'Login failed';
                 // Server demands a 2FA code → reveal the TOTP input

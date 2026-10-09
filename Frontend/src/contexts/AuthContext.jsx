@@ -88,6 +88,13 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             const data = error.response?.data;
+
+            // Admin/Triager without 2FA: the server hands back a short-lived token
+            // that is only good for setting up 2FA (see users/mfa_enrollment.py).
+            if (data?.code === 'mfa_enrollment_required' && data.enrollment_token) {
+                return { success: false, error: data.detail, enrollmentToken: data.enrollment_token };
+            }
+
             // DRF errors come as {detail}, {non_field_errors: [...]} or {field: [...]}
             const firstError = (value) => Array.isArray(value) ? value[0] : value;
             const errorDetail =

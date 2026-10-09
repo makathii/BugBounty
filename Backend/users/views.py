@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -18,7 +18,11 @@ from .throttles import (
     PasswordResetThrottle, PasswordResetEmailThrottle, PasswordResetConfirmThrottle,
     TokenRefreshThrottle,
 )
-from .throttles import MfaCodeThrottle
+from .throttles import MfaCodeThrottle, MfaEnrollThrottle
+from .mfa_enrollment import (
+    MfaEnrollmentRequired, InvalidEnrollmentToken,
+    make_enrollment_token, user_for_enrollment_token,
+)
 from .models import Profile, PasswordResetToken, AccountLockout, UserSession, UserMFA, BackupCode
 from .jwt_cookies import set_jwt_cookies, clear_jwt_cookies
 from reports.captcha import verify_recaptcha
@@ -125,36 +129,27 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed('No active account found with the given credentials')
 
         # ---- 2FA enforcement for privileged roles ----
+        needs_enrollment = False
         user_groups_set = set(user.groups.values_list('name', flat=True))
         if UserMFA.REQUIRED_GROUPS & user_groups_set:
-            try:
-                mfa = user.mfa
-                if not mfa.is_enabled:
+            mfa = UserMFA.objects.filter(user=user).first()
+            if mfa is None or not mfa.is_enabled:
+                # Cannot log in without 2FA, and cannot set it up without logging in:
+                # hand out an enrollment token once the checks below pass.
+                needs_enrollment = True
+            else:
+                # Validate the provided OTP/backup code
+                totp_code = attrs.get('totp_code') or self.context.get('request', {}).data.get('totp_code') if hasattr(self.context.get('request', {}), 'data') else None
+                if not totp_code:
                     raise serializers.ValidationError(
-                        '2FA is required for your account role. '
-                        'Please set up two-factor authentication before logging in.'
+                        {'totp_code': 'A 2FA code is required to log in to this account.'}
                     )
-            except UserMFA.DoesNotExist:
-                raise serializers.ValidationError(
-                    '2FA is required for your account role. '
-                    'Please set up two-factor authentication before logging in.'
-                )
-            # Validate the provided OTP/backup code
-            totp_code = attrs.get('totp_code') or self.context.get('request', {}).data.get('totp_code') if hasattr(self.context.get('request', {}), 'data') else None
-            if not totp_code:
-                raise serializers.ValidationError(
-                    {'totp_code': 'A 2FA code is required to log in to this account.'}
-                )
-            try:
-                mfa = user.mfa
                 if not mfa.verify_code(str(totp_code)):
                     # Try backup codes
                     if not BackupCode.use_code(user, str(totp_code)):
                         raise serializers.ValidationError(
                             {'totp_code': 'Invalid or expired 2FA code.'}
                         )
-            except UserMFA.DoesNotExist:
-                raise serializers.ValidationError({'totp_code': 'Invalid or expired 2FA code.'})
 
         # Check account lockout before any further processing
         lockout = AccountLockout.get_or_create_for_user(user)
@@ -171,6 +166,9 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError(
                 'Email not verified. Please check your email and verify your account before logging in.'
             )
+
+        if needs_enrollment:
+            raise MfaEnrollmentRequired(make_enrollment_token(user))
 
         # Now use the parent validate with the verified user
         # Temporarily mark as active so parent validation works
@@ -705,6 +703,68 @@ def mfa_regenerate_backup_codes(request):
     return Response({
         'detail': 'New backup codes generated. Previous codes no longer work.',
         'backup_codes': BackupCode.generate_for_user(request.user),
+    })
+
+
+def _enrollment_user(request):
+    token = request.data.get('enrollment_token')
+    if not token:
+        raise InvalidEnrollmentToken('enrollment_token is required.')
+    return user_for_enrollment_token(str(token))
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([MfaEnrollThrottle])
+def mfa_enroll_setup(request):
+    """
+    POST /api/users/mfa/enroll/setup/  { "enrollment_token": "..." }
+    Pre-login twin of mfa_setup for Admin/Triager accounts that must enroll
+    before they can sign in. Returns a fresh secret + provisioning URI.
+    """
+    try:
+        user = _enrollment_user(request)
+    except InvalidEnrollmentToken as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    mfa, _ = UserMFA.objects.get_or_create(user=user, defaults={'secret': UserMFA.generate_secret()})
+    mfa.secret = UserMFA.generate_secret()
+    mfa.save(update_fields=['secret'])
+    return Response({'secret': mfa.secret, 'provisioning_uri': mfa.get_provisioning_uri()})
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([MfaEnrollThrottle])
+def mfa_enroll_confirm(request):
+    """
+    POST /api/users/mfa/enroll/confirm/  { "enrollment_token": "...", "code": "123456" }
+    Verifies the first TOTP code, enables 2FA and returns the backup codes once.
+    Issues no login tokens: the user signs in afterwards with a code.
+    """
+    try:
+        user = _enrollment_user(request)
+    except InvalidEnrollmentToken as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    code = request.data.get('code')
+    if not code:
+        return Response({'detail': 'code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mfa = UserMFA.objects.filter(user=user).first()
+    if mfa is None:
+        return Response({'detail': 'Start the setup first.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not mfa.verify_code(str(code)):
+        return Response({'detail': 'Invalid code. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mfa.is_enabled = True
+    mfa.save(update_fields=['is_enabled'])
+    return Response({
+        'detail': '2FA enabled successfully. You can now sign in.',
+        'backup_codes': BackupCode.generate_for_user(user),
+        'warning': 'Save these backup codes securely. They will not be shown again.',
     })
 
 

@@ -124,6 +124,7 @@ function AppContent() {
                     } />
 
                     {/* Two-factor authentication */}
+                    <Route path="/2fa/enroll" element={<TwoFactorSetup enrollment />} />
                     <Route path="/2fa/setup" element={
                         <ProtectedRoute><TwoFactorSetup /></ProtectedRoute>
                     } />

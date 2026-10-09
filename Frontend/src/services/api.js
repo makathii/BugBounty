@@ -87,6 +87,11 @@ export const mfaAPI = {
     confirm:               (code) => api.post('/users/mfa/confirm/', { code }),
     disable:               (code) => api.post('/users/mfa/disable/', { code }),
     regenerateBackupCodes: (code) => api.post('/users/mfa/backup-codes/', { code }),
+
+    // Pre-login enrollment for roles that must have 2FA (Admin/Triager). The
+    // signed enrollment token from the login response is the only credential.
+    enrollSetup:           (token)       => api.post('/users/mfa/enroll/setup/', { enrollment_token: token }),
+    enrollConfirm:         (token, code) => api.post('/users/mfa/enroll/confirm/', { enrollment_token: token, code }),
 };
 
 // ---------------------------------------------------------------------------
