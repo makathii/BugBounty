@@ -114,16 +114,16 @@ class TestRateLimiting:
         """
         import os, re
         views_path = os.path.join(
-            os.path.dirname(__file__), '..', 'users', 'views.py'
+            os.path.dirname(__file__), '..', 'users', 'views', 'password_reset.py'
         )
         source = open(views_path).read()
         # Find the PasswordResetRequestView class definition and check that
         # both throttle classes are listed in its throttle_classes attribute.
         assert 'PasswordResetThrottle' in source, (
-            "PasswordResetThrottle must appear in users/views.py."
+            "PasswordResetThrottle must appear in users/views/."
         )
         assert 'PasswordResetEmailThrottle' in source, (
-            "PasswordResetEmailThrottle must appear in users/views.py."
+            "PasswordResetEmailThrottle must appear in users/views/."
         )
         # Verify they're in the throttle_classes list, not just imported.
         throttle_classes_match = re.search(

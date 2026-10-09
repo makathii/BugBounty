@@ -37,7 +37,7 @@ def disable_throttling(monkeypatch):
 def disable_recaptcha(monkeypatch):
     """Make verify_recaptcha a no-op so registration tests don't need a captcha token"""
     monkeypatch.setattr('reports.captcha.verify_recaptcha', lambda *args, **kwargs: None)
-    monkeypatch.setattr('users.views.verify_recaptcha', lambda *args, **kwargs: None)
+    monkeypatch.setattr('users.views.accounts.verify_recaptcha', lambda *args, **kwargs: None)
 
 
 # Clear the Django cache before each test so throttle counters don't leak

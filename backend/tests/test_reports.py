@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.django_db
 def test_verified_user_can_submit_report(api_client, verified_user, report_payload, monkeypatch):
     api_client.force_authenticate(user=verified_user)
-    monkeypatch.setattr("reports.views.send_mail", lambda *args, **kwargs: 1)
+    monkeypatch.setattr("reports.tasks.send_mail", lambda *args, **kwargs: 1)
 
     response = api_client.post("/api/reports/", report_payload, format="json")
 

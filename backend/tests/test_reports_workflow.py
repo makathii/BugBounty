@@ -71,7 +71,7 @@ class TestReportCRUD:
         assert resp.status_code == 200
 
     def test_owner_can_update_own_open_report(self, api_client, verified_user, own_report, monkeypatch):
-        monkeypatch.setattr("reports.views.send_mail", lambda *a, **k: 1)
+        monkeypatch.setattr("reports.tasks.send_mail", lambda *a, **k: 1)
         api_client.force_authenticate(user=verified_user)
         resp = api_client.patch(
             f"/api/reports/{own_report.id}/",
