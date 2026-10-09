@@ -68,55 +68,83 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
+    // Shared by both login steps: store the tokens, load the profile, set up role state.
+    const finishLogin = async (tokenData) => {
+        localStorage.setItem('access_token', tokenData.access);
+        localStorage.setItem('refresh_token', tokenData.refresh);
+
+        const profileResponse = await authAPI.getProfile();
+        setUser(profileResponse.data);
+        setUserGroups(profileResponse.data.groups || []);
+
+        if (profileResponse.data.groups?.includes('ProgramOwner')) {
+            const hasProfile = await checkCompanyProfile();
+            setHasCompanyProfile(hasProfile);
+        }
+    };
+
+    // Turn a failed login response into { success: false, error, ...next-step hints }.
+    const loginFailure = (error) => {
+        const data = error.response?.data;
+
+        // Admin/Triager without 2FA: the server hands back a short-lived token
+        // that is only good for setting up 2FA (see users/mfa_enrollment.py).
+        if (data?.code === 'mfa_enrollment_required' && data.enrollment_token) {
+            return { success: false, error: data.detail, enrollmentToken: data.enrollment_token };
+        }
+
+        // Password accepted, 2FA code needed: the token lets the verify screen finish the
+        // login without the password (see users/mfa_challenge.py).
+        if (data?.code === 'mfa_required' && data.mfa_token) {
+            return { success: false, error: data.detail, mfaToken: data.mfa_token };
+        }
+
+        // The verify step ran too late (or the password changed): start again from login.
+        if (data?.code === 'mfa_token_expired') {
+            return { success: false, error: data.detail, mfaExpired: true };
+        }
+
+        // DRF errors come as {detail}, {non_field_errors: [...]} or {field: [...]}
+        const firstError = (value) => Array.isArray(value) ? value[0] : value;
+        const errorDetail =
+            data?.detail ||
+            firstError(data?.non_field_errors) ||
+            firstError(data?.totp_code) ||
+            '';
+        let errorMessage = 'Login failed';
+
+        // Check if it's an email verification error
+        if (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('email not verified')) {
+            errorMessage = 'Please verify your email address before logging in. Check your inbox for the verification link.';
+        } else if (errorDetail) {
+            errorMessage = errorDetail;
+        } else if (data) {
+            errorMessage = Object.values(data).map(firstError).join(' ');
+        }
+
+        return { success: false, error: errorMessage };
+    };
+
     const login = async (username, password, totpCode) => {
         try {
             const credentials = { username, password };
             if (totpCode) credentials.totp_code = totpCode;
             const tokenResponse = await authAPI.login(credentials);
-            localStorage.setItem('access_token', tokenResponse.data.access);
-            localStorage.setItem('refresh_token', tokenResponse.data.refresh);
-
-            const profileResponse = await authAPI.getProfile();
-            setUser(profileResponse.data);
-            setUserGroups(profileResponse.data.groups || []);
-
-            if (profileResponse.data.groups?.includes('ProgramOwner')) {
-                const hasProfile = await checkCompanyProfile();
-                setHasCompanyProfile(hasProfile);
-            }
-
+            await finishLogin(tokenResponse.data);
             return { success: true };
         } catch (error) {
-            const data = error.response?.data;
+            return loginFailure(error);
+        }
+    };
 
-            // Admin/Triager without 2FA: the server hands back a short-lived token
-            // that is only good for setting up 2FA (see users/mfa_enrollment.py).
-            if (data?.code === 'mfa_enrollment_required' && data.enrollment_token) {
-                return { success: false, error: data.detail, enrollmentToken: data.enrollment_token };
-            }
-
-            // DRF errors come as {detail}, {non_field_errors: [...]} or {field: [...]}
-            const firstError = (value) => Array.isArray(value) ? value[0] : value;
-            const errorDetail =
-                data?.detail ||
-                firstError(data?.non_field_errors) ||
-                firstError(data?.totp_code) ||
-                '';
-            let errorMessage = 'Login failed';
-
-            // Check if it's an email verification error
-            if (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('email not verified')) {
-                errorMessage = 'Please verify your email address before logging in. Check your inbox for the verification link.';
-            } else if (errorDetail) {
-                errorMessage = errorDetail;
-            } else if (data) {
-                errorMessage = Object.values(data).map(firstError).join(' ');
-            }
-
-            return {
-                success: false,
-                error: errorMessage
-            };
+    // Step 2 for accounts with 2FA: the challenge token from step 1 plus a TOTP / backup code.
+    const completeMfaLogin = async (mfaToken, code) => {
+        try {
+            const tokenResponse = await authAPI.login({ mfa_token: mfaToken, totp_code: code });
+            await finishLogin(tokenResponse.data);
+            return { success: true };
+        } catch (error) {
+            return loginFailure(error);
         }
     };
 
@@ -175,6 +203,7 @@ export const AuthProvider = ({ children }) => {
         hasCompanyProfile,
         setHasCompanyProfile,
         login,
+        completeMfaLogin,
         loginWithOAuth,
         register,
         logout,

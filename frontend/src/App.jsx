@@ -39,6 +39,7 @@ import CompanyReports from './features/company/CompanyReports';
 import CreateProgram from './features/company/CreateProgram';
 import './App.css';
 import OAuthSuccess from './features/auth/OAuthSuccess';
+import TwoFactorVerify from './features/auth/TwoFactorVerify';
 import TwoFactorSetup from './features/auth/TwoFactorSetup';
 import TwoFactorSettings from './features/auth/TwoFactorSettings';
 import Leaderboard from './features/leaderboard/Leaderboard';
@@ -95,6 +96,7 @@ function AppContent() {
                     } />
 
                     {/* Two-factor authentication */}
+                    <Route path="/2fa/verify" element={<TwoFactorVerify />} />
                     <Route path="/2fa/enroll" element={<TwoFactorSetup enrollment />} />
                     <Route path="/2fa/setup" element={
                         <ProtectedRoute><TwoFactorSetup /></ProtectedRoute>

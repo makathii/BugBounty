@@ -10,12 +10,10 @@ const Login = () => {
     const { login, loginWithOAuth } = useAuth();
     const [formData, setFormData] = useState({
         username: '',
-        password: '',
-        totp_code: ''
+        password: ''
     });
 
     const [errors, setErrors] = useState({});
-    const [showTotp, setShowTotp] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
@@ -42,22 +40,19 @@ const Login = () => {
         try {
             const result = await login(
                 formData.username,
-                formData.password,
-                formData.totp_code || undefined
+                formData.password
             );
 
             if (result.success) {
                 navigate('/dashboard');
+            } else if (result.mfaToken) {
+                // Password accepted and the account has 2FA: finish on the verify screen.
+                navigate('/2fa/verify', { state: { mfaToken: result.mfaToken } });
             } else if (result.enrollmentToken) {
                 // Required-2FA role that has not enrolled yet: guide them through setup.
                 navigate('/2fa/enroll', { state: { enrollmentToken: result.enrollmentToken } });
             } else {
-                const message = result.error || 'Login failed';
-                // Server demands a 2FA code → reveal the TOTP input
-                if (/2fa|totp|two-factor/i.test(message)) {
-                    setShowTotp(true);
-                }
-                setErrors({ general: message });
+                setErrors({ general: result.error || 'Login failed' });
             }
         } catch (err) {
             setErrors({ general: 'An unexpected error occurred' });
@@ -114,24 +109,6 @@ const Login = () => {
                     <div className="forgot-link">
                         <Link to="/forgot-password">Forgot your password?</Link>
                     </div>
-
-                    {showTotp && (
-                        <div className="form-group">
-                            <label htmlFor="totp_code">2FA Code</label>
-                            <input
-                                type="text"
-                                id="totp_code"
-                                name="totp_code"
-                                placeholder="6-digit code or a backup code"
-                                value={formData.totp_code}
-                                onChange={handleChange}
-                                autoComplete="one-time-code"
-                                maxLength={10}
-                                disabled={isLoading}
-                                autoFocus
-                            />
-                        </div>
-                    )}
 
                     <button
                         type="submit"

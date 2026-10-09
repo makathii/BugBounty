@@ -12,19 +12,46 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from ..jwt_cookies import clear_jwt_cookies, set_jwt_cookies
+from ..mfa_challenge import (
+    InvalidChallengeToken,
+    MfaChallengeExpired,
+    MfaChallengeRequired,
+    make_challenge_token,
+    user_for_challenge_token,
+)
 from ..mfa_enrollment import MfaEnrollmentRequired, make_enrollment_token
 from ..models import AccountLockout, BackupCode, UserMFA, UserSession
 from ..throttles import LoginThrottle, TokenRefreshThrottle
 
 
 class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
+    """
+    Login serializer. Two shapes of request:
+
+      {username, password[, totp_code]}   normal login
+      {mfa_token, totp_code}              second step after a ``mfa_required`` answer
+
+    Checks, in order: credentials (or challenge token), account lockout, verified
+    email, then 2FA (enrollment for required roles without 2FA, code challenge
+    for everyone who has it enabled).
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # username/password are not needed when completing a 2FA challenge
+        self.fields[self.username_field].required = False
+        self.fields['password'].required = False
+        self.fields['mfa_token'] = serializers.CharField(required=False, allow_blank=True, write_only=True)
+        self.fields['totp_code'] = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
+    def _user_from_password(self, attrs):
         from django.contrib.auth.models import User
         from rest_framework.exceptions import AuthenticationFailed
 
-        # Get credentials
-        username = attrs[self.username_field]
-        password = attrs['password']
+        username = attrs.get(self.username_field)
+        password = attrs.get('password')
+        if not username or not password:
+            raise serializers.ValidationError({'detail': 'Username and password are required.'})
 
         # Try to get user directly first (to check if inactive due to unverified email)
         try:
@@ -37,32 +64,19 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
 
         # Check password manually — record failure if wrong
         if not user.check_password(password):
-            lockout = AccountLockout.get_or_create_for_user(user)
-            lockout.record_failure()
+            AccountLockout.get_or_create_for_user(user).record_failure()
             raise AuthenticationFailed('No active account found with the given credentials')
+        return user
 
-        # ---- 2FA enforcement for privileged roles ----
-        needs_enrollment = False
-        user_groups_set = set(user.groups.values_list('name', flat=True))
-        if UserMFA.REQUIRED_GROUPS & user_groups_set:
-            mfa = UserMFA.objects.filter(user=user).first()
-            if mfa is None or not mfa.is_enabled:
-                # Cannot log in without 2FA, and cannot set it up without logging in:
-                # hand out an enrollment token once the checks below pass.
-                needs_enrollment = True
-            else:
-                # Validate the provided OTP/backup code
-                totp_code = attrs.get('totp_code') or self.context.get('request', {}).data.get('totp_code') if hasattr(self.context.get('request', {}), 'data') else None
-                if not totp_code:
-                    raise serializers.ValidationError(
-                        {'totp_code': 'A 2FA code is required to log in to this account.'}
-                    )
-                if not mfa.verify_code(str(totp_code)):
-                    # Try backup codes
-                    if not BackupCode.use_code(user, str(totp_code)):
-                        raise serializers.ValidationError(
-                            {'totp_code': 'Invalid or expired 2FA code.'}
-                        )
+    def validate(self, attrs):
+        mfa_token = attrs.get('mfa_token')
+        if mfa_token:
+            try:
+                user = user_for_challenge_token(mfa_token)
+            except InvalidChallengeToken as exc:
+                raise MfaChallengeExpired(str(exc))
+        else:
+            user = self._user_from_password(attrs)
 
         # Check account lockout before any further processing
         lockout = AccountLockout.get_or_create_for_user(user)
@@ -80,8 +94,38 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
                 'Email not verified. Please check your email and verify your account before logging in.'
             )
 
-        if needs_enrollment:
+        # ---- 2FA ----
+        mfa = UserMFA.objects.filter(user=user).first()
+        mfa_enabled = bool(mfa and mfa.is_enabled)
+        required = bool(UserMFA.REQUIRED_GROUPS & set(user.groups.values_list('name', flat=True)))
+
+        if mfa_token and not mfa_enabled:
+            # 2FA was switched off after the challenge was issued: the token must never
+            # turn into a passwordless, codeless login.
+            raise MfaChallengeExpired()
+
+        if required and not mfa_enabled:
+            # Cannot log in without 2FA, and cannot set it up without logging in:
+            # hand out an enrollment token.
             raise MfaEnrollmentRequired(make_enrollment_token(user))
+
+        if mfa_enabled:
+            totp_code = (attrs.get('totp_code') or '').strip()
+            if not totp_code:
+                if mfa_token:
+                    raise serializers.ValidationError({'totp_code': 'A 2FA code is required.'})
+                # Password accepted: ask for the code via a short-lived challenge token.
+                raise MfaChallengeRequired(make_challenge_token(user))
+            if not mfa.verify_code(totp_code) and not BackupCode.use_code(user, totp_code):
+                lockout.record_failure()  # guessing codes counts toward the lockout
+                raise serializers.ValidationError({'totp_code': 'Invalid or expired 2FA code.'})
+
+        if mfa_token:
+            # Password was already verified when the challenge was issued.
+            self.user = user
+            refresh = self.get_token(user)
+            result = {'refresh': str(refresh), 'access': str(refresh.access_token)}
+            return self._finish_login(user, result)
 
         # Now use the parent validate with the verified user
         # Temporarily mark as active so parent validation works
@@ -91,37 +135,38 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
 
         try:
             result = super().validate(attrs)
-            # Successful login — clear any lockout state
-            AccountLockout.get_or_create_for_user(user).reset()
-            # Record the session using the access token's JTI
-            try:
-                import jwt as pyjwt
-                from django.conf import settings as djsettings
-                decoded = pyjwt.decode(
-                    result['access'],
-                    djsettings.SECRET_KEY,
-                    algorithms=['HS256'],
-                    options={"verify_exp": False},
-                )
-                jti = decoded.get('jti', '')
-                request = self.context.get('request')
-                ua = request.META.get('HTTP_USER_AGENT', '') if request else ''
-                ip = request.META.get('REMOTE_ADDR') if request else None
-                UserSession.objects.create(
-                    user=user,
-                    jti=jti,
-                    device_name=ua[:100] or 'Unknown device',
-                    ip_address=ip,
-                    user_agent=ua,
-                )
-            except Exception:
-                pass  # Session tracking must never block login
-            return result
+            return self._finish_login(user, result)
         finally:
             # Restore original state (should remain active since they're verified now)
             if not was_active:
                 user.is_active = True
                 user.save()
+
+    def _finish_login(self, user, result):
+        """Clear lockout state and record the session (best-effort) after a successful login."""
+        AccountLockout.get_or_create_for_user(user).reset()
+        # Record the session using the access token's JTI
+        try:
+            import jwt as pyjwt
+            decoded = pyjwt.decode(
+                result['access'],
+                settings.SECRET_KEY,
+                algorithms=['HS256'],
+                options={"verify_exp": False},
+            )
+            request = self.context.get('request')
+            ua = request.META.get('HTTP_USER_AGENT', '') if request else ''
+            ip = request.META.get('REMOTE_ADDR') if request else None
+            UserSession.objects.create(
+                user=user,
+                jti=decoded.get('jti', ''),
+                device_name=ua[:100] or 'Unknown device',
+                ip_address=ip,
+                user_agent=ua,
+            )
+        except Exception:
+            pass  # Session tracking must never block login
+        return result
 
 
 class ThrottledTokenObtainPairView(TokenObtainPairView):
