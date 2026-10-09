@@ -9,5 +9,6 @@ class BugReportAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ('report','author','created_at')
+    list_display = ('report','author','parent','is_internal','created_at')
+    list_filter = ('is_internal',)
     search_fields = ('text','author__username')

@@ -28,13 +28,18 @@ class ActivityLogger:
         )
 
     @staticmethod
-    def log_comment(report, user):
+    def log_comment(report, user, comment=None):
+        is_internal = bool(comment and comment.is_internal)
+        is_reply = bool(comment and comment.parent_id)
+        what = "Internal note" if is_internal else ("Reply" if is_reply else "Comment")
         ActivityLog.objects.create(
             report=report,
             user=user,
             action='comment',
             details={
-                'message': f"Comment added by {user.username}"
+                'comment_id': comment.id if comment else None,
+                'is_internal': is_internal,
+                'message': f"{what} added by {user.username}"
             }
         )
 

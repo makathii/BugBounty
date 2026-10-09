@@ -1,15 +1,26 @@
 from rest_framework import serializers
 from .models import BugReport, Comment, ActivityLog
 from .models import Attachment
+from core.roles import is_admin_or_triager
 from .sanitizers import sanitize_html
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    """Flat comment. Pass ``request`` in the context to get ``can_edit``/``can_delete``."""
+
     author = serializers.StringRelatedField(read_only=True)
+    text = serializers.CharField(max_length=5000)
+    is_deleted = serializers.BooleanField(read_only=True)
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ("id", "author", "text", "created_at")
+        fields = (
+            "id", "author", "text", "created_at", "edited_at", "parent",
+            "is_internal", "is_deleted", "can_edit", "can_delete",
+        )
+        read_only_fields = ("id", "author", "created_at", "edited_at", "parent", "is_internal")
 
     def validate_text(self, value):
         """Strip all HTML tags to prevent stored XSS attacks.
@@ -19,7 +30,52 @@ class CommentSerializer(serializers.ModelSerializer):
         triager's browser when the comment is rendered.  Running the text
         through bleach before saving ensures no markup survives to the DB.
         """
-        return sanitize_html(value, allowed_tags=[])
+        value = sanitize_html(value, allowed_tags=[]).strip()
+        if not value:
+            raise serializers.ValidationError("Comment cannot be empty.")
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.is_deleted:
+            data["text"] = ""  # the body is gone; the node stays so replies keep their place
+        return data
+
+    def _request(self):
+        return self.context.get("request")
+
+    def get_can_edit(self, obj):
+        request = self._request()
+        return bool(
+            request and not obj.is_deleted and obj.author_id == request.user.id
+        )
+
+    def get_can_delete(self, obj):
+        request = self._request()
+        if not request or obj.is_deleted:
+            return False
+        return obj.author_id == request.user.id or is_admin_or_triager(request)
+
+
+def build_comment_tree(comments, context=None):
+    """Nest a flat, chronologically ordered comment list into ``replies`` trees.
+
+    One pass over an already-fetched list, so a whole thread costs a single query.
+    A comment whose parent is not in the list (e.g. an internal parent hidden from
+    this viewer) is promoted to the top level rather than dropped.
+    """
+    nodes = {}
+    for comment in comments:
+        node = CommentSerializer(comment, context=context or {}).data
+        node["replies"] = []
+        nodes[comment.id] = node
+
+    roots = []
+    for comment in comments:
+        node = nodes[comment.id]
+        parent = nodes.get(comment.parent_id)
+        (parent["replies"] if parent else roots).append(node)
+    return roots
 
 class AttachmentSerializer(serializers.ModelSerializer):
     class Meta:

@@ -8,6 +8,7 @@ from ..serializers import CommentSerializer
 
 
 class CommentViewSet(viewsets.ReadOnlyModelViewSet):
+    """Flat, read-only comment feed. Threads and writes live under /reports/{id}/comments/."""
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated]
 
@@ -15,8 +16,8 @@ class CommentViewSet(viewsets.ReadOnlyModelViewSet):
        # Users can see comments only for reports they have access to
         user = self.request.user
 
+        qs = Comment.objects.select_related("author")
         if is_admin_or_triager(self.request):
-            return Comment.objects.all().order_by("-created_at")
-        else:
-            # Researchers see comments only on their own reports
-            return Comment.objects.filter(report__reporter=user).order_by("-created_at")
+            return qs.order_by("-created_at")
+        # Researchers see public comments only, and only on their own reports
+        return qs.filter(report__reporter=user, is_internal=False).order_by("-created_at")

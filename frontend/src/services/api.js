@@ -190,7 +190,10 @@ export const reportAPI = {
     getTriageDashboard:   ()     => api.get('/reports/triage_dashboard/'),
 
     // Comments & activity
-    addComment:           (id, data) => api.post(`/reports/${id}/comment/`, data),
+    getComments:          (id)   => api.get(`/reports/${id}/comments/`),
+    addComment:           (id, data) => api.post(`/reports/${id}/comments/`, data),
+    editComment:          (id, commentId, data) => api.patch(`/reports/${id}/comments/${commentId}/`, data),
+    deleteComment:        (id, commentId) => api.delete(`/reports/${id}/comments/${commentId}/`),
     getActivityLogs:      (id)   => api.get(`/reports/${id}/activity_logs/`),
 
     // Attachments

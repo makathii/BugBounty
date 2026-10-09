@@ -397,3 +397,36 @@ a:not([class]):hover { color: #fff; text-decoration: underline; }
 .auth-links { display: flex; flex-direction: column; gap: 0.5rem; text-align: center; margin-top: 1.5rem; }
 .auth-links p { margin: 0; color: var(--color-text-muted); font-size: 0.9rem; }
 .auth-links a { color: var(--color-accent-2); font-weight: 600; }
+
+/* ---------- Comment threads ---------- */
+.ui-thread { display: flex; flex-direction: column; gap: 0.75rem; }
+.ui-comment {
+    --tone-rgb: 136,136,170;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+}
+.ui-comment--internal {
+    --tone-rgb: 251,191,36;
+    background: rgba(var(--tone-rgb), 0.07);
+    border-color: rgba(var(--tone-rgb), 0.35);
+}
+.ui-comment--deleted { opacity: 0.6; font-style: italic; }
+.ui-comment-replies {
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    border-left: 2px solid rgba(124,106,255,0.28);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.ui-comment-actions { display: flex; gap: 0.9rem; margin-top: 0.5rem; }
+.ui-link-btn {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font: inherit; font-size: 0.8rem; color: var(--color-text-muted);
+}
+.ui-link-btn:hover { color: var(--color-text); text-decoration: underline; }
+.ui-link-btn--danger:hover { color: #f87171; }
+.ui-comment-form { margin-top: 0.6rem; }
+.ui-check { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--color-text-muted); cursor: pointer; }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { statusTone, severityTone } from '../../utils/tones';
+import CommentThread from './CommentThread';
 
 const ReportDetail = () => {
     const { id } = useParams();
@@ -10,12 +11,8 @@ const ReportDetail = () => {
     const { isTriager, isAdmin, isCompany } = useAuth();
 
     const [report, setReport] = useState(null);
-    const [comments, setComments] = useState([]);
     const [activityLogs, setActivityLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    const [newComment, setNewComment] = useState('');
-    const [submittingComment, setSubmittingComment] = useState(false);
 
     // For triager/admin actions
     const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -25,7 +22,6 @@ const ReportDetail = () => {
 
     useEffect(() => {
         loadReport();
-        loadComments();
         loadActivityLogs();
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -40,38 +36,12 @@ const ReportDetail = () => {
         }
     };
 
-    const loadComments = async () => {
-        try {
-            // Assuming comments come with the report or we fetch separately
-            if (report?.comments) {
-                setComments(report.comments);
-            }
-        } catch (error) {
-            console.error('Failed to load comments:', error);
-        }
-    };
-
     const loadActivityLogs = async () => {
         try {
             const response = await reportAPI.getActivityLogs(id);
             setActivityLogs(response.data);
         } catch (error) {
             console.error('Failed to load activity logs:', error);
-        }
-    };
-
-    const handleAddComment = async () => {
-        if (!newComment.trim()) return;
-
-        setSubmittingComment(true);
-        try {
-            await reportAPI.addComment(id, { text: newComment });
-            setNewComment('');
-            loadComments(); // Refresh comments
-        } catch (error) {
-            console.error('Failed to add comment:', error);
-        } finally {
-            setSubmittingComment(false);
         }
     };
 
@@ -196,40 +166,7 @@ const ReportDetail = () => {
                     <div className="ui-card">
                         <h3 className="ui-section-title">Comments</h3>
 
-                        <div className="ui-field">
-                            <textarea
-                                className="ui-textarea"
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                placeholder="Add a comment..."
-                                rows="4"
-                            />
-                        </div>
-                        <button
-                            className="ui-btn"
-                            onClick={handleAddComment}
-                            disabled={submittingComment || !newComment.trim()}
-                        >
-                            {submittingComment ? 'Adding...' : 'Add Comment'}
-                        </button>
-
-                        <hr className="ui-divider" />
-
-                        {comments.length > 0 ? (
-                            <div className="ui-stack" style={{ gap: '1rem' }}>
-                                {comments.map((comment) => (
-                                    <div key={comment.id} className="ui-card--inset">
-                                        <div className="ui-row ui-row--between" style={{ marginBottom: '0.4rem' }}>
-                                            <strong className="ui-strong">{comment.author}</strong>
-                                            <span className="ui-muted ui-small">{new Date(comment.created_at).toLocaleString()}</span>
-                                        </div>
-                                        <p className="ui-pre">{comment.text}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="ui-empty" style={{ padding: '1rem' }}>No comments yet. Be the first to comment!</p>
-                        )}
+                        <CommentThread reportId={id} canModerate={canTriage} onChange={loadActivityLogs} />
                     </div>
                 </div>
 

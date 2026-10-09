@@ -52,3 +52,51 @@ def send_report_submission_notification(report_id):
         settings.DEFAULT_FROM_EMAIL,
         admin_emails,
     )
+
+
+@shared_task(
+    autoretry_for=(Exception,), retry_backoff=True, retry_backoff_max=300,
+    max_retries=5, ignore_result=True,
+)
+def send_comment_notification(comment_id):
+    """Tell the people in a thread that someone commented or replied.
+
+    Public comments go to the reporter, the assigned triager and the parent
+    comment's author; internal notes only reach staff (assignee / parent author),
+    never the researcher. The author is never emailed about their own comment.
+    """
+    from .models import Comment
+
+    try:
+        comment = Comment.objects.select_related(
+            "author", "report__reporter", "report__assigned_to", "parent__author",
+        ).get(pk=comment_id)
+    except Comment.DoesNotExist:
+        return
+
+    report = comment.report
+    people = [report.assigned_to, comment.parent.author if comment.parent_id else None]
+    if not comment.is_internal:
+        people.append(report.reporter)
+
+    emails = sorted({
+        u.email for u in people
+        if u is not None and u.email and u.id != comment.author_id
+    })
+    if not emails:
+        return
+
+    who = comment.author.username if comment.author else "Someone"
+    kind = "internal note" if comment.is_internal else ("reply" if comment.parent_id else "comment")
+    base = getattr(settings, "FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    message = (
+        f"{who} posted a {kind} on \"{report.title}\":\n\n"
+        f"{comment.text[:500]}\n\n"
+        f"View the thread: {base}/reports/{report.id}\n"
+    )
+    send_mail(
+        f"New {kind} on report: {report.title}",
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        emails,
+    )

@@ -12,15 +12,17 @@ from users.throttles import BurstRateThrottle, SubmissionThrottle
 
 from ..models import BugReport
 from ..permissions import IsReporterOrTriagerOrAdmin
-from ..serializers import ActivityLogSerializer, BugReportSerializer, CommentSerializer
+from ..serializers import ActivityLogSerializer, BugReportSerializer
 from ..tasks import send_report_submission_notification
 from .attachments import AttachmentActionsMixin
+from .comment_actions import CommentActionsMixin
 from .cvss import CvssActionsMixin
 from .triage import TriageActionsMixin
 
 
 class BugReportViewSet(
     AttachmentActionsMixin,
+    CommentActionsMixin,
     TriageActionsMixin,
     CvssActionsMixin,
     viewsets.ModelViewSet,
@@ -130,15 +132,6 @@ class BugReportViewSet(
         except Exception as e:  # never fail a submission because of mail
             print(f"Error sending mail: {e}")
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
-    def comment(self, request, pk=None):
-        report = self.get_object()
-        serializer = CommentSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user, report=report)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
     @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
     def change_status(self, request, pk=None):
         # Only Triagers and Admins can change status
@@ -237,5 +230,8 @@ class BugReportViewSet(
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         logs = report.activity_logs.order_by('-created_at')
+        if not is_admin_or_triager(request):
+            # internal-note entries would reveal that staff-only notes exist
+            logs = logs.exclude(details__is_internal=True)
         serializer = ActivityLogSerializer(logs, many=True)
         return Response(serializer.data)
