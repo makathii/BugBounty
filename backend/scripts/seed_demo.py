@@ -208,3 +208,7 @@ print(f"  companies:{Company.objects.count()}")
 print(f"  programs: {Program.objects.count()}")
 print(f"  reports:  {BugReport.objects.count()}")
 print("All demo accounts use password: Demo1234!")
+
+# Starter store catalogue (idempotent)
+from django.core.management import call_command
+call_command("seed_store")

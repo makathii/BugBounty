@@ -77,12 +77,30 @@ To add a badge, add one `Badge(...)` line (a key, name, description, icon and a
 (`GET /api/badges/` also catches the caller up). The dashboard shows a shelf with a one-time
 "New badge" banner and `/badges` shows every badge with progress on the locked ones.
 
-## For the store (next step)
+## The store
 
-`wallet.services.spend(user, amount, reason, reference="item:<id>")` is the only way to spend. It
-locks the user's row so two simultaneous purchases cannot overdraw, and raises `InsufficientPoints`
-when the balance is too low. The store should call it inside the same transaction that grants the
-item.
+Items are cosmetics for a researcher's character, bought with wallet points.
+
+- **Item**: name, `slot` (hat / face / body / pet / background), `rarity`, `price` (0 = free
+  starter item), `min_level`, `art` (an emoji placeholder until real artwork exists; `image_url`
+  overrides it), `is_active` (retire an item without deleting it; owners keep it).
+- **Inventory** (`UserItem`): one row per user per item, with the price actually paid and the
+  wallet transaction behind it.
+- **Loadout** (`EquippedItem`): at most one owned item per slot.
+- Buying (`store.services.purchase`) is one database transaction: the user row is locked, then
+  it checks retired / already owned / level (from *lifetime* points, so spending never locks you
+  out) / balance, charges the wallet and adds the item together or not at all.
+- Refunds go through `store.services.refund` (admin action on the inventory): the points go back
+  and the item is taken off.
+
+Set up the starter catalogue with `python manage.py seed_store` (idempotent; it never overwrites
+prices you changed). Edit items, prices and levels in the Django admin.
+
+API (all need login): `GET /api/store/items/` (`?slot=`, `?rarity=`; each item says
+`owned` / `equipped` / `locked` / `can_afford`), `POST /api/store/items/{slug}/purchase/`,
+`.../equip/`, `.../unequip/`, `GET /api/store/inventory/`, `GET /api/store/loadout/` and
+`GET /api/store/loadout/{user_id}/`. Purchase errors carry a `code`: `insufficient_points` (400),
+`level_too_low` (403), `already_owned` (409), `item_unavailable` (404).
 
 Note: if an accepted report is revoked *after* its points were spent, the balance can go negative.
 That is intentional (it is honest bookkeeping); purchases are simply blocked until it recovers.
