@@ -20,9 +20,7 @@
 
 `BugReport` is the hottest and largest table and has the weakest indexing.
 
-## 2. Query-level bottlenecks (ranked)
-
-### 3.x numbering used by the roadmap
+## 3. Query-level bottlenecks (ranked)
 
 **3.1 Role checks hit the DB repeatedly — *High confidence*.**
 `user.groups.filter(name__in=[...]).exists()` is a join query each time. `BugReportViewSet.get_queryset` runs two (`reports/views.py:66-67`), and individual actions plus permission classes add more (`:124, 210, 297, 406, 427, 463, 495, 522, 643, 680`). A single report detail request can run 3–5 identical group queries.

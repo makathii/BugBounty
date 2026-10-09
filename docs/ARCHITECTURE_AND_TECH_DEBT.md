@@ -38,7 +38,7 @@
 ### ADR-4 Leaderboard as an append-only-ish ledger (`ScoreEvent`) kept in sync by signals
 - **Decision:** `leaderboard/services.py` is the only writer; `post_save` on `BugReport` calls an idempotent `sync_report_score`; `recompute_leaderboard` rebuilds from scratch.
 - **Why:** rankings are derived data, reproducible, and rebalanceable via `LEADERBOARD_SEVERITY_POINTS`.
-- **Consequence:** good isolation. Ranking is computed per request (§ perf doc 3.4) and there are now **two** severity score tables (`BugReport.severity_score` 1–4 in `reports/signals.py`, ledger points 1/3/7/15 in settings).
+- **Consequence:** good isolation. Ranking is computed per request (QUERY_PERFORMANCE.md §3.4) and there are now **two** severity score tables (`BugReport.severity_score` 1–4 in `reports/signals.py`, ledger points 1/3/7/15 in settings).
 
 ### ADR-5 Denormalized stats via snapshots (`ProgramStats`) refreshed from signals
 - Every `BugReport` save/delete calls `program.refresh_stats()` synchronously, wrapped in `except Exception: pass`.
