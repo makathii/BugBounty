@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 from users.models import Profile
 from reports.models import BugReport
 from programs.models import Program, Company
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 # Disable throttling for all tests by mocking the throttle classes
@@ -28,6 +28,27 @@ def disable_throttling(monkeypatch):
     monkeypatch.setattr(throttles, 'PasswordResetThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'PasswordResetEmailThrottle', NoOpThrottle)
     monkeypatch.setattr(throttles, 'PasswordResetConfirmThrottle', NoOpThrottle)
+
+
+# Bypass reCAPTCHA for all tests — the real key is set in .env but tests
+# don't supply captcha tokens, so verify_recaptcha must be a no-op.
+@pytest.fixture(autouse=True)
+def disable_recaptcha(monkeypatch):
+    """Make verify_recaptcha a no-op so registration tests don't need a captcha token"""
+    monkeypatch.setattr('reports.captcha.verify_recaptcha', lambda *args, **kwargs: None)
+    monkeypatch.setattr('users.views.verify_recaptcha', lambda *args, **kwargs: None)
+
+
+# Clear the Django cache before each test so throttle counters don't leak
+# between tests. (NoOpThrottle patches the module attribute but DRF views hold
+# direct class references, so the real throttle still runs against the cache.)
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Reset Django cache before every test to prevent throttle state bleed"""
+    from django.core.cache import cache
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture

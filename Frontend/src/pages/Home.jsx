@@ -1,8 +1,7 @@
 // src/pages/Home.jsx — Landing Page (kein Bootstrap, reines Custom CSS)
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { homeAPI } from '../services/api';
 import './Home.css';
 
 const faqs = [
@@ -29,7 +28,6 @@ const faqs = [
 ];
 
 const Home = () => {
-    const [loading, setLoading] = useState(true);
     const [openFaq, setOpenFaq] = useState(null);
     const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
     const [contactSent, setContactSent] = useState(false);
@@ -37,23 +35,6 @@ const Home = () => {
     const [contactLoading, setContactLoading] = useState(false);
 
     const { user, isCompany } = useAuth();
-
-    useEffect(() => {
-        loadHomeData();
-    }, []);
-
-    const loadHomeData = async () => {
-        try {
-            await Promise.all([
-                homeAPI.getStats(),
-                homeAPI.getPublicReports()
-            ]);
-        } catch (error) {
-            console.error('Failed to load home data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleContactSubmit = async (e) => {
         e.preventDefault();
@@ -77,15 +58,6 @@ const Home = () => {
             setContactLoading(false);
         }
     };
-
-    if (loading) {
-        return (
-            <div className="home-loading">
-                <div className="home-spinner"></div>
-                <p>Loading platform data...</p>
-            </div>
-        );
-    }
 
     return (
         <div className="home-page">

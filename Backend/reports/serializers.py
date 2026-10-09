@@ -28,6 +28,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 class BugReportSerializer(serializers.ModelSerializer):
+    reporter_username = serializers.CharField(source='reporter.username', read_only=True)
+    assigned_to_username = serializers.SerializerMethodField()
+    program_name = serializers.SerializerMethodField()
+
     class Meta:
         model = BugReport
         fields = '__all__'
@@ -35,6 +39,12 @@ class BugReportSerializer(serializers.ModelSerializer):
             'severity_score', 'time_to_triage', 'time_to_resolution',
             'created_at', 'updated_at', 'reporter'  # reporter is set in perform_create
         ]
+
+    def get_assigned_to_username(self, obj):
+        return obj.assigned_to.username if obj.assigned_to else None
+
+    def get_program_name(self, obj):
+        return obj.program.name if obj.program else None
         
     def validate_title(self, value):
         if len(value)<10:

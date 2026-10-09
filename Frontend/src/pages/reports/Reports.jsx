@@ -122,7 +122,7 @@ const Reports = () => {
                     textAlign: 'center'
                 }}>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>
-                        {stats.byStatus?.accepted || 0}
+                        {(stats.by_status?.accepted || 0) + (stats.by_status?.resolved || 0)}
                     </div>
                     <div style={{ color: '#666' }}>Accepted</div>
                 </div>
@@ -135,7 +135,7 @@ const Reports = () => {
                     textAlign: 'center'
                 }}>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f1c40f' }}>
-                        {stats.bySeverity?.high || 0}
+                        {(stats.by_severity?.high || 0) + (stats.by_severity?.critical || 0)}
                     </div>
                     <div style={{ color: '#666' }}>High Severity</div>
                 </div>
@@ -148,7 +148,7 @@ const Reports = () => {
                     textAlign: 'center'
                 }}>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>
-                        ${stats.total_bounty || 0}
+                        ${reports.reduce((sum, r) => sum + (r.bounty_amount ? Number(r.bounty_amount) : 0), 0).toLocaleString()}
                     </div>
                     <div style={{ color: '#666' }}>Total Bounty</div>
                 </div>

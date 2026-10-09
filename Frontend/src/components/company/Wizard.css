@@ -1,0 +1,410 @@
+
+/* ==========================================================================
+   Program Wizard
+   ========================================================================== */
+
+.program-wizard {
+    max-width: 780px;
+    margin: 0 auto;
+}
+
+.program-wizard-header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.program-wizard-header h2 {
+    margin: 0 0 0.25rem;
+    color: var(--color-text);
+}
+
+.program-wizard-header p {
+    margin: 0 0 2rem;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   Step Indicator
+   ========================================================================== */
+
+.wizard-steps {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2.5rem;
+}
+
+.wizard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.wizard-step-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.wizard-step-circle.pending {
+    background: #1a1a24;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+}
+
+.wizard-step-circle.active {
+    background: var(--color-accent);
+    color: white;
+}
+
+.wizard-step-circle.complete {
+    background: var(--color-green);
+    color: white;
+}
+
+.wizard-step-label {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+
+.wizard-step-label.active {
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+.wizard-step-label.complete {
+    color: var(--color-green);
+}
+
+.wizard-step-line {
+    width: 60px;
+    height: 2px;
+    margin-bottom: 1.4rem;
+    background: var(--color-border);
+}
+
+.wizard-step-line.complete {
+    background: var(--color-green);
+}
+
+/* ==========================================================================
+   Wizard Card
+   ========================================================================== */
+
+.program-wizard-card {
+    background: #111118;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: var(--shadow-card);
+}
+
+.program-wizard-card h3 {
+    margin-top: 0;
+    color: var(--color-text);
+}
+
+.program-wizard-card h4 {
+    color: var(--color-text);
+}
+
+/* ==========================================================================
+   Scope Cards
+   ========================================================================== */
+
+.scope-card {
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.scope-card.in-scope {
+    background: rgba(46, 204, 113, 0.06);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.scope-card.out-scope {
+    background: rgba(231, 76, 60, 0.06);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.scope-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 700px) {
+    .scope-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Scope Toggle Buttons
+   ========================================================================== */
+
+.scope-toggle {
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 2px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-muted);
+}
+
+.scope-toggle.active.in {
+    background: var(--color-green);
+    border-color: var(--color-green);
+    color: white;
+}
+
+.scope-toggle.active.out {
+    background: var(--color-red);
+    border-color: var(--color-red);
+    color: white;
+}
+
+/* ==========================================================================
+   Review Step
+   ========================================================================== */
+
+.review-card {
+    background: #18181f;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.review-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.review-row:last-child {
+    border-bottom: none;
+}
+
+.review-key {
+    color: var(--color-text-muted);
+}
+
+.review-value {
+    color: var(--color-text);
+    font-weight: 500;
+    text-align: right;
+}
+
+/* ==========================================================================
+   Program Settings Block
+   ========================================================================== */
+
+.settings-panel {
+    background: #18181f;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.settings-panel h4 {
+    margin: 0 0 1rem;
+}
+
+/* ==========================================================================
+   Wizard Navigation
+   ========================================================================== */
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+}
+
+.wizard-nav .btn {
+    min-width: 140px;
+}
+
+/* ==========================================================================
+   Success Screen
+   ========================================================================== */
+
+.program-success {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.program-success-card {
+    background: #111118;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    box-shadow: var(--shadow-card);
+}
+
+.program-success-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+}
+
+.program-summary {
+    background: #18181f;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.status-pill.draft {
+    background: rgba(255, 170, 0, 0.15);
+    color: #ffb84d;
+}
+
+/* ==========================================================================
+   Error Alerts
+   ========================================================================== */
+
+.alert-error {
+    background: rgba(255, 68, 68, 0.12);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    color: #ff7b7b;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+/* ==========================================================================
+   Program Type Radio Cards
+   ========================================================================== */
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: #18181f;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.radio-card input[type="radio"] {
+    display: none;
+}
+.radio-card:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: #1e1e28;
+}
+
+.radio-card-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.2rem;
+}
+
+.radio-card-desc {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.45;
+}
+
+/* Selected states per type */
+.radio-card.selected[data-type="public"] {
+    border-color: rgba(52, 152, 219, 0.5);
+    background: rgba(52, 152, 219, 0.07);
+}
+
+.radio-card.selected[data-type="public"] .radio-card-label {
+    color: #5dade2;
+}
+
+.radio-card.selected[data-type="private"] {
+    border-color: rgba(155, 89, 182, 0.5);
+    background: rgba(155, 89, 182, 0.07);
+}
+
+.radio-card.selected[data-type="private"] .radio-card-label {
+    color: #bb8fce;
+}
+
+.radio-card.selected[data-type="vdp"] {
+    border-color: rgba(230, 126, 34, 0.5);
+    background: rgba(230, 126, 34, 0.07);
+}
+
+.radio-card.selected[data-type="vdp"] .radio-card-label {
+    color: #f0a85a;
+}
+
+/* Type badge pill */
+.radio-card-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.radio-card-badge.public {
+    background: rgba(52, 152, 219, 0.15);
+    color: #5dade2;
+}
+
+.radio-card-badge.private {
+    background: rgba(155, 89, 182, 0.15);
+    color: #bb8fce;
+}
+
+.radio-card-badge.vdp {
+    background: rgba(230, 126, 34, 0.15);
+    color: #f0a85a;
+}
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    gap: 1rem;
+}
+
+.wizard-nav .btn-primary {
+    background: var(--color-accent);
+    background-image: none;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}

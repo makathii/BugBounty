@@ -1,373 +1,514 @@
-/* ── Auth Pages – Dark Theme ─────────────────── */
-.auth-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-bg);
-    padding: 2rem 1rem;
-    position: relative;
-    overflow: hidden;
+/* ==========================================================================
+   1. Shared Layout Containers & Backgrounds
+   ========================================================================== */
+.auth-container,
+.company-registration-container,
+.verify-email-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: 2rem 1rem;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.auth-container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-            radial-gradient(circle at 20% 30%, rgba(124,106,255,0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 70%, rgba(167,139,250,0.07) 0%, transparent 50%);
-    pointer-events: none;
+/* Subtle background glowing radial accents */
+.auth-container::before,
+.company-registration-container::before,
+.verify-email-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 20% 30%,
+      rgba(124, 106, 255, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(167, 139, 250, 0.07) 0%,
+      transparent 50%
+    );
+  pointer-events: none;
+  z-index: 0;
 }
 
+/* Base Card Structure used across all authentication & registration wrappers */
 .login-container,
-.register-container {
-    position: relative;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    padding: 2.5rem;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
-    width: 100%;
-    max-width: 420px;
+.register-container,
+.company-registration-card,
+.researcher-registration,
+.verify-email-card {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 2.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  width: 100%;
+  max-width: 450px;
+  box-sizing: border-box;
 }
 
-.auth-header {
-    text-align: center;
-    margin-bottom: 2rem;
+/* Expanded layout max-width specifically for the large Company data form */
+.company-registration-card {
+  max-width: 650px;
 }
 
-.auth-header h2 {
-    color: var(--color-text);
-    font-size: 1.6rem;
-    font-weight: 800;
-    margin: 0 0 0.4rem 0;
-    letter-spacing: -0.02em;
+/* ==========================================================================
+   2. Headers, Sections, and Typography
+   ========================================================================== */
+.auth-header,
+.registration-header {
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
-.auth-header p {
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    margin: 0;
+.auth-header h2,
+.registration-header h2,
+.researcher-registration h2 {
+  color: var(--color-text);
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: -0.02em;
 }
 
+.auth-header p,
+.registration-header .subtitle,
+.form-group small {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.form-group small {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+}
+
+.form-section {
+  margin-bottom: 1.5rem;
+}
+
+.form-section h3 {
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ==========================================================================
+   3. Form Elements & Fields Layouts
+   ========================================================================== */
 .form-group {
-    margin-bottom: 1.2rem;
+  margin-bottom: 1.2rem;
+  text-align: left;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 0.4rem;
-    color: var(--color-text-muted);
-    font-weight: 500;
-    font-size: 0.85rem;
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 
+/* Flexible side-by-side field rows */
+.name-fields,
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.name-fields .form-group,
+.form-row .form-group {
+  flex: 1;
+}
+
+@media (max-width: 580px) {
+  .name-fields,
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+/* Core Inputs configuration styling */
 .form-group input,
 .form-group select,
 .form-group textarea {
-    width: 100%;
-    padding: 0.65rem 0.9rem;
-    background: var(--color-surface-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-text);
-    font-size: 0.9rem;
-    font-family: var(--font-sans);
-    transition: border-color var(--transition), box-shadow var(--transition);
-    box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+  box-sizing: border-box;
 }
 
-.form-group input::placeholder {
-    color: var(--color-text-muted);
-    opacity: 0.6;
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(124,106,255,0.15);
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(124, 106, 255, 0.15);
 }
 
 .form-group input.error,
-.form-group select.error {
-    border-color: var(--color-red);
+.form-group select.error,
+.form-group textarea.error {
+  border-color: var(--color-red);
 }
 
-.form-group input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
+/* ==========================================================================
+   4. Status Messages, Alerts, and Badges
+   ========================================================================== */
 .error-text {
-    color: var(--color-red);
-    font-size: 0.78rem;
-    display: block;
-    margin-top: 0.3rem;
+  color: var(--color-red);
+  font-size: 0.78rem;
+  display: block;
+  margin-top: 0.3rem;
 }
 
-.error-message {
-    background: rgba(239,68,68,0.1);
-    color: var(--color-red);
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-sm);
-    margin-bottom: 1.2rem;
-    font-size: 0.85rem;
-    border-left: 3px solid var(--color-red);
+.error-message,
+.alert-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-red);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.2rem;
+  font-size: 0.85rem;
+  border-left: 3px solid var(--color-red);
+  text-align: left;
 }
 
 .success-message {
-    background: var(--color-green-muted);
-    color: var(--color-green);
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-sm);
-    margin-bottom: 1.2rem;
-    font-size: 0.85rem;
-    border-left: 3px solid var(--color-green);
+  background: var(--color-green-muted);
+  color: var(--color-green);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.2rem;
+  font-size: 0.85rem;
+  border-left: 3px solid var(--color-green);
+  text-align: left;
 }
 
-.submit-btn {
-    width: 100%;
-    padding: 0.75rem;
-    background: var(--color-accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
-    margin-top: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+.password-strength {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+}
+.strength-weak {
+  color: var(--color-red);
+}
+.strength-medium {
+  color: var(--color-yellow);
+}
+.strength-strong {
+  color: var(--color-green);
 }
 
-.submit-btn:hover:not(:disabled) {
-    background: var(--color-accent-2);
-    box-shadow: 0 0 24px rgba(124,106,255,0.4);
-    transform: translateY(-1px);
+/* ==========================================================================
+   5. Buttons & Actions Blocks
+   ========================================================================== */
+.form-actions,
+.button-group,
+.verification-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.submit-btn:active:not(:disabled) {
-    transform: scale(0.98);
+.button-group,
+.verification-actions {
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
 }
 
-.submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+/* Master buttons design architecture */
+.submit-btn,
+.btn,
+.researcher-registration button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  box-sizing: border-box;
 }
 
-.switch-auth {
-    text-align: center;
-    margin-top: 1.5rem;
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
+.submit-btn,
+.btn-primary,
+.researcher-registration button {
+  width: 100%;
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.form-actions .btn {
+  width: auto; /* Allow buttons to sit side-by-side naturally */
+}
+
+.submit-btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.researcher-registration button:hover:not(:disabled) {
+  background: var(--color-accent-2);
+  box-shadow: 0 0 24px rgba(124, 106, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.submit-btn:active:not(:disabled),
+.btn:active:not(:disabled),
+.researcher-registration button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.submit-btn:disabled,
+.btn:disabled,
+.researcher-registration button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Link Actions button swapping text toggle links */
+.switch-auth,
+.registration-note {
+  text-align: center;
+  margin-top: 1.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.registration-note {
+  text-align: left;
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
 }
 
 .link-btn {
-    background: none;
-    border: none;
-    color: var(--color-accent-2);
-    cursor: pointer;
-    font-weight: 600;
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: color var(--transition);
+  background: none;
+  border: none;
+  color: var(--color-accent-2);
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color var(--transition);
 }
 
 .link-btn:hover {
-    color: var(--color-accent);
+  color: var(--color-accent);
 }
 
-.name-fields {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.name-fields .form-group {
-    flex: 1;
-}
-
-.loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
+/* ==========================================================================
+   6. Custom UI Components (OAuth, Spinners, Roles, Icons)
+   ========================================================================== */
+/* Interactive Multi-Role Option Selectors */
 .role-selection {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
 }
 
 .role-option {
-    display: flex;
-    align-items: flex-start;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: border-color var(--transition), background var(--transition);
-    background: var(--color-surface-2);
+  display: flex;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition);
+  background: var(--color-surface-2);
 }
 
 .role-option:hover {
-    border-color: var(--color-accent);
-    background: rgba(124,106,255,0.05);
+  border-color: var(--color-accent);
+  background: rgba(124, 106, 255, 0.05);
 }
 
 .role-option input[type="radio"] {
-    margin-right: 0.75rem;
-    margin-top: 2px;
-    accent-color: var(--color-accent);
+  margin-right: 0.75rem;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
 }
 
 .role-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
 }
 
 .role-label strong {
-    color: var(--color-text);
-    font-size: 0.9rem;
+  color: var(--color-text);
+  font-size: 0.9rem;
 }
 
 .role-label span,
 .role-label small {
-    color: var(--color-text-muted);
-    font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
 }
 
-.password-strength { margin-top: 0.3rem; font-size: 0.78rem; }
-.strength-weak   { color: var(--color-red); }
-.strength-medium { color: var(--color-yellow); }
-.strength-strong { color: var(--color-green); }
-
-
-/* Verify Email Page Styles */
-.verify-email-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 20px;
+/* Spinners animations tracking */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
 }
 
-.verify-email-card {
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    max-width: 450px;
-    text-align: center;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.verify-email-card h2 {
-    color: #333;
-    margin-bottom: 20px;
-    font-size: 24px;
-}
-
-.verify-email-card p {
-    color: #666;
-    margin-bottom: 15px;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.success-icon {
-    width: 60px;
-    height: 60px;
-    background: #27ae60;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    margin: 0 auto 20px;
-}
-
-.error-icon {
-    width: 60px;
-    height: 60px;
-    background: #e74c3c;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    margin: 0 auto 20px;
-}
-
-.button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.verification-actions {
-    margin-top: 20px;
-}
-
+/* Third Party Authentication Dividers & Buttons */
 .auth-divider {
-    display: flex;
-    align-items: center;
-    text-align: center;
-    margin: 20px 0;
-    color: #718096;
-    font-size: 14px;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-divider:not(:empty)::before {
+  margin-right: 0.25em;
+}
+.auth-divider:not(:empty)::after {
+  margin-left: 0.25em;
 }
 
 .oauth-buttons {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    width: 100%;
-    margin-bottom: 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
 }
 
 .oauth-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background-color: #ffffff;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
 }
 
-.oauth-btn.github:hover { background-color: #f6f8fa; border-color: #24292e; color: #24292e; }
-.oauth-btn.google:hover { background-color: #f8f9fa; border-color: #4285f4; color: #4285f4; }
-.oauth-btn.gitlab:hover { background-color: #fff5f2; border-color: #fc6d26; color: #fc6d26; }
-
+.oauth-btn.github:hover {
+  background-color: #f6f8fa;
+  border-color: #24292e;
+  color: #24292e;
+}
+.oauth-btn.google:hover {
+  background-color: #f8f9fa;
+  border-color: #4285f4;
+  color: #4285f4;
+}
+.oauth-btn.gitlab:hover {
+  background-color: #fff5f2;
+  border-color: #fc6d26;
+  color: #fc6d26;
+}
 .oauth-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-icon {
+  flex-shrink: 0;
 }
 
-.btn-icon {
-    flex-shrink: 0;
+/* Status Circle Notification Badges */
+.success-icon,
+.error-icon {
+  width: 60px;
+  height: 60px;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 20px;
+}
+.success-icon {
+  background: var(--color-green, #27ae60);
+}
+.error-icon {
+  background: var(--color-red, #e74c3c);
 }

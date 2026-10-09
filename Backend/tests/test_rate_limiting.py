@@ -29,13 +29,15 @@ class TestRateLimiting:
         """Test login throttle has correct scope"""
         throttle = LoginThrottle()
         assert throttle.scope == 'login'
-        assert settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login'] == '3/min'
+        # Rate is env-configurable (LOGIN_THROTTLE_RATE); verify it is set and non-empty
+        assert settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login']
 
     def test_register_throttle_scope(self):
         """Test register throttle has correct scope"""
         throttle = RegisterThrottle()
         assert throttle.scope == 'register'
-        assert settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['register'] == '2/min'
+        # Rate is env-configurable (REGISTER_THROTTLE_RATE); verify it is set and non-empty
+        assert settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['register']
 
     def test_password_reset_throttle_exists(self):
         """Test password reset throttle is configured and IP-based."""

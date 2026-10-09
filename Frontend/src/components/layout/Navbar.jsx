@@ -57,12 +57,6 @@ const Navbar = () => {
                             {isResearcher() && (
                                 <>
                                     <Link
-                                        to="/submit"
-                                        className={`nav-link ${location.pathname === '/submit' ? 'active' : ''}`}
-                                    >
-                                        Submit Report
-                                    </Link>
-                                    <Link
                                         to="/reports"
                                         className={`nav-link ${location.pathname === '/reports' ? 'active' : ''}`}
                                     >
@@ -73,6 +67,12 @@ const Navbar = () => {
                                         className={`nav-link ${location.pathname === '/programs' ? 'active' : ''}`}
                                     >
                                         Find Programs
+                                    </Link>
+                                    <Link
+                                        to="/leaderboard"
+                                        className={`nav-link ${location.pathname === '/leaderboard' ? 'active' : ''}`}
+                                    >
+                                        Leaderboard
                                     </Link>
                                 </>
                             )}
@@ -86,12 +86,14 @@ const Navbar = () => {
                                     >
                                         Triage Reports
                                     </Link>
-                                    <Link
-                                        to="/admin"
-                                        className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                                    <a
+                                        href={`${(process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '')}/admin/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="nav-link"
                                     >
                                         Admin
-                                    </Link>
+                                    </a>
                                 </>
                             )}
 

@@ -139,12 +139,13 @@ class ProgramCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Program
         fields = [
-            'name', 'description', 'short_description', 'scope_type',
+            'id', 'name', 'description', 'short_description', 'scope_type',
             'bounty_policy', 'min_bounty', 'max_bounty',
             'start_date', 'end_date',
             'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
             'testing_guidelines', 'report_guidelines', 'disclosure_policy',
         ]
+        read_only_fields = ['id']
 
     def validate(self, data):
         min_b = data.get('min_bounty')

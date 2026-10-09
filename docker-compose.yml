@@ -5,9 +5,9 @@ services:
     container_name: bugbounty-postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: bug_bounty_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-bug_bounty_db}
     ports:
       - "5432:5432"
     volumes:
@@ -40,13 +40,18 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Secrets & tunables come from .env (same directory, auto-loaded by
+      # docker compose). Defaults here keep the stack bootable without one.
       - DJANGO_SETTINGS_MODULE=Backend.settings
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-@j0md9c!fn2v3r^ro2qis1y_x-gl0-*q#+bpm^buop*exz@xl6}
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/bug_bounty_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=bug_bounty_db
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-bug_bounty_db}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-bug_bounty_db}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
+      # Throttle overrides (secure defaults 3/min & 2/min apply when unset)
+      - LOGIN_THROTTLE_RATE=${LOGIN_THROTTLE_RATE:-3/min}
+      - REGISTER_THROTTLE_RATE=${REGISTER_THROTTLE_RATE:-2/min}
       - CLAMAV_HOST=clamav
       - CLAMAV_PORT=3310
       - PYTHONDONTWRITEBYTECODE=1
@@ -65,6 +70,7 @@ services:
       - "3000:3000"
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_RECAPTCHA_SITE_KEY=${REACT_APP_RECAPTCHA_SITE_KEY:-}
       - CHOKIDAR_USEPOLLING=true  # For hot reload in Docker
       - WATCHPACK_POLLING=true    # For hot reload in Docker
       - NODE_OPTIONS=--openssl-legacy-provider  # Required for react-scripts 5 on Node 17+

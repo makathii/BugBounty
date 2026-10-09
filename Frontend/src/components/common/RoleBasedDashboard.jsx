@@ -24,10 +24,6 @@ const RoleBasedDashboard = () => {
         );
     }
 
-    console.log('=== DEBUG USER DATA ===');
-    console.log('User:', user);
-    console.log('Groups array:', user?.groups);
-
     // Route based on role
     if (isCompany()) {
         return <CompanyDashboard />;

@@ -83,34 +83,34 @@ export const authAPI = {
 
 export const companyAPI = {
     // Company profile
-    createProfile:        (data) => api.post('/users/companies/', data),
+    createCompanyProfile: (data) => api.post('/users/companies/', data),
     getProfile:           ()     => api.get('/users/companies/my_profile/'),
     updateProfile:        (id, data) => api.put(`/users/companies/${id}/`, data),
-    hasProfile:           ()     => api.get('/users/companies/has_profile/'),
+    hasCompanyProfile:    ()     => api.get('/users/companies/has_profile/'),
 
     // Programs
     createProgram:        (data) => api.post('/programs/programs/', data),
-    getPrograms:          ()     => api.get('/programs/programs/company/'),
-    getDashboard:         ()     => api.get('/programs/programs/dashboard/'),
-    getProgramDashboard:  (id)   => api.get(`/programs/programs/${id}/dashboard/`),
+    getPrograms:          ()     => api.get('/programs/company/'),
+    getDashboard:         ()     => api.get('/programs/dashboard/'),
+    getProgramDashboard:  (id)   => api.get(`/programs/${id}/dashboard/`),
     activateProgram:      (id)   => api.post(`/programs/programs/${id}/activate/`),
     pauseProgram:         (id)   => api.post(`/programs/programs/${id}/pause/`),
     closeProgram:         (id)   => api.post(`/programs/programs/${id}/close/`),
 
     // Scopes
-    createScope:          (programId, data) => api.post(`/programs/programs/${programId}/scopes/`, data),
-    updateScope:          (programId, scopeId, data) => api.patch(`/programs/programs/${programId}/scopes/${scopeId}/`, data),
-    deleteScope:          (programId, scopeId) => api.delete(`/programs/programs/${programId}/scopes/${scopeId}/`),
+    createScope:          (programId, data) => api.post(`/programs/${programId}/scopes/`, data),
+    updateScope:          (programId, scopeId, data) => api.patch(`/programs/${programId}/scopes/${scopeId}/`, data),
+    deleteScope:          (programId, scopeId) => api.delete(`/programs/${programId}/scopes/${scopeId}/`),
 
     // Invitations
-    sendInvitation:       (programId, data) => api.post(`/programs/programs/${programId}/invitations/`, data),
-    getInvitations:       (programId) => api.get(`/programs/programs/${programId}/invitations/`),
-    revokeInvitation:     (programId, invId) => api.post(`/programs/programs/${programId}/invitations/${invId}/revoke/`),
+    sendInvitation:       (programId, data) => api.post(`/programs/${programId}/invitations/`, data),
+    getInvitations:       (programId) => api.get(`/programs/${programId}/invitations/`),
+    revokeInvitation:     (programId, invId) => api.post(`/programs/${programId}/invitations/${invId}/revoke/`),
 
     // Applications
-    getApplications:      (programId) => api.get(`/programs/programs/${programId}/applications/`),
-    approveApplication:   (programId, appId, data) => api.post(`/programs/programs/${programId}/applications/${appId}/approve/`, data),
-    rejectApplication:    (programId, appId, data) => api.post(`/programs/programs/${programId}/applications/${appId}/reject/`, data),
+    getApplications:      (programId) => api.get(`/programs/${programId}/applications/`),
+    approveApplication:   (programId, appId, data) => api.post(`/programs/${programId}/applications/${appId}/approve/`, data),
+    rejectApplication:    (programId, appId, data) => api.post(`/programs/${programId}/applications/${appId}/reject/`, data),
 };
 
 // ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ export const researcherAPI = {
     updateProfile:        (id, data) => api.put(`/users/researchers/${id}/`, data),
 
     // Programs
-    getPrograms:          (params = {}) => api.get('/programs/programs/researcher/', { params }),
+    getPrograms:          (params = {}) => api.get('/programs/researcher/', { params }),
     getProgram:           (id)   => api.get(`/programs/programs/${id}/`),
     joinProgram:          (id, data = {}) => api.post(`/programs/programs/${id}/join/`, data),
 
@@ -149,39 +149,44 @@ export const researcherAPI = {
 
 export const reportAPI = {
     // CRUD
-    getReports:           (params = {}) => api.get('/reports/reports/', { params }),
-    getReport:            (id)   => api.get(`/reports/reports/${id}/`),
-    createReport:         (data) => api.post('/reports/reports/', data),
-    updateReport:         (id, data) => api.patch(`/reports/reports/${id}/`, data),
-    deleteReport:         (id)   => api.delete(`/reports/reports/${id}/`),
+    getReports:           (params = {}) => api.get('/reports/', { params }),
+    getReport:            (id)   => api.get(`/reports/${id}/`),
+    createReport:         (data) => api.post('/reports/', data),
+    updateReport:         (id, data) => api.patch(`/reports/${id}/`, data),
+    deleteReport:         (id)   => api.delete(`/reports/${id}/`),
 
     // Status transitions
-    submitForReview:      (id)   => api.post(`/reports/reports/${id}/submit_for_review/`),
-    acceptReport:         (id, data) => api.post(`/reports/reports/${id}/accept/`, data),
-    rejectReport:         (id, data) => api.post(`/reports/reports/${id}/reject/`, data),
-    reopenReport:         (id)   => api.post(`/reports/reports/${id}/reopen/`),
-    changeStatus:         (id, data) => api.patch(`/reports/reports/${id}/change_status/`, data),
+    submitForReview:      (id)   => api.post(`/reports/${id}/submit_for_review/`),
+    acceptReport:         (id, data) => api.post(`/reports/${id}/accept/`, data),
+    rejectReport:         (id, data) => api.post(`/reports/${id}/reject/`, data),
+    reopenReport:         (id)   => api.post(`/reports/${id}/reopen/`),
+    changeStatus:         (id, data) => api.patch(`/reports/${id}/change_status/`, data),
 
     // Triage
-    assignToMe:           (id)   => api.post(`/reports/reports/${id}/assign_to_me/`),
-    getTriageDashboard:   ()     => api.get('/reports/reports/triage_dashboard/'),
+    assignToMe:           (id)   => api.post(`/reports/${id}/assign_to_me/`),
+    getTriageDashboard:   ()     => api.get('/reports/triage_dashboard/'),
 
     // Comments & activity
-    addComment:           (id, data) => api.post(`/reports/reports/${id}/comment/`, data),
-    getActivityLogs:      (id)   => api.get(`/reports/reports/${id}/activity_logs/`),
+    addComment:           (id, data) => api.post(`/reports/${id}/comment/`, data),
+    getActivityLogs:      (id)   => api.get(`/reports/${id}/activity_logs/`),
 
     // Attachments
-    getAttachments:       (id)   => api.get(`/reports/reports/${id}/attachments/`),
-    uploadAttachment:     (id, data) => api.post(`/reports/reports/${id}/upload_attachment/`, data, {
+    getAttachments:       (id)   => api.get(`/reports/${id}/attachments/`),
+    uploadAttachment:     (id, data) => api.post(`/reports/${id}/upload_attachment/`, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
-    downloadAttachment:   (id, attId) => api.get(`/reports/reports/${id}/download/${attId}/`, {
+    downloadAttachment:   (id, attId) => api.get(`/reports/${id}/download/${attId}/`, {
         responseType: 'blob',
     }),
 
     // Researcher views
-    getMySubmissions:     (params = {}) => api.get('/reports/reports/my_submissions/', { params }),
-    getStats:             ()     => api.get('/reports/reports/stats/'),
+    getMySubmissions:     (params = {}) => api.get('/reports/my_submissions/', { params }),
+    getStats:             ()     => api.get('/reports/stats/'),
+};
+
+export const leaderboardAPI = {
+    getLeaderboard: (params) => api.get('/leaderboard/', { params }),
+    getMe: (params) => api.get('/leaderboard/me/', { params }),
 };
 
 // ---------------------------------------------------------------------------

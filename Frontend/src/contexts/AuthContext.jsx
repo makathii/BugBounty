@@ -68,9 +68,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = async (username, password) => {
+    const login = async (username, password, totpCode) => {
         try {
-            const tokenResponse = await authAPI.login({ username, password });
+            const credentials = { username, password };
+            if (totpCode) credentials.totp_code = totpCode;
+            const tokenResponse = await authAPI.login(credentials);
             localStorage.setItem('access_token', tokenResponse.data.access);
             localStorage.setItem('refresh_token', tokenResponse.data.refresh);
 
@@ -78,14 +80,21 @@ export const AuthProvider = ({ children }) => {
             setUser(profileResponse.data);
             setUserGroups(profileResponse.data.groups || []);
 
-            if (profileResponse.data.groups?.includes('Company')) {
+            if (profileResponse.data.groups?.includes('ProgramOwner')) {
                 const hasProfile = await checkCompanyProfile();
                 setHasCompanyProfile(hasProfile);
             }
 
             return { success: true };
         } catch (error) {
-            const errorDetail = error.response?.data?.detail || '';
+            const data = error.response?.data;
+            // DRF errors come as {detail}, {non_field_errors: [...]} or {field: [...]}
+            const firstError = (value) => Array.isArray(value) ? value[0] : value;
+            const errorDetail =
+                data?.detail ||
+                firstError(data?.non_field_errors) ||
+                firstError(data?.totp_code) ||
+                '';
             let errorMessage = 'Login failed';
 
             // Check if it's an email verification error
@@ -93,8 +102,8 @@ export const AuthProvider = ({ children }) => {
                 errorMessage = 'Please verify your email address before logging in. Check your inbox for the verification link.';
             } else if (errorDetail) {
                 errorMessage = errorDetail;
-            } else if (error.response?.data) {
-                errorMessage = JSON.stringify(error.response.data);
+            } else if (data) {
+                errorMessage = Object.values(data).map(firstError).join(' ');
             }
 
             return {
@@ -105,11 +114,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const register = async (userData) => {
-        console.log('AuthContext: Registering user:', userData.username);
         try {
-            console.log('AuthContext: Calling authAPI.register...');
             const response = await authAPI.register(userData);
-            console.log('AuthContext: Registration API response:', response.data);
 
             // Note: No auto-login anymore - user must verify email first
             // The user is created but is_active=False until email is verified

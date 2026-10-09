@@ -13,7 +13,7 @@ from .permissions import IsReporterOrTriagerOrAdmin
 from rest_framework.permissions import IsAuthenticated
 from django.http import FileResponse, Http404
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -331,7 +331,7 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
         try:
             validate_extension(f.name);
             validate_size(f.size)
-        except ValidationError as e:
+        except (ValidationError, DjangoValidationError) as e:
             return Response({"detail": str(e)}, status=400)
 
         import tempfile
@@ -340,32 +340,37 @@ View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/
                 tmp.write(chunk)
             tmp_path = tmp.name
         try:
-            mime = detect_mime(tmp_path)
-            validate_mime(mime)
+            try:
+                mime = detect_mime(tmp_path)
+                validate_mime(mime)
+            except (ValidationError, DjangoValidationError) as e:
+                return Response({"detail": str(e)}, status=400)
 
             # Image-specific checks: reject decompression bombs and strip EXIF
             try:
                 validate_image_dimensions(tmp_path)
-            except ValidationError as e:
-                os.unlink(tmp_path)
+            except (ValidationError, DjangoValidationError) as e:
                 return Response({"detail": str(e)}, status=400)
             strip_exif(tmp_path)  # best-effort; never blocks upload on failure
 
-            # ClamAV scan
+            # ClamAV scan — clamd runs in its own container and cannot read the
+            # backend's filesystem, so stream the bytes over the socket
+            # (INSTREAM) instead of asking it to scan a local path.
             from pyclamd import ClamdNetworkSocket
             cd = ClamdNetworkSocket(host=os.getenv("CLAMAV_HOST", "clamav"),
                                     port=int(os.getenv("CLAMAV_PORT", "3310")))
             try:
-                scan_result = cd.scan_file(tmp_path)
+                with open(tmp_path, "rb") as scan_fh:
+                    scan_result = cd.scan_stream(scan_fh.read())
+                scan_ok = True
             except Exception:
                 scan_result = None
-            if not scan_result:
-                os.unlink(tmp_path)
+                scan_ok = False
+            if not scan_ok:
                 return Response({"detail": "Upload blocked: scan status 'failed'."}, status=400)
-            status_tuple = list(scan_result.values())[0]
-            scan_status = "infected" if status_tuple and status_tuple[0] == "FOUND" else "clean"
-            if scan_status != "clean":
-                os.unlink(tmp_path)
+            # scan_stream returns None when the file is clean, or
+            # {'stream': ('FOUND', '<signature>')} when infected.
+            if scan_result:
                 return Response({"detail": "Upload blocked: scan status 'infected'."}, status=400)
 
             f.seek(0)

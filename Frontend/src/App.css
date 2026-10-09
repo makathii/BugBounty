@@ -95,3 +95,112 @@ tr:hover td {
   background: #09090f;
   color: #8888aa;
 }
+
+/* ==========================================================================
+   Vulnerability Report Form Theme Extensions
+   ========================================================================== */
+.report-form-card {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 2.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  width: 100%;
+  max-width: 760px; /* Wider canvas for technical multi-step inputs */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.form-header-block {
+  text-align: left;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1rem;
+}
+
+.form-header-block h2 {
+  color: var(--color-text);
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: -0.02em;
+}
+
+.form-header-block p {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Metadata alignments directly below inputs */
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.char-counter {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.counter-invalid {
+  color: var(--color-red);
+}
+
+.counter-valid {
+  color: var(--color-green);
+}
+
+/* Horizontal Actions Aligner for Submission Options */
+.form-actions-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.form-actions-row .btn {
+  width: auto;
+  min-width: 120px;
+}
+
+/* Textarea override customization */
+.report-form-card textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.checkbox-group {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent, #00ff66);
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.checkbox-label input[type="checkbox"].error {
+  outline: 1px solid var(--color-red, #ff4444);
+}

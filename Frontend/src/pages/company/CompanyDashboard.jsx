@@ -1,182 +1,393 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { companyAPI } from '../../services/api';
 
-const s = {
-    page:    { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
-    heading: { margin: '0 0 0.4rem 0', color: '#f0f0f5', fontWeight: 800, fontSize: '1.6rem', letterSpacing: '-0.02em' },
-    sub:     { color: '#8888aa', margin: 0, fontSize: '0.9rem' },
-    grid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', margin: '1.25rem 0' },
-    card:    { background: '#111118', border: '1px solid rgba(255,255,255,0.07)', padding: '1.5rem', borderRadius: '14px', textAlign: 'center' },
-    cardVal: { fontSize: '2rem', fontWeight: 800, marginBottom: '0.3rem' },
-    cardLbl: { color: '#8888aa', fontSize: '0.85rem' },
-    section: { background: '#111118', border: '1px solid rgba(255,255,255,0.07)', padding: '1.75rem', borderRadius: '14px', marginBottom: '1.25rem' },
-    sectionTitle: { margin: '0 0 1.25rem 0', color: '#f0f0f5', fontWeight: 700, fontSize: '1rem' },
-    row:     { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' },
-    sbRow:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' },
-    btnPrimary: { background: '#7c6aff', color: '#fff', padding: '0.7rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
-    btnGreen:   { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', padding: '0.7rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
-    btnGhost:   { background: 'rgba(255,255,255,0.06)', color: '#f0f0f5', border: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
-    empty:   { border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '10px', padding: '2.5rem', textAlign: 'center', color: '#8888aa' },
-    emptyIcon: { fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.5 },
-    emptyTitle: { margin: '0 0 0.5rem 0', color: '#f0f0f5', fontWeight: 600 },
-    badge:   (verified) => ({
-        padding: '0.35rem 0.9rem',
-        background: verified ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
-        color: verified ? '#22c55e' : '#fbbf24',
-        border: `1px solid ${verified ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`,
-        borderRadius: '20px',
-        fontSize: '0.8rem',
-        fontWeight: 600,
-    }),
-    warning: { background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '10px', padding: '1.5rem', textAlign: 'center', color: '#fbbf24' },
-    divider: { borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: '1rem', paddingTop: '1rem' },
+const statusColors = {
+    open: '#3498db',
+    triaged: '#9b59b6',
+    accepted: '#2ecc71',
+    rejected: '#e74c3c',
+    duplicate: '#95a5a6',
+    resolved: '#27ae60',
+    closed: '#7f8c8d',
+};
+
+const severityColors = {
+    low: '#3498db',
+    medium: '#f39c12',
+    high: '#e67e22',
+    critical: '#e74c3c',
+};
+
+const cardStyle = {
+    background: 'white',
+    padding: '2rem',
+    borderRadius: '8px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
 };
 
 const CompanyDashboard = () => {
     const { user, hasCompanyProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [company, setCompany] = useState(null);
+    const [dashboard, setDashboard] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const loadCompanyData = useCallback(async () => {
+        try {
+            const [dashRes, profileRes] = await Promise.all([
+                companyAPI.getDashboard(),
+                companyAPI.getProfile().catch(() => null),
+            ]);
+            setDashboard(dashRes.data);
+            if (profileRes) setCompany(profileRes.data);
+        } catch (error) {
+            console.error('Error loading company dashboard:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         if (!authLoading && user) {
             if (!hasCompanyProfile) {
-                console.log('Company user needs to complete profile, redirecting...');
-                navigate('/company/setup-profile');
+                navigate('/company-registration');
                 return;
             }
-
             loadCompanyData();
         }
-    }, [authLoading, user, hasCompanyProfile, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const loadCompanyData = async () => {
-        try {
-            // TODO: Replace with actual API call to get company data
-            // For now, simulate API call
-            setTimeout(() => {
-                setCompany({
-                    company_name: user.company_name || "Your Company",
-                    verification_status: "pending",
-                    website: "https://example.com",
-                    description: "Security-focused company running bug bounty programs",
-                    industry: "Technology",
-                    country: "United States"
-                });
-                setLoading(false);
-            }, 1000);
-        } catch (error) {
-            console.error('Error loading company data:', error);
-            setLoading(false);
-        }
-    };
-
-    const handleCreateProgram = () => {
-        // TODO: Implement program creation
-        console.log('Create program clicked');
-        // navigate('/company/programs/create');
-    };
-
-    const handleViewReports = () => {
-        // TODO: Implement view reports
-        console.log('View reports clicked');
-        // navigate('/company/reports');
-    };
-
-    const handleEditProfile = () => {
-        // Navigate to profile edit page
-        navigate('/company/setup-profile');
-    };
+    }, [authLoading, user, hasCompanyProfile, navigate, loadCompanyData]);
 
     if (authLoading || loading) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#8888aa' }}>
-                Loading...
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <div>Loading company dashboard...</div>
             </div>
         );
     }
 
-    const verified = company?.verification_status === 'verified';
+    const programs = dashboard?.programs || [];
+    const recentActivity = dashboard?.recent_activity || [];
 
     return (
-        <div style={s.page}>
-            {/* Header */}
-            <div style={{ marginBottom: '1.5rem' }}>
-                <h1 style={s.heading}>Company Dashboard</h1>
-                <p style={s.sub}>Welcome back, {user?.first_name || user?.username}!</p>
+        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ marginBottom: '2rem' }}>
+                <h1>Company Dashboard</h1>
+                <p style={{ color: '#666' }}>Welcome back, {user?.first_name || user?.username}!</p>
             </div>
 
-            {/* Company Card */}
-            <div style={s.section}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div>
-                        <h2 style={{ margin: '0 0 0.4rem 0', color: '#f0f0f5', fontWeight: 700 }}>{company?.company_name}</h2>
-                        <p style={{ margin: '0 0 0.2rem 0', color: '#8888aa', fontSize: '0.85rem' }}>{company?.website}</p>
-                        <p style={{ margin: 0, color: '#8888aa', fontSize: '0.85rem' }}>{company?.industry} · {company?.country}</p>
+            {/* Company Header */}
+            {company && (
+                <div style={{ ...cardStyle, marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h2 style={{ margin: '0 0 0.5rem 0' }}>{company.company_name}</h2>
+                            <p style={{ margin: '0 0 0.5rem 0', color: '#666' }}>
+                                <strong>Website:</strong> {company.website}
+                            </p>
+                            <p style={{ margin: '0', color: '#666' }}>
+                                <strong>Industry:</strong> {company.industry || '—'}
+                                {company.country ? ` • ${company.country}` : ''}
+                            </p>
+                        </div>
+                        <div style={{
+                            padding: '0.5rem 1rem',
+                            background: company.is_verified ? '#2ecc71' : '#f39c12',
+                            color: 'white',
+                            borderRadius: '20px',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                        }}>
+                            {company.is_verified ? '✓ Verified Company' : '⏳ Pending Verification'}
+                        </div>
                     </div>
-                    <span style={s.badge(verified)}>
-                        {verified ? '✓ Verified' : '⏳ Pending Verification'}
-                    </span>
+
+                    {company.description && (
+                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #eee' }}>
+                            <p style={{ margin: 0, color: '#555' }}>{company.description}</p>
+                        </div>
+                    )}
                 </div>
-                {company?.description && (
-                    <div style={s.divider}>
-                        <p style={{ margin: 0, color: '#8888aa', fontSize: '0.9rem' }}>{company.description}</p>
-                    </div>
-                )}
-            </div>
+            )}
 
-            {/* Stats */}
-            <div style={s.grid}>
-                <div style={s.card}><div style={{ ...s.cardVal, color: '#7c6aff' }}>0</div><div style={s.cardLbl}>Active Programs</div></div>
-                <div style={s.card}><div style={{ ...s.cardVal, color: '#22c55e' }}>0</div><div style={s.cardLbl}>Total Reports</div></div>
-                <div style={s.card}><div style={{ ...s.cardVal, color: '#22c55e' }}>$0</div><div style={s.cardLbl}>Total Payouts</div></div>
-                <div style={s.card}><div style={{ ...s.cardVal, color: '#a78bfa' }}>0</div><div style={s.cardLbl}>Researchers</div></div>
+            {/* Stats Overview */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '2rem'
+            }}>
+                <div style={{ ...cardStyle, padding: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>
+                        {dashboard?.active_programs ?? 0}
+                    </div>
+                    <div style={{ color: '#666' }}>Active Programs</div>
+                </div>
+
+                <div style={{ ...cardStyle, padding: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2ecc71' }}>
+                        {dashboard?.total_reports ?? 0}
+                    </div>
+                    <div style={{ color: '#666' }}>Total Reports</div>
+                </div>
+
+                <div style={{ ...cardStyle, padding: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                        ${Number(dashboard?.total_bounties ?? 0).toLocaleString()}
+                    </div>
+                    <div style={{ color: '#666' }}>Total Payouts</div>
+                </div>
+
+                <div style={{ ...cardStyle, padding: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>
+                        {dashboard?.total_programs ?? 0}
+                    </div>
+                    <div style={{ color: '#666' }}>Total Programs</div>
+                </div>
             </div>
 
             {/* Quick Actions */}
-            <div style={s.section}>
-                <h3 style={s.sectionTitle}>Quick Actions</h3>
-                <div style={s.row}>
-                    <button style={s.btnPrimary} onClick={handleCreateProgram}>+ Create Program</button>
-                    <button style={s.btnGreen}   onClick={handleViewReports}>📋 View Reports</button>
-                    <button style={s.btnGhost}   onClick={handleEditProfile}>✏️ Edit Profile</button>
+            <div style={{ ...cardStyle, marginBottom: '2rem' }}>
+                <h3 style={{ margin: '0 0 1.5rem 0' }}>Quick Actions</h3>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => navigate('/company/programs/create')}
+                        style={{
+                            background: '#3498db',
+                            color: 'white',
+                            padding: '1rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <span>+</span>
+                        Create New Program
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/company/programs')}
+                        style={{
+                            background: '#9b59b6',
+                            color: 'white',
+                            padding: '1rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <span>🎯</span>
+                        Manage Programs
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/reports')}
+                        style={{
+                            background: '#2ecc71',
+                            color: 'white',
+                            padding: '1rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <span>📋</span>
+                        View Reports
+                    </button>
                 </div>
             </div>
 
-            {/* Programs */}
-            <div style={s.section}>
-                <div style={s.sbRow}>
-                    <h3 style={{ ...s.sectionTitle, margin: 0 }}>Your Programs</h3>
-                    <span style={{ color: '#8888aa', fontSize: '0.85rem' }}>0 active</span>
+            {/* Programs Section */}
+            <div style={{ ...cardStyle, marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: 0 }}>Your Programs</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span style={{ color: '#666' }}>
+                            {dashboard?.active_programs ?? 0} active program{(dashboard?.active_programs ?? 0) === 1 ? '' : 's'}
+                        </span>
+                        <button
+                            onClick={() => navigate('/company/programs/create')}
+                            style={{
+                                background: '#3498db',
+                                color: 'white',
+                                padding: '0.5rem 1rem',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            + New Program
+                        </button>
+                    </div>
                 </div>
-                {!verified ? (
-                    <div style={s.warning}>
-                        <h4 style={{ margin: '0 0 0.5rem 0' }}>Verification Required</h4>
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#8888aa' }}>
-                            Your account is pending verification. Programs can be created once verified (1–2 business days).
+
+                {programs.length === 0 ? (
+                    <div style={{
+                        border: '2px dashed #ddd',
+                        borderRadius: '8px',
+                        padding: '3rem',
+                        textAlign: 'center',
+                        color: '#666'
+                    }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>📋</div>
+                        <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>No Programs Yet</h4>
+                        <p style={{ margin: '0 0 1.5rem 0', maxWidth: '500px', marginInline: 'auto' }}>
+                            Create your first bug bounty program to start receiving vulnerability reports from security researchers.
                         </p>
+                        <button
+                            onClick={() => navigate('/company/programs/create')}
+                            style={{
+                                background: '#3498db',
+                                color: 'white',
+                                padding: '0.75rem 1.5rem',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '1rem'
+                            }}
+                        >
+                            Create Your First Program
+                        </button>
                     </div>
                 ) : (
-                    <div style={s.empty}>
-                        <div style={s.emptyIcon}>📋</div>
-                        <h4 style={s.emptyTitle}>No Programs Yet</h4>
-                        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>Create your first bug bounty program to start receiving reports.</p>
-                        <button style={s.btnPrimary} onClick={handleCreateProgram}>Create First Program</button>
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                        {programs.map((program) => (
+                            <div
+                                key={program.id}
+                                style={{
+                                    border: '1px solid #eee',
+                                    borderRadius: '8px',
+                                    padding: '1.25rem 1.5rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                    flexWrap: 'wrap'
+                                }}
+                            >
+                                <div>
+                                    <h4 style={{ margin: '0 0 0.25rem 0' }}>{program.name}</h4>
+                                    <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                                        {program.short_description || program.description?.slice(0, 120)}
+                                    </p>
+                                    {(program.min_bounty || program.max_bounty) && (
+                                        <p style={{ margin: '0.25rem 0 0 0', color: '#2ecc71', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                            ${Number(program.min_bounty || 0).toLocaleString()} – ${Number(program.max_bounty || 0).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <span style={{
+                                        padding: '0.25rem 0.75rem',
+                                        borderRadius: '12px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 'bold',
+                                        color: 'white',
+                                        background: program.status === 'active' ? '#2ecc71'
+                                            : program.status === 'paused' ? '#f39c12'
+                                            : program.status === 'draft' ? '#95a5a6' : '#7f8c8d',
+                                        textTransform: 'capitalize'
+                                    }}>
+                                        {program.status}
+                                    </span>
+                                    <Link
+                                        to="/company/programs"
+                                        style={{ color: '#3498db', textDecoration: 'none', fontSize: '0.9rem' }}
+                                    >
+                                        Manage →
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
 
             {/* Recent Activity */}
-            <div style={s.section}>
-                <h3 style={s.sectionTitle}>Recent Activity</h3>
-                <div style={s.empty}>
-                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No recent activity</p>
-                </div>
+            <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 1.5rem 0' }}>Recent Activity</h3>
+                {recentActivity.length === 0 ? (
+                    <div style={{
+                        border: '1px dashed #ddd',
+                        borderRadius: '8px',
+                        padding: '2rem',
+                        textAlign: 'center',
+                        color: '#999'
+                    }}>
+                        <p style={{ margin: 0 }}>No recent activity</p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                        {recentActivity.slice(0, 8).map((item) => (
+                            <Link
+                                key={item.id}
+                                to={`/reports/${item.id}`}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                    padding: '0.75rem 1rem',
+                                    border: '1px solid #f0f0f0',
+                                    borderRadius: '6px',
+                                    textDecoration: 'none',
+                                    color: 'inherit',
+                                    flexWrap: 'wrap'
+                                }}
+                            >
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {item.title}
+                                    </div>
+                                    <div style={{ color: '#888', fontSize: '0.85rem' }}>
+                                        {item.program__name} • {new Date(item.created_at).toLocaleDateString()}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                    <span style={{
+                                        padding: '0.2rem 0.6rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        color: 'white',
+                                        background: severityColors[item.severity] || '#95a5a6',
+                                        textTransform: 'capitalize'
+                                    }}>
+                                        {item.severity}
+                                    </span>
+                                    <span style={{
+                                        padding: '0.2rem 0.6rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        color: 'white',
+                                        background: statusColors[item.status] || '#95a5a6',
+                                        textTransform: 'capitalize'
+                                    }}>
+                                        {item.status}
+                                    </span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
 export default CompanyDashboard;
-
