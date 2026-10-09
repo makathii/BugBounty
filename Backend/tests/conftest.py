@@ -7,27 +7,28 @@ from programs.models import Program, Company
 from unittest.mock import MagicMock, patch
 
 
-# Disable throttling for all tests by mocking the throttle classes
+# Disable throttling for all tests.
+#
+# Patch ``allow_request`` on the real throttle classes rather than swapping the
+# names in ``users.throttles``: views bind ``throttle_classes`` when
+# ``users.views`` is first imported, so a name swap only works if that import
+# happens inside a patched test. Depending on test order/selection the real
+# classes were captured instead and the 3/min login limit leaked into the
+# account-lockout tests (HTTP 429 instead of the lockout response).
+# Patching the methods works regardless of when the views were imported.
 @pytest.fixture(autouse=True)
 def disable_throttling(monkeypatch):
     """Disable REST framework throttling for all tests"""
-    # Import throttle classes and replace them with no-op versions
-    from rest_framework import throttling
     from users import throttles
 
-    # Create a no-op throttle that always allows requests
-    class NoOpThrottle:
-        def allow_request(self, request, view):
-            return True
-
-    # Replace all throttle classes
-    monkeypatch.setattr(throttles, 'LoginThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'RegisterThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'SubmissionThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'BurstRateThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'PasswordResetThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'PasswordResetEmailThrottle', NoOpThrottle)
-    monkeypatch.setattr(throttles, 'PasswordResetConfirmThrottle', NoOpThrottle)
+    for name in (
+        'LoginThrottle', 'RegisterThrottle', 'SubmissionThrottle',
+        'BurstRateThrottle', 'PasswordResetThrottle',
+        'PasswordResetEmailThrottle', 'PasswordResetConfirmThrottle',
+        'TokenRefreshThrottle',
+    ):
+        monkeypatch.setattr(getattr(throttles, name), 'allow_request',
+                            lambda self, request, view: True)
 
 
 # Bypass reCAPTCHA for all tests — the real key is set in .env but tests
