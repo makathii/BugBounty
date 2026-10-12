@@ -44,7 +44,7 @@ def send_report_submission_notification(report_id):
         f"Reporter: {report.reporter.username}\n"
         f"Severity: {report.severity}\n"
         f"Description: {report.description[:200]}...\n\n"
-        f"View and manage at: http://localhost:8000/admin/reports/bugreport/{report.id}/\n"
+        f"View and manage at: {settings.BACKEND_PUBLIC_URL.rstrip('/')}/admin/reports/bugreport/{report.id}/\n"
     )
     send_mail(
         f"New Bug Report Submitted: {report.title}",
@@ -54,6 +54,19 @@ def send_report_submission_notification(report_id):
     )
 
 
+def comment_recipients(comment):
+    """Who hears about a comment: reporter, assignee and the parent's author (public comments);
+    internal notes only reach staff (assignee / parent author). Never the comment's own author."""
+    report = comment.report
+    people = [report.assigned_to, comment.parent.author if comment.parent_id else None]
+    if not comment.is_internal:
+        people.append(report.reporter)
+        if report.program_id:  # the company that owns the program takes part in public threads
+            people.append(report.program.company)
+    unique = {u.id: u for u in people if u is not None and u.id != comment.author_id}
+    return list(unique.values())
+
+
 @shared_task(
     autoretry_for=(Exception,), retry_backoff=True, retry_backoff_max=300,
     max_retries=5, ignore_result=True,
@@ -61,7 +74,7 @@ def send_report_submission_notification(report_id):
 def send_comment_notification(comment_id):
     """Tell the people in a thread that someone commented or replied.
 
-    Public comments go to the reporter, the assigned triager and the parent
+    Public comments go to the reporter, the program's company, the assigned triager and the parent
     comment's author; internal notes only reach staff (assignee / parent author),
     never the researcher. The author is never emailed about their own comment.
     """
@@ -69,20 +82,16 @@ def send_comment_notification(comment_id):
 
     try:
         comment = Comment.objects.select_related(
-            "author", "report__reporter", "report__assigned_to", "parent__author",
+            "author", "report__reporter", "report__assigned_to", "report__program__company",
+            "parent__author",
         ).get(pk=comment_id)
     except Comment.DoesNotExist:
         return
 
     report = comment.report
-    people = [report.assigned_to, comment.parent.author if comment.parent_id else None]
-    if not comment.is_internal:
-        people.append(report.reporter)
+    people = comment_recipients(comment)
 
-    emails = sorted({
-        u.email for u in people
-        if u is not None and u.email and u.id != comment.author_id
-    })
+    emails = sorted({u.email for u in people if u.email})
     if not emails:
         return
 
@@ -94,12 +103,14 @@ def send_comment_notification(comment_id):
         f"{comment.text[:500]}\n\n"
         f"View the thread: {base}/reports/{report.id}\n"
     )
-    send_mail(
-        f"New {kind} on report: {report.title}",
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        emails,
-    )
+    # One message per person: researchers and companies must not see each other's addresses.
+    for email in emails:
+        send_mail(
+            f"New {kind} on report: {report.title}",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+        )
 
 
 @shared_task(

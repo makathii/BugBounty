@@ -408,13 +408,14 @@ class ProgramNotificationSerializer(serializers.ModelSerializer):
         source='get_notification_type_display', read_only=True
     )
     program_name = serializers.SerializerMethodField()
+    link = serializers.SerializerMethodField()
 
     class Meta:
         model = ProgramNotification
         fields = [
             'id', 'program', 'program_name',
             'notification_type', 'notification_type_display',
-            'title', 'message', 'data',
+            'title', 'message', 'data', 'link',
             'read', 'created_at',
         ]
         read_only_fields = [
@@ -426,6 +427,11 @@ class ProgramNotificationSerializer(serializers.ModelSerializer):
 
     def get_program_name(self, obj):
         return obj.program.name if obj.program else None
+
+    def get_link(self, obj):
+        # A frontend path to open when the notification is clicked.
+        link = (obj.data or {}).get('link', '')
+        return link if isinstance(link, str) and link.startswith('/') else ''
 
 
 # ---------------------------------------------------------------------------

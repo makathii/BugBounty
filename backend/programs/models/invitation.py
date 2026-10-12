@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from core.notifications import notify
+
 from .program import Program
 
 
@@ -41,15 +43,31 @@ class ProgramInvitation(models.Model):
             raise ValueError(f"Cannot accept an invitation that is already '{self.status}'.")
         self.status = 'accepted'
         self.save(update_fields=['status', 'updated_at'])
+        self._tell_inviter('accepted')
 
     def reject(self):
         if self.status != 'pending':
             raise ValueError(f"Cannot reject an invitation that is already '{self.status}'.")
         self.status = 'rejected'
         self.save(update_fields=['status', 'updated_at'])
+        self._tell_inviter('declined')
 
     def revoke(self):
         if self.status not in ('pending', 'accepted'):
             raise ValueError(f"Cannot revoke an invitation that is already '{self.status}'.")
         self.status = 'revoked'
         self.save(update_fields=['status', 'updated_at'])
+        notify(
+            self.researcher, 'invitation_revoked',
+            f"Invitation withdrawn: {self.program.name}",
+            f"{self.program.name} withdrew its invitation.",
+            link=f"/programs/{self.program_id}", program=self.program,
+        )
+
+    def _tell_inviter(self, verb):
+        notify(
+            self.invited_by or self.program.company, 'invitation_answer',
+            f"{self.researcher.username} {verb} your invitation",
+            f"{self.researcher.username} {verb} the invitation to {self.program.name}.",
+            link=f"/company/programs/{self.program_id}/invitations", program=self.program,
+        )

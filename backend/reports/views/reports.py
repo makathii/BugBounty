@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.roles import has_any_role, is_admin_or_triager
+from core.notifications import notify
 from core.tasks import enqueue_after_commit
 from users.throttles import BurstRateThrottle, SubmissionThrottle
 
@@ -129,6 +130,13 @@ class BugReportViewSet(
                 raise PermissionDenied("Please verify your email before submitting a report.")
 
         report=serializer.save(reporter=self.request.user)
+        if report.program_id:
+            notify(
+                report.program.company, 'new_report',
+                f"New report on {report.program.name}",
+                f"{self.request.user.username} submitted \"{report.title}\".",
+                link=f"/reports/{report.id}", program=report.program,
+            )
         self.send_submission_notification(report)
 
     def send_submission_notification(self, report):

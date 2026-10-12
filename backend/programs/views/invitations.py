@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from ..models import Program, ProgramInvitation
+from core.notifications import notify
 from core.tasks import enqueue_after_commit
 
 from ..permissions import _can_manage, _researcher_has_private_access
@@ -56,6 +57,13 @@ class ProgramInvitationViewSet(viewsets.ModelViewSet):
             existing.invited_by = self.request.user
             existing.save(update_fields=['status', 'message', 'invited_by', 'updated_at'])
             serializer.instance = existing
+            # a brand-new invitation is announced by the post_save signal; a re-invite reuses the row
+            notify(
+                researcher, 'invitation',
+                f"You've been invited to {program.name}",
+                existing.message or f"{self.request.user.username} invited you to join {program.name}.",
+                link=f"/programs/{program.id}", program=program,
+            )
         else:
             serializer.save(program=program, invited_by=self.request.user)
 

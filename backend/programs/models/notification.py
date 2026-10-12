@@ -13,6 +13,11 @@ class ProgramNotification(models.Model):
         ('points_awarded', 'Points Awarded'),
         ('application_update', 'Application Status Update'),
         ('invitation', 'New Invitation'),
+        ('invitation_answer', 'Invitation Answered'),
+        ('invitation_revoked', 'Invitation Withdrawn'),
+        ('application_submitted', 'New Application'),
+        ('report_decision', 'Report Decision'),
+        ('report_comment', 'New Comment'),
     ]
 
     # nullable — some notifications are user-level, not tied to a program

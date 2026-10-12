@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { reportAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { statusTone, severityTone } from '../../utils/tones';
+import ReportDecisionModal from './ReportDecisionModal';
 
 const AdminDashboard = () => {
     const { user, isAdmin, isTriager } = useAuth();
@@ -11,6 +12,7 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionMessage, setActionMessage] = useState(null);
+    const [decision, setDecision] = useState(null); // { type: 'accept' | 'reject', report }
 
     useEffect(() => {
         if (isAdmin() || isTriager()) {
@@ -44,39 +46,20 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleAcceptReport = async (reportId) => {
-        const verificationNotes = prompt('Enter verification notes:');
-        if (!verificationNotes) return;
-
-        const bonusPoints = prompt('Bonus points on top of the severity points (optional):');
-        const data = {
-            verification_notes: verificationNotes,
-            ...(bonusPoints && { bonus_points: bonusPoints })
-        };
-
+    // Accept / reject go through a dialog (ReportDecisionModal) that calls this with the form data.
+    const submitDecision = async (data) => {
+        const { type, report } = decision;
         try {
             setActionMessage(null);
-            const response = await reportAPI.acceptReport(reportId, data);
+            const call = type === 'accept' ? reportAPI.acceptReport : reportAPI.rejectReport;
+            const response = await call(report.id, data);
+            setDecision(null);
             setActionMessage({ type: 'success', text: response.data.message });
             fetchTriageDashboard(); // Refresh data
+            return undefined;
         } catch (err) {
-            setActionMessage({ type: 'error', text: err.response?.data?.error || 'Failed to accept report' });
-            console.error('Error accepting report:', err);
-        }
-    };
-
-    const handleRejectReport = async (reportId) => {
-        const rejectionReason = prompt('Enter rejection reason:');
-        if (!rejectionReason) return;
-
-        try {
-            setActionMessage(null);
-            const response = await reportAPI.rejectReport(reportId, { rejection_reason: rejectionReason });
-            setActionMessage({ type: 'success', text: response.data.message });
-            fetchTriageDashboard(); // Refresh data
-        } catch (err) {
-            setActionMessage({ type: 'error', text: err.response?.data?.error || 'Failed to reject report' });
-            console.error('Error rejecting report:', err);
+            console.error(`Error on ${type}:`, err);
+            return err.response?.data?.error || `Failed to ${type} the report`;
         }
     };
 
@@ -199,10 +182,10 @@ const AdminDashboard = () => {
                                                     {/* Only triaged reports can be accepted or rejected */}
                                                     {report.status === 'triaged' && (
                                                         <>
-                                                            <button className="ui-btn ui-btn--green ui-btn--sm" onClick={() => handleAcceptReport(report.id)}>
+                                                            <button className="ui-btn ui-btn--green ui-btn--sm" onClick={() => setDecision({ type: 'accept', report })}>
                                                                 Accept
                                                             </button>
-                                                            <button className="ui-btn ui-btn--danger ui-btn--sm" onClick={() => handleRejectReport(report.id)}>
+                                                            <button className="ui-btn ui-btn--danger ui-btn--sm" onClick={() => setDecision({ type: 'reject', report })}>
                                                                 Reject
                                                             </button>
                                                         </>
@@ -216,6 +199,11 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 </section>
+            )}
+
+            {decision && (
+                <ReportDecisionModal mode={decision.type} report={decision.report}
+                                     onSubmit={submitDecision} onClose={() => setDecision(null)} />
             )}
         </div>
     );

@@ -543,3 +543,44 @@ img.ui-character-layer { max-width: 100%; }
     .ui-card-head { flex-wrap: wrap; }
     .ui-list-item > div { min-width: 0; overflow-wrap: anywhere; }
 }
+
+/* ── Modal parts (the panel itself is .ui-overlay > .ui-modal, defined above) ── */
+.ui-modal:focus { outline: none; }
+.ui-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.ui-modal-foot { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
+
+/* ── Notification bell ────────────────────────────────────── */
+.ui-bell { position: relative; flex-shrink: 0; }
+.ui-bell-btn {
+    position: relative; background: none; border: 1px solid transparent; border-radius: 8px;
+    color: #c4c4dd; cursor: pointer; padding: 0.35rem 0.55rem; font-size: 1.1rem; line-height: 1;
+}
+.ui-bell-btn:hover, .ui-bell-btn[aria-expanded="true"] { background: rgba(255,255,255,0.07); }
+.ui-bell-count {
+    position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px; background: #ef4444; color: #fff; font-size: 0.68rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+}
+.ui-bell-panel {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 250;
+    width: min(380px, calc(100vw - 2rem));
+    background: var(--color-surface, #111118); border: 1px solid var(--color-border-hover, rgba(255,255,255,0.15));
+    border-radius: var(--radius-md); box-shadow: 0 20px 50px rgba(0,0,0,0.55); overflow: hidden;
+}
+.ui-bell-head { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--color-border); }
+.ui-bell-list { max-height: 360px; overflow-y: auto; }
+.ui-bell-foot { padding: 0.6rem 0.9rem; border-top: 1px solid var(--color-border); text-align: center; }
+.ui-note {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    border-bottom: 1px solid var(--color-border); color: inherit; font: inherit;
+    padding: 0.75rem 0.9rem; cursor: pointer; position: relative;
+}
+.ui-note:hover { background: rgba(255,255,255,0.05); }
+.ui-note--unread { background: rgba(124,106,255,0.08); padding-left: 1.4rem; }
+.ui-note--unread::before {
+    content: ''; position: absolute; left: 0.6rem; top: 1.1rem; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--color-accent, #7c6aff);
+}
+.ui-note-title { display: block; font-weight: 600; font-size: 0.88rem; color: var(--color-text, #f0f0f5); }
+.ui-note-text { display: block; font-size: 0.82rem; color: var(--color-text-muted, #8888aa); margin-top: 0.15rem; overflow-wrap: anywhere; }
+.ui-note-time { display: block; font-size: 0.72rem; color: var(--color-text-muted, #8888aa); margin-top: 0.3rem; }

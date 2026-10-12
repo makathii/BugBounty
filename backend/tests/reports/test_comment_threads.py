@@ -260,7 +260,9 @@ class TestActivityAndNotifications:
         api_client.force_authenticate(user=verified_user)
         post(api_client, own_report, "please look")
         recipients = [addr for m in mail.outbox for addr in m.to]
-        assert recipients == ["t@example.com"]
+        # the assignee hears about it (and so does the program's company); the author never does
+        assert "t@example.com" in recipients
+        assert "r@example.com" not in recipients
 
     def test_staff_reply_emails_reporter_and_parent_author_once(
         self, api_client, verified_user, triager_user, own_report
@@ -270,7 +272,9 @@ class TestActivityAndNotifications:
         root = Comment.objects.create(report=own_report, author=verified_user, text="root")
         api_client.force_authenticate(user=triager_user)
         post(api_client, own_report, "answer", parent=root.id)
-        assert [m.to for m in mail.outbox] == [["r@example.com"]]
+        # separate messages: the researcher and the company never see each other's address
+        assert sorted(m.to[0] for m in mail.outbox) == ["company@example.com", "r@example.com"]
+        assert all(len(m.to) == 1 for m in mail.outbox)
         assert "answer" in mail.outbox[0].body
         assert f"/reports/{own_report.id}" in mail.outbox[0].body
 
