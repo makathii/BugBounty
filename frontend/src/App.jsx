@@ -37,6 +37,7 @@ import CompanyDashboard from './features/company/CompanyDashboard';
 import CompanyPrograms from './features/company/CompanyPrograms';
 import ProgramApplications from './features/company/ProgramApplications';
 import ProgramInvitations from './features/company/ProgramInvitations';
+import Notifications from './features/notifications/Notifications';
 import CompanyReports from './features/company/CompanyReports';
 import CreateProgram from './features/company/CreateProgram';
 import './App.css';
@@ -141,6 +142,9 @@ function AppContent() {
                     } />
                     <Route path="/company/programs/:id/applications" element={
                         <CompanyRoute><ProgramApplications /></CompanyRoute>
+                    } />
+                    <Route path="/notifications" element={
+                        <ProtectedRoute><Notifications /></ProtectedRoute>
                     } />
                     <Route path="/company/programs/:id/invitations" element={
                         <CompanyRoute><ProgramInvitations /></CompanyRoute>

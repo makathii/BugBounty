@@ -5,13 +5,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from core.notifications import notify
 from core.roles import is_admin_or_triager
 from core.tasks import enqueue_after_commit
 
 from ..models import Comment
 from ..serializers import CommentSerializer, build_comment_tree
 from ..services import ActivityLogger
-from ..tasks import send_comment_notification
+from ..tasks import comment_recipients, send_comment_notification
 
 MAX_REPLY_DEPTH = 5
 
@@ -119,11 +120,25 @@ class CommentActionsMixin:
             author=request.user, report=report, parent=parent, is_internal=is_internal,
         )
         ActivityLogger.log_comment(report, request.user, comment)
+        _notify_comment(comment)
         try:
             enqueue_after_commit(send_comment_notification, comment.id)
         except Exception:  # never fail a comment because of mail
             pass
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+def _notify_comment(comment):
+    """Bell notification for everyone the comment concerns."""
+    kind = "internal note" if comment.is_internal else ("reply" if comment.parent_id else "comment")
+    who = comment.author.username if comment.author else "Someone"
+    for person in comment_recipients(comment):
+        notify(
+            person, 'report_comment',
+            f"New {kind} on {comment.report.title}",
+            f"{who}: {comment.text[:200]}",
+            link=f"/reports/{comment.report_id}",
+        )
 
 
 def _as_bool(value):

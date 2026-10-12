@@ -7,3 +7,4 @@ class UsersConfig(AppConfig):
 
     def ready(self):
         import users.signals
+        import core.checks  # noqa: F401  (registers the deploy checks)

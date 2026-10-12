@@ -17,13 +17,23 @@ def on_invitation_created(sender, instance, created, **kwargs):
             f"{instance.invited_by.username} invited you to join {instance.program.name}."
         ),
         program=instance.program,
+        data={'link': f'/programs/{instance.program_id}'},
     )
 
 
 @receiver(post_save, sender=ProgramApplication)
 def on_application_status_changed(sender, instance, created, **kwargs):
     if created:
-        return  # no notification on submission, only on review outcome
+        # the company is told about every new application (the researcher gets the outcome below)
+        ProgramNotification.notify(
+            user=instance.program.company,
+            notification_type='application_submitted',
+            title=f"New application — {instance.program.name}",
+            message=f"{instance.researcher.username} applied to join {instance.program.name}.",
+            program=instance.program,
+            data={'link': f'/company/programs/{instance.program_id}/applications'},
+        )
+        return
 
     if instance.status == 'approved':
         ProgramNotification.notify(
@@ -32,6 +42,7 @@ def on_application_status_changed(sender, instance, created, **kwargs):
             title=f"Application approved — {instance.program.name}",
             message=f"Your application to {instance.program.name} has been approved. You can now submit reports.",
             program=instance.program,
+            data={'link': f'/programs/{instance.program_id}'},
         )
     elif instance.status == 'rejected':
         ProgramNotification.notify(
@@ -40,4 +51,5 @@ def on_application_status_changed(sender, instance, created, **kwargs):
             title=f"Application update — {instance.program.name}",
             message=f"Your application to {instance.program.name} was not approved.",
             program=instance.program,
+            data={'link': f'/programs/{instance.program_id}'},
         )

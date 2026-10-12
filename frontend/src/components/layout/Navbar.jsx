@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthContext';
+import NotificationBell from '../notifications/NotificationBell';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -152,6 +153,8 @@ const Navbar = () => {
                         </>
                     )}
                 </div>
+                {/* outside .nav-menu, which scrolls sideways and would clip the dropdown */}
+                {user && <NotificationBell />}
             </div>
         </nav>
     );

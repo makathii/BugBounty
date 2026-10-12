@@ -431,15 +431,23 @@ SECURE_DOWNLOAD_CONTENT_DISPOSITION = 'attachment'
 RECAPTCHA_SECRET_KEY = os.environ.get("RECAPTCHA_SECRET_KEY", "")
 RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
-# Email backend — use SMTP in production, console in development
+# Email backend: SMTP in production, console in development (see docs/EMAIL.md).
+def _env_flag(name, default):
+    return os.environ.get(name, str(default)).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 _email_backend = os.environ.get('EMAIL_BACKEND', 'console')
 if _email_backend == 'smtp':
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
-    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+    # Port 587 uses STARTTLS (EMAIL_USE_TLS); port 465 uses implicit TLS (EMAIL_USE_SSL). Never both.
+    EMAIL_USE_SSL = _env_flag('EMAIL_USE_SSL', False)
+    EMAIL_USE_TLS = False if EMAIL_USE_SSL else _env_flag('EMAIL_USE_TLS', True)
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+    # Without a timeout a stuck mail server would hang a web request or worker indefinitely.
+    EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
 elif _email_backend == 'locmem':
     EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 else:
@@ -447,3 +455,4 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@bugbounty.local')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)  # sender of Django's error mails

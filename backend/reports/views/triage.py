@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from core.notifications import notify
 from core.roles import is_admin_or_triager
 from core.tasks import enqueue_after_commit
 
@@ -18,8 +19,25 @@ from ..tasks import send_report_decision_notification
 MAX_BONUS_POINTS = 1000
 
 
+def _decision_text(report, decision):
+    if decision == 'accepted':
+        text = f"Accepted: you earned {report.points_awarded} points."
+    elif decision == 'rejected':
+        text = f"Not accepted. {report.verification_notes}".strip()
+    else:
+        text = "A triager started reviewing it."
+    return text
+
+
 def _notify_reporter(report, decision):
-    """Email the researcher about a decision, off the request path; never fails the action."""
+    """Tell the researcher about a decision (bell now, email off the request path); never fails the action."""
+    if decision in ('triaged', 'accepted', 'rejected'):
+        notify(
+            report.reporter, 'report_decision',
+            f"Your report was {decision}: {report.title}",
+            _decision_text(report, decision),
+            link=f"/reports/{report.id}", program=report.program,
+        )
     try:
         enqueue_after_commit(send_report_decision_notification, report.id, decision)
     except Exception:  # mail trouble must not undo a triage decision
