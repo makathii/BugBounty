@@ -43,7 +43,9 @@ class BugReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    bounty_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Extra points a triager adds on top of the severity points when accepting a report
+    # (e.g. for an especially clear write-up). Counts toward the researcher's score.
+    bonus_points = models.PositiveIntegerField(default=0)
     # CVSS v3.1 fields (populated via the /cvss_score/ endpoint)
     cvss_vector = models.CharField(max_length=100, blank=True, default='', help_text="CVSS v3.1 vector string")
     cvss_score = models.FloatField(null=True, blank=True, help_text="CVSS v3.1 base score (0.0–10.0)")
@@ -95,10 +97,10 @@ class BugReport(models.Model):
     # changed. See ``_stats_programs`` / ``_score_dirty``, set by save().
     # ------------------------------------------------------------------
     SEVERITY_SCORES = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
-    _TRACKED = ('program_id', 'severity', 'status', 'bounty_amount',
+    _TRACKED = ('program_id', 'severity', 'status', 'bonus_points',
                 'reporter_id', 'duplicate_of_id')
-    _STATS_TRACKED = ('program_id', 'severity', 'status', 'bounty_amount')
-    _SCORE_TRACKED = ('program_id', 'severity', 'status', 'reporter_id', 'duplicate_of_id')
+    _STATS_TRACKED = ('program_id', 'severity', 'status', 'bonus_points')
+    _SCORE_TRACKED = ('program_id', 'severity', 'status', 'bonus_points', 'reporter_id', 'duplicate_of_id')
 
     @classmethod
     def from_db(cls, db, field_names, values):
@@ -159,6 +161,12 @@ class BugReport(models.Model):
             **{k: getattr(self, k) for k in self._TRACKED
                if saved is None or k in saved or k.removesuffix('_id') in saved},
         }
+
+    @property
+    def points_awarded(self):
+        """Points this report has earned so far (0 until it is accepted/resolved)."""
+        event = getattr(self, 'score_event', None)  # reverse one-to-one; absent -> None
+        return event.points if event else 0
 
     def find_potential_duplicates(self, threshold=0.7):
         """

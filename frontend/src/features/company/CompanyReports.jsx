@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const CompanyReports = () => {
     const [reports, setReports] = useState([]);
@@ -27,9 +28,7 @@ const CompanyReports = () => {
         loadReports();
     }, [loadReports]);
 
-    const totalBounty = reports.reduce(
-        (sum, r) => sum + (r.bounty_amount ? Number(r.bounty_amount) : 0), 0
-    );
+    const totalPoints = reports.reduce((sum, r) => sum + (r.points_awarded || 0), 0);
     const openCount = reports.filter(r => ['open', 'triaged'].includes(r.status)).length;
     const criticalCount = reports.filter(r => r.severity === 'critical').length;
 
@@ -37,7 +36,7 @@ const CompanyReports = () => {
         { label: 'Total Reports', value: reports.length, tone: 'accent' },
         { label: 'Awaiting Action', value: openCount, tone: 'yellow' },
         { label: 'Critical', value: criticalCount, tone: 'red' },
-        { label: 'Bounties Paid', value: `$${totalBounty.toLocaleString()}`, tone: 'blue' },
+        { label: 'Points Awarded', value: formatPoints(totalPoints), tone: 'blue' },
     ];
 
     if (loading) {
@@ -114,7 +113,7 @@ const CompanyReports = () => {
                                 <div className="ui-muted ui-small">
                                     {report.program_name ? `${report.program_name} • ` : ''}
                                     by {report.reporter_username || 'unknown'} • {new Date(report.created_at).toLocaleDateString()}
-                                    {report.bounty_amount ? ` • $${Number(report.bounty_amount).toLocaleString()} paid` : ''}
+                                    {report.points_awarded ? ` • ${formatPoints(report.points_awarded)} awarded` : ''}
                                 </div>
                             </div>
                             <div className="ui-row" style={{ flexShrink: 0, gap: '0.4rem' }}>

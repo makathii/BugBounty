@@ -11,6 +11,7 @@ from core.roles import is_admin_or_triager
 
 from core.captcha import verify_recaptcha
 from ..models import Attachment
+from ..permissions import is_owner_of_reports_program
 from ..serializers import AttachmentSerializer
 from ..validators import (
     detect_mime,
@@ -26,13 +27,18 @@ class AttachmentActionsMixin:
     """Attachment endpoints for BugReportViewSet (list / upload / download)."""
 
     def _can_access_report(self, report):
+        """Who may add to / change the report's files: the reporter and staff."""
         u = self.request.user
         return u.is_superuser or u == report.reporter or is_admin_or_triager(self.request)
+
+    def _can_read_report(self, report):
+        """Who may list / download its files: also the company that owns the program."""
+        return self._can_access_report(report) or is_owner_of_reports_program(self.request, report)
 
     @action(detail=True, methods=["GET"])
     def attachments(self, request, pk=None):
         report = self.get_object()
-        if not self._can_access_report(report):
+        if not self._can_read_report(report):
             return Response(status=status.HTTP_403_FORBIDDEN)
         qs = report.attachments.order_by("-created_at")
         return Response(AttachmentSerializer(qs, many=True).data)
@@ -121,7 +127,7 @@ class AttachmentActionsMixin:
     @action(detail=True, methods=["GET"], url_path="download/(?P<att_id>[^/.]+)")
     def download_attachment(self, request, pk=None, att_id=None):
         report = self.get_object()
-        if not self._can_access_report(report):
+        if not self._can_read_report(report):
             return Response(status=status.HTTP_403_FORBIDDEN)
         try:
             att = report.attachments.get(id=att_id, scan_status="clean")

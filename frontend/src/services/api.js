@@ -21,23 +21,38 @@ api.interceptors.request.use((config) => {
 // Response interceptor — auto-refresh on 401 (registered ONCE)
 // ---------------------------------------------------------------------------
 
+// Calls that are *supposed* to be able to answer 401 for a reason other than an expired session
+// (wrong password, wrong one-time code, expired reset link): never refresh or redirect for these,
+// or the page reloads and the user never sees the error.
+const CREDENTIAL_CALLS = /\/(token(\/refresh)?|users\/(mfa\/enroll|password-reset|verify-email|resend-verification|register))(\/|$)/;
+
+/** True when a 401 means "your session expired" (so a refresh is worth trying). */
+export const isExpiredSession = (error) => {
+    const original = error.config || {};
+    return (
+        error.response?.status === 401 &&
+        !original._retry &&
+        !CREDENTIAL_CALLS.test(original.url || '') &&
+        !!localStorage.getItem('refresh_token')
+    );
+};
+
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const original = error.config;
 
-        if (error.response?.status === 401 && !original._retry) {
+        if (isExpiredSession(error)) {
             original._retry = true;
 
             try {
                 const refresh = localStorage.getItem('refresh_token');
-                if (!refresh) throw new Error('No refresh token');
-
                 const { data } = await axios.post(`${API_BASE_URL}/token/refresh/`, { refresh });
                 localStorage.setItem('access_token', data.access);
                 original.headers.Authorization = `Bearer ${data.access}`;
                 return api(original);
             } catch {
+                // The refresh token is no good either: the session is over.
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 window.location.href = '/login';
@@ -67,7 +82,10 @@ export const authAPI = {
     getProfile:           ()     => api.get('/users/profile/'),
     updateProfile:        (data) => api.patch('/users/profile/', data),
     getGroups:            ()     => api.get('/users/groups/'),
-    logout:               (data) => api.post('/users/logout/', data),
+    // `accessToken` is passed explicitly because callers clear their stored copy right away.
+    logout:               (data, accessToken) => api.post('/users/logout/', data, accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : undefined),
     verifyEmail:          (token)=> api.get(`/users/verify-email/${token}/`),
     resendVerification:   (email) => api.post('/users/resend-verification/', { email }),
 
@@ -170,6 +188,23 @@ export const researcherAPI = {
 // Reports
 // ---------------------------------------------------------------------------
 
+export const applicationAPI = {
+    list:    (programId)      => api.get(`/programs/${programId}/applications/`),
+    approve: (programId, id, notes) => api.post(`/programs/${programId}/applications/${id}/approve/`, { review_notes: notes }),
+    reject:  (programId, id, notes) => api.post(`/programs/${programId}/applications/${id}/reject/`, { review_notes: notes }),
+};
+
+export const invitationAPI = {
+    // company side
+    list:    (programId)       => api.get(`/programs/${programId}/invitations/`),
+    send:    (programId, data) => api.post(`/programs/${programId}/invitations/`, data),
+    revoke:  (programId, id)   => api.post(`/programs/${programId}/invitations/${id}/revoke/`),
+    // researcher side
+    mine:    ()                => api.get('/programs/my-invitations/'),
+    accept:  (programId, id)   => api.post(`/programs/${programId}/invitations/${id}/accept/`),
+    decline: (programId, id)   => api.post(`/programs/${programId}/invitations/${id}/reject/`),
+};
+
 export const reportAPI = {
     // CRUD
     getReports:           (params = {}) => api.get('/reports/', { params }),
@@ -187,6 +222,7 @@ export const reportAPI = {
 
     // Triage
     assignToMe:           (id)   => api.post(`/reports/${id}/assign_to_me/`),
+    triageReport:         (id, data) => api.post(`/reports/${id}/triage/`, data),
     getTriageDashboard:   ()     => api.get('/reports/triage_dashboard/'),
 
     // Comments & activity
@@ -208,6 +244,29 @@ export const reportAPI = {
     // Researcher views
     getMySubmissions:     (params = {}) => api.get('/reports/my_submissions/', { params }),
     getStats:             ()     => api.get('/reports/stats/'),
+};
+
+export const storeAPI = {
+    getItems:     (params) => api.get('/store/items/', { params }),
+    getInventory: () => api.get('/store/inventory/'),
+    getLoadout:   (userId) => api.get(userId ? `/store/loadout/${userId}/` : '/store/loadout/'),
+    purchase:     (slug) => api.post(`/store/items/${slug}/purchase/`),
+    equip:        (slug) => api.post(`/store/items/${slug}/equip/`),
+    unequip:      (slug) => api.post(`/store/items/${slug}/unequip/`),
+};
+
+export const badgeAPI = {
+    getBadges: () => api.get('/badges/'),
+};
+
+export const levelAPI = {
+    getLadder: () => api.get('/levels/'),
+    getMine:   () => api.get('/levels/me/'),
+};
+
+export const walletAPI = {
+    getWallet:       () => api.get('/wallet/'),
+    getTransactions: (params) => api.get('/wallet/transactions/', { params }),
 };
 
 export const leaderboardAPI = {

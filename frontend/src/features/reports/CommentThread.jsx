@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { reportAPI } from '../../services/api';
+import Character from '../../components/character/Character';
 
 const errorText = (error, fallback) => {
     const data = error?.response?.data;
@@ -76,6 +77,11 @@ const Comment = ({ comment, canModerate, onReply, onEdit, onDelete }) => {
         <div className={classes.join(' ')}>
             <div className="ui-row ui-row--between" style={{ marginBottom: '0.4rem' }}>
                 <span className="ui-row">
+                    <Character
+                        loadout={comment.author_loadout}
+                        size={32}
+                        label={`${comment.author || 'deleted user'}'s character`}
+                    />
                     <strong className="ui-strong">{comment.author || 'deleted user'}</strong>
                     {comment.is_internal && <span className="ui-badge tone-yellow">Internal</span>}
                 </span>

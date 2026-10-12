@@ -56,11 +56,11 @@ class TestEnqueueAfterCommit:
 class TestTaskBodies:
     def test_refresh_program_stats(self, verified_user, program):
         BugReport.objects.create(title="A report title", description="d", reporter=verified_user,
-                                 program=program, bounty_amount=50)
-        Program.objects.filter(pk=program.pk).update(total_reports=0, total_bounties=0)
+                                 program=program, status="accepted", severity="low", bonus_points=50)
+        Program.objects.filter(pk=program.pk).update(total_reports=0, total_points=0)
         refresh_program_stats.apply(args=(program.pk,), throw=True)
         program.refresh_from_db()
-        assert program.total_reports == 1 and float(program.total_bounties) == 50
+        assert program.total_reports == 1 and program.total_points == 60  # 10 (low) + 50 bonus
 
     def test_refresh_is_idempotent(self, program):
         refresh_program_stats.apply(args=(program.pk,), throw=True)

@@ -6,14 +6,77 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.roles import is_admin_or_triager
+from core.tasks import enqueue_after_commit
 
 from ..models import BugReport
 from ..serializers import BugReportSerializer
 from ..services import ActivityLogger
+from ..tasks import send_report_decision_notification
+
+
+# Upper bound on a single triager bonus, so a typo can't mint a fortune.
+MAX_BONUS_POINTS = 1000
+
+
+def _notify_reporter(report, decision):
+    """Email the researcher about a decision, off the request path; never fails the action."""
+    try:
+        enqueue_after_commit(send_report_decision_notification, report.id, decision)
+    except Exception:  # mail trouble must not undo a triage decision
+        pass
+
+
+def _severity_from(request):
+    """The optional ``severity`` in the request: (value or None, error Response or None)."""
+    value = request.data.get('severity')
+    if value in (None, ''):
+        return None, None
+    if value not in dict(BugReport.SEVERITY_CHOICES):
+        choices = ', '.join(dict(BugReport.SEVERITY_CHOICES))
+        return None, Response(
+            {"error": f"severity must be one of: {choices}"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    return value, None
 
 
 class TriageActionsMixin:
     """Triager/admin workflow endpoints for BugReportViewSet."""
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def triage(self, request, pk=None):
+        """Start triage on an open report: open -> triaged, assign it, optionally set its severity."""
+        report = self.get_object()
+
+        if not is_admin_or_triager(request):
+            return Response(
+                {"error": "Only Triagers and Admins can triage reports"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if report.status != 'open':
+            return Response(
+                {"error": "Only open reports can be triaged"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        severity, error = _severity_from(request)
+        if error:
+            return error
+
+        old_status = report.status
+        report.status = 'triaged'
+        if report.assigned_to_id is None:
+            report.assigned_to = request.user
+        if severity:
+            report.severity = severity
+        report.save()
+
+        ActivityLogger.log_status_change(report, request.user, old_status, report.status)
+        _notify_reporter(report, 'triaged')
+
+        return Response({
+            "message": "Report moved to triage",
+            "status": report.status,
+            "severity": report.severity,
+            "assigned_to": report.assigned_to.username,
+        })
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def triage_dashboard(self, request):
@@ -37,7 +100,7 @@ class TriageActionsMixin:
 
         # Get recent reports for the dashboard
         recent_reports = BugReport.objects.select_related(
-            'assigned_to', 'program', 'reporter'
+            'assigned_to', 'program', 'reporter', 'score_event'
         ).filter(
             status__in=['open', 'triaged']
         ).order_by('-created_at')[:10]
@@ -72,7 +135,7 @@ class TriageActionsMixin:
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def accept(self, request, pk=None):
-        """Accept a report for bounty"""
+        """Accept a report. Optionally award ``bonus_points`` on top of the severity points."""
         report = self.get_object()
 
         if not is_admin_or_triager(request):
@@ -88,22 +151,38 @@ class TriageActionsMixin:
             )
 
         verification_notes = request.data.get('verification_notes', '')
-        bounty_amount = request.data.get('bounty_amount')
+        try:
+            bonus_points = int(request.data.get('bonus_points') or 0)
+        except (TypeError, ValueError):
+            bonus_points = -1
+        if not 0 <= bonus_points <= MAX_BONUS_POINTS:
+            return Response(
+                {"error": f"bonus_points must be a whole number from 0 to {MAX_BONUS_POINTS}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Update report
+        severity, error = _severity_from(request)
+        if error:
+            return error
+
+        # Update report (the severity decides the base points, so the triager can settle it here)
         report.status = 'accepted'
         report.verification_notes = verification_notes
-        if bounty_amount:
-            report.bounty_amount = bounty_amount
+        report.bonus_points = bonus_points
+        if severity:
+            report.severity = severity
         report.save()
 
         # Log activity
         ActivityLogger.log_verification(report, request.user, 'accept', verification_notes)
+        _notify_reporter(report, 'accepted')
 
         return Response({
             "message": "Report accepted successfully",
             "status": report.status,
-            "bounty_amount": report.bounty_amount
+            "bonus_points": report.bonus_points,
+            "severity": report.severity,
+            "points_awarded": report.points_awarded,
         })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
@@ -132,6 +211,7 @@ class TriageActionsMixin:
 
         # Log activity
         ActivityLogger.log_verification(report, request.user, 'reject', rejection_reason)
+        _notify_reporter(report, 'rejected')
 
         return Response({
             "message": "Report rejected",

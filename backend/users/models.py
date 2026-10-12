@@ -132,6 +132,8 @@ class UserMFA(models.Model):
     is_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
+    # TOTP time-step of the last accepted code: a code for this step or an older one is a replay.
+    last_used_step = models.BigIntegerField(null=True, blank=True)
 
     # Groups that MUST have 2FA enabled before login is allowed
     REQUIRED_GROUPS = {'Admin', 'Triager'}
@@ -142,15 +144,31 @@ class UserMFA(models.Model):
     def verify_code(self, code: str) -> bool:
         """
         Verify a 6-digit TOTP code. Allows 1 step of clock drift (±30 s).
-        Returns True and updates last_used_at on success.
+
+        A code is single-use (RFC 6238 §5.2): once a code for time-step N was accepted, codes for
+        step N or earlier are refused, so an observed code cannot be replayed inside its validity
+        window. The check-and-record is one conditional UPDATE, so two simultaneous attempts with
+        the same code cannot both succeed.
         """
+        import hmac
+        from datetime import datetime
+
         import pyotp
+        from django.db.models import Q
+
+        code = (code or '').strip()
         totp = pyotp.TOTP(self.secret)
-        valid = totp.verify(code, valid_window=1)
-        if valid:
-            self.last_used_at = timezone.now()
-            self.save(update_fields=['last_used_at'])
-        return valid
+        now_step = totp.timecode(datetime.now())
+        for step in (now_step - 1, now_step, now_step + 1):
+            if hmac.compare_digest(totp.generate_otp(step), code):
+                accepted = UserMFA.objects.filter(pk=self.pk).filter(
+                    Q(last_used_step__isnull=True) | Q(last_used_step__lt=step)
+                ).update(last_used_step=step, last_used_at=timezone.now())
+                if accepted:
+                    self.last_used_step = step
+                    self.last_used_at = timezone.now()
+                return bool(accepted)
+        return False
 
     @classmethod
     def generate_secret(cls) -> str:

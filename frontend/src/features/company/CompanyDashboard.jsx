@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { companyAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const CompanyDashboard = () => {
     const { user, hasCompanyProfile, loading: authLoading } = useAuth();
@@ -50,7 +51,7 @@ const CompanyDashboard = () => {
     const statCards = [
         { label: 'Active Programs', value: dashboard?.active_programs ?? 0, tone: 'blue' },
         { label: 'Total Reports', value: dashboard?.total_reports ?? 0, tone: 'green' },
-        { label: 'Total Payouts', value: `$${Number(dashboard?.total_bounties ?? 0).toLocaleString()}`, tone: 'accent' },
+        { label: 'Points Awarded', value: formatPoints(dashboard?.total_points), tone: 'accent' },
         { label: 'Total Programs', value: dashboard?.total_programs ?? 0, tone: 'orange' },
     ];
     const activeCount = dashboard?.active_programs ?? 0;
@@ -138,9 +139,9 @@ const CompanyDashboard = () => {
                                     <div className="ui-muted ui-small">
                                         {program.short_description || program.description?.slice(0, 120)}
                                     </div>
-                                    {(program.min_bounty || program.max_bounty) && (
+                                    {(program.min_points || program.max_points) && (
                                         <div className="ui-tone-text tone-green ui-strong ui-small" style={{ marginTop: '0.25rem' }}>
-                                            ${Number(program.min_bounty || 0).toLocaleString()} – ${Number(program.max_bounty || 0).toLocaleString()}
+                                            {program.points_range}
                                         </div>
                                     )}
                                 </div>

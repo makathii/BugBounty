@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..models import UserSession
+from .. import session_tokens
 
 
 @api_view(['GET'])
@@ -51,5 +52,5 @@ def revoke_all_sessions(request):
     DELETE /api/users/sessions/revoke-all/
     Revokes all active sessions for the current user (logout everywhere).
     """
-    count = UserSession.objects.filter(user=request.user, is_active=True).update(is_active=False)
+    count = session_tokens.revoke_all_sessions(request.user)
     return Response({'detail': f'Revoked {count} session(s).'}, status=status.HTTP_200_OK)

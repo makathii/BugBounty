@@ -61,8 +61,8 @@ def test_save_query_budget(verified_user, program):
     r = _report(verified_user, program)
     r = BugReport.objects.get(pk=r.pk)
     r.status = "triaged"
-    # UPDATE + stats (aggregate, update) + ledger lookup. Previously 8.
-    assert _count(r.save) <= 4
+    # UPDATE + stats (ledger aggregate, report aggregate, update) + ledger lookup. Previously 8.
+    assert _count(r.save) <= 5
 
 
 def test_stats_refresh_on_change_and_program_move(verified_user, program):
@@ -70,9 +70,9 @@ def test_stats_refresh_on_change_and_program_move(verified_user, program):
         company=program.company, name="Other", description="x",
         scope_type="public", status="active",
     )
-    r = _report(verified_user, program, bounty_amount=100)
+    r = _report(verified_user, program, status="accepted", severity="low", bonus_points=90)
     program.refresh_from_db()
-    assert program.total_reports == 1 and float(program.total_bounties) == 100
+    assert program.total_reports == 1 and program.total_points == 100
 
     r = BugReport.objects.get(pk=r.pk)
     r.program = other
@@ -87,7 +87,8 @@ def test_stats_refresh_on_change_and_program_move(verified_user, program):
     assert other.total_reports == 0
 
 
-def test_ledger_follows_status_and_ignores_noise(verified_user, program):
+def test_ledger_follows_status_and_ignores_noise(verified_user, program, settings):
+    settings.LEADERBOARD_SEVERITY_POINTS = {"low": 1, "medium": 3, "high": 7, "critical": 15}
     r = _report(verified_user, program, severity="high")
     assert not ScoreEvent.objects.filter(report=r).exists()
 

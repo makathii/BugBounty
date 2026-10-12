@@ -74,6 +74,24 @@ const Navbar = () => {
                                     >
                                         Leaderboard
                                     </Link>
+                                    <Link
+                                        to="/wallet"
+                                        className={`nav-link ${location.pathname === '/wallet' ? 'active' : ''}`}
+                                    >
+                                        Wallet
+                                    </Link>
+                                    <Link
+                                        to="/badges"
+                                        className={`nav-link ${location.pathname === '/badges' ? 'active' : ''}`}
+                                    >
+                                        Badges
+                                    </Link>
+                                    <Link
+                                        to="/store"
+                                        className={`nav-link ${location.pathname === '/store' ? 'active' : ''}`}
+                                    >
+                                        Store
+                                    </Link>
                                 </>
                             )}
 

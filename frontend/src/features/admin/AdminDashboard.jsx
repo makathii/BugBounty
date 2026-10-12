@@ -48,10 +48,10 @@ const AdminDashboard = () => {
         const verificationNotes = prompt('Enter verification notes:');
         if (!verificationNotes) return;
 
-        const bountyAmount = prompt('Enter bounty amount (optional):');
+        const bonusPoints = prompt('Bonus points on top of the severity points (optional):');
         const data = {
             verification_notes: verificationNotes,
-            ...(bountyAmount && { bounty_amount: bountyAmount })
+            ...(bonusPoints && { bonus_points: bonusPoints })
         };
 
         try {
@@ -101,17 +101,9 @@ const AdminDashboard = () => {
         navigate('/triage');
     };
 
-    const handleManageUsers = () => {
-        navigate('/admin/users');
-    };
-
-    const handleViewSettings = () => {
-        navigate('/admin/settings');
-    };
-
-    const handleViewAnalytics = () => {
-        navigate('/admin/analytics');
-    };
+    // Users and platform settings live in the Django admin (it needs 2FA for staff); there are no
+    // in-app pages for them.
+    const adminSite = (process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '') + '/admin/';
 
     const counts = dashboardData?.counts;
     const statCards = counts ? [
@@ -123,11 +115,10 @@ const AdminDashboard = () => {
     ] : [];
 
     const adminCards = [
-        { show: isAdmin(), title: 'User Management', text: 'Manage user accounts and roles', label: 'Manage Users', onClick: handleManageUsers, cls: '' },
+        { show: isAdmin(), title: 'User Management', text: 'Manage user accounts and roles (opens the admin site)', label: 'Manage Users', href: `${adminSite}auth/user/`, cls: '' },
         { show: isAdmin() || isTriager(), title: 'Report Review', text: 'Review and triage vulnerability reports', label: 'Go to Triage Dashboard', onClick: handleReviewReports, cls: '' },
         { show: isAdmin() || isTriager(), title: 'All Reports', text: 'View and manage all vulnerability reports', label: 'View All Reports', onClick: handleViewReports, cls: 'ui-btn--ghost' },
-        { show: isAdmin(), title: 'System Settings', text: 'Configure platform settings', label: 'System Settings', onClick: handleViewSettings, cls: 'ui-btn--ghost' },
-        { show: isAdmin(), title: 'Analytics', text: 'View platform statistics and reports', label: 'View Analytics', onClick: handleViewAnalytics, cls: 'ui-btn--ghost' },
+        { show: isAdmin(), title: 'Platform Admin', text: 'Programs, store items, badges and the rest (opens the admin site)', label: 'Open Admin Site', href: adminSite, cls: 'ui-btn--ghost' },
     ].filter(c => c.show);
 
     return (
@@ -162,11 +153,15 @@ const AdminDashboard = () => {
             )}
 
             <div className="ui-grid ui-grid--cards">
-                {adminCards.map(({ title, text, label, onClick, cls }) => (
+                {adminCards.map(({ title, text, label, onClick, href, cls }) => (
                     <div key={title} className="ui-card ui-card--hover ui-stack">
                         <h3 className="ui-section-title" style={{ margin: 0 }}>{title}</h3>
                         <p className="ui-muted ui-small" style={{ margin: 0 }}>{text}</p>
-                        <button className={`ui-btn ui-btn--block ${cls}`} onClick={onClick}>{label}</button>
+                        {href ? (
+                            <a className={`ui-btn ui-btn--block ${cls}`} href={href} target="_blank" rel="noopener noreferrer">{label}</a>
+                        ) : (
+                            <button className={`ui-btn ui-btn--block ${cls}`} onClick={onClick}>{label}</button>
+                        )}
                     </div>
                 ))}
             </div>
@@ -193,15 +188,25 @@ const AdminDashboard = () => {
                                             <td><span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity}</span></td>
                                             <td>
                                                 <div className="ui-row" style={{ gap: '0.4rem' }}>
-                                                    <button className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => handleAssignToMe(report.id)}>
-                                                        Assign to Me
+                                                    <button className="ui-btn ui-btn--sm" onClick={() => navigate(`/reports/${report.id}`)}>
+                                                        {report.status === 'open' ? 'Review & Triage' : 'Review'}
                                                     </button>
-                                                    <button className="ui-btn ui-btn--green ui-btn--sm" onClick={() => handleAcceptReport(report.id)}>
-                                                        Accept
-                                                    </button>
-                                                    <button className="ui-btn ui-btn--danger ui-btn--sm" onClick={() => handleRejectReport(report.id)}>
-                                                        Reject
-                                                    </button>
+                                                    {!report.assigned_to && (
+                                                        <button className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => handleAssignToMe(report.id)}>
+                                                            Assign to Me
+                                                        </button>
+                                                    )}
+                                                    {/* Only triaged reports can be accepted or rejected */}
+                                                    {report.status === 'triaged' && (
+                                                        <>
+                                                            <button className="ui-btn ui-btn--green ui-btn--sm" onClick={() => handleAcceptReport(report.id)}>
+                                                                Accept
+                                                            </button>
+                                                            <button className="ui-btn ui-btn--danger ui-btn--sm" onClick={() => handleRejectReport(report.id)}>
+                                                                Reject
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

@@ -12,7 +12,7 @@ from users.throttles import BurstRateThrottle, SubmissionThrottle
 
 from ..models import BugReport
 from ..permissions import IsReporterOrTriagerOrAdmin
-from ..serializers import ActivityLogSerializer, BugReportSerializer
+from ..serializers import DUPLICATE_MESSAGE, ActivityLogSerializer, BugReportSerializer, describe_duplicate
 from ..tasks import send_report_submission_notification
 from .attachments import AttachmentActionsMixin
 from .comment_actions import CommentActionsMixin
@@ -35,7 +35,7 @@ class BugReportViewSet(
 
     def get_queryset(self):
         user = self.request.user
-        queryset = BugReport.objects.select_related("assigned_to", "program", "reporter").order_by("-created_at")
+        queryset = BugReport.objects.select_related("assigned_to", "program", "reporter", "score_event").order_by("-created_at")
 
         # Apply filters for triage dashboard
         status_filter = self.request.query_params.get('status')
@@ -103,18 +103,24 @@ class BugReportViewSet(
         return Response({
             "has_duplicates": len(duplicates) > 0,
             "potential_duplicates": [
-                {
-                    "id": dup.id,
-                    "title": dup.title,
-                    "severity": dup.severity,
-                    "status": dup.status,
-                    "similarity": round(score, 2),
-                    "created_at": dup.created_at.isoformat() if dup.created_at else None,
-                    "reporter": dup.reporter.username if dup.reporter else None,
-                }
-                for dup, score in duplicates
+                describe_duplicate(dup, score, request.user, request) for dup, score in duplicates
             ]
         })
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            candidates = getattr(serializer, "duplicate_candidates", None)
+            if candidates is not None and set(serializer.errors) <= {"potential_duplicates", "message"}:
+                # real JSON types (ids, booleans, similarity) instead of DRF's stringified errors
+                return Response(
+                    {"potential_duplicates": candidates, "message": DUPLICATE_MESSAGE},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
         # Require email verification before allowing report submission
@@ -226,7 +232,7 @@ class BugReportViewSet(
     def activity_logs(self, request, pk=None):
         """Get activity logs for a report"""
         report = self.get_object()
-        if not self._can_access_report(report):
+        if not self._can_read_report(report):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         logs = report.activity_logs.order_by('-created_at')

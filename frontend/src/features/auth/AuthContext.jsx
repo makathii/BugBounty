@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         checkAuth();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loginWithOAuth = async (provider) => {
         try {
@@ -166,9 +166,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        const accessToken = localStorage.getItem('access_token');
         const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-            authAPI.logout({ refresh_token: refreshToken }).catch(console.error);
+
+        // Tell the server first, with the credentials we are about to throw away: if the request
+        // went out after they were removed it would be rejected as unauthenticated and the session
+        // (and the login cookies) would never be ended on the server.
+        if (accessToken || refreshToken) {
+            authAPI.logout({ refresh_token: refreshToken }, accessToken).catch(console.error);
         }
 
         localStorage.removeItem('access_token');

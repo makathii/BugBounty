@@ -125,6 +125,14 @@ class JWTCookieAuthentication(JWTAuthentication):
          the migration.
     """
 
+    def get_user(self, validated_token):
+        from .session_tokens import is_session_revoked  # models are not ready at import time
+
+        user = super().get_user(validated_token)
+        if is_session_revoked(validated_token):
+            raise exceptions.AuthenticationFailed("This session has been signed out.", code="session_revoked")
+        return user
+
     def authenticate(self, request):
         cookie_name = getattr(settings, "JWT_AUTH_COOKIE", "bb_access")
         raw_token = request.COOKIES.get(cookie_name)

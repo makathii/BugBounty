@@ -93,7 +93,9 @@ class TestEnrollmentFlow:
 
         # Now the normal 2FA login works, with a TOTP code...
         assert 'totp_code' in _login(api_client, triager).data
-        ok = _login(api_client, triager, totp_code=pyotp.TOTP(secret).now())
+        # (a code is single-use and enrolment used this window's, so log in with the next one)
+        import time
+        ok = _login(api_client, triager, totp_code=pyotp.TOTP(secret).at(time.time() + 30))
         assert ok.status_code == 200 and 'access' in ok.data
         # ...or a backup code.
         ok2 = _login(api_client, triager, totp_code=confirm.data['backup_codes'][0])

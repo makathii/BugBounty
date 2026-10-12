@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -28,15 +27,12 @@ class Program(models.Model):
     scope_type = models.CharField(max_length=20, choices=SCOPE_TYPE_CHOICES, default='public')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
 
-    bounty_policy = models.TextField(blank=True)
-    min_bounty = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        validators=[MinValueValidator(0)]
-    )
-    max_bounty = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        validators=[MinValueValidator(0)]
-    )
+    # Free-text note on how points are awarded for this program (shown to researchers).
+    reward_notes = models.TextField(blank=True)
+    # Optional headline range, e.g. "10 - 150 pts". Informational: actual points come
+    # from the severity table plus the triager's bonus (see leaderboard.services).
+    min_points = models.PositiveIntegerField(null=True, blank=True)
+    max_points = models.PositiveIntegerField(null=True, blank=True)
 
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
@@ -52,7 +48,7 @@ class Program(models.Model):
 
     # Cached stats — kept in sync via reports/signals.py
     total_reports = models.IntegerField(default=0)
-    total_bounties = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_points = models.IntegerField(default=0)  # points awarded to researchers
     avg_severity_score = models.FloatField(default=0)
     avg_time_to_triage = models.FloatField(default=0)
     avg_time_to_resolution = models.FloatField(default=0)
@@ -101,20 +97,20 @@ class Program(models.Model):
         return True
 
     @property
-    def bounty_range(self):
-        if self.min_bounty and self.max_bounty:
-            return f"${self.min_bounty} - ${self.max_bounty}"
-        if self.min_bounty:
-            return f"From ${self.min_bounty}"
-        if self.max_bounty:
-            return f"Up to ${self.max_bounty}"
+    def points_range(self):
+        if self.min_points and self.max_points:
+            return f"{self.min_points} - {self.max_points} pts"
+        if self.min_points:
+            return f"From {self.min_points} pts"
+        if self.max_points:
+            return f"Up to {self.max_points} pts"
         return "Not specified"
 
     def refresh_stats(self):
         """Recompute cached stat fields from live report data."""
         self.refresh_stats_for(self.pk)
         self.refresh_from_db(fields=[
-            'total_reports', 'total_bounties', 'avg_severity_score',
+            'total_reports', 'total_points', 'avg_severity_score',
             'avg_time_to_triage', 'avg_time_to_resolution',
         ])
 
@@ -126,18 +122,19 @@ class Program(models.Model):
         signal handlers.
         """
         from django.db.models import Count, Sum, Avg
+        from leaderboard.models import ScoreEvent
         from reports.models import BugReport
 
+        points = ScoreEvent.objects.filter(program_id=program_id).aggregate(total=Sum('points'))
         agg = BugReport.objects.filter(program_id=program_id).aggregate(
             total=Count('id'),
-            bounties=Sum('bounty_amount'),
             avg_severity=Avg('severity_score'),
             avg_triage=Avg('time_to_triage'),
             avg_resolution=Avg('time_to_resolution'),
         )
         cls.objects.filter(pk=program_id).update(
             total_reports=agg['total'] or 0,
-            total_bounties=agg['bounties'] or 0,
+            total_points=points['total'] or 0,
             avg_severity_score=agg['avg_severity'] or 0,
             avg_time_to_triage=agg['avg_triage'] or 0,
             avg_time_to_resolution=agg['avg_resolution'] or 0,

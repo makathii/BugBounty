@@ -47,7 +47,7 @@ class ScopeSerializer(serializers.ModelSerializer):
         model = Scope
         fields = [
             'id', 'target', 'target_type', 'target_type_display',
-            'is_in_scope', 'description', 'notes', 'bounty_multiplier',
+            'is_in_scope', 'description', 'notes', 'points_multiplier',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -59,12 +59,14 @@ class ScopeSerializer(serializers.ModelSerializer):
 
 class ProgramListSerializer(serializers.ModelSerializer):
     company = UserSummarySerializer(read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
     can_accept_submissions = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     favorites_count = serializers.SerializerMethodField()
+    # Can this user report to the program (as opposed to merely see it)? Cheap enough for lists.
+    user_has_access = serializers.SerializerMethodField()
 
     class Meta:
         model = Program
@@ -73,13 +75,31 @@ class ProgramListSerializer(serializers.ModelSerializer):
             'scope_type', 'scope_type_display',
             'status', 'status_display',
             'company',
-            'min_bounty', 'max_bounty', 'bounty_range',
+            'min_points', 'max_points', 'points_range',
             'is_active', 'can_accept_submissions',
-            'total_reports', 'total_bounties', 'avg_severity_score',
-            'favorites_count',
+            'total_reports', 'total_points', 'avg_severity_score',
+            'favorites_count', 'user_has_access',
             'created_at', 'published_at',
         ]
         read_only_fields = fields
+
+    def get_user_has_access(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        user = request.user
+        if obj.company_id == user.id:
+            return True
+        if obj.scope_type in ('public', 'vdp'):
+            return obj.status == 'active'
+        if obj.status != 'active':
+            return False
+        # private: one lookup per request, not per program
+        cache = self.context.setdefault('_private_access_ids', None)
+        if cache is None:
+            from .visibility import accessible_private_program_ids
+            cache = self.context['_private_access_ids'] = accessible_private_program_ids(user)
+        return obj.id in cache
 
     def get_favorites_count(self, obj):
         # Annotated by ProgramViewSet.get_queryset(); fall back for other callers.
@@ -87,10 +107,15 @@ class ProgramListSerializer(serializers.ModelSerializer):
         return annotated if annotated is not None else obj.favorites.count()
 
 
+def _is_manager(user, program):
+    from .permissions import _can_manage
+    return bool(user and user.is_authenticated and _can_manage(user, program))
+
+
 class ProgramDetailSerializer(serializers.ModelSerializer):
     company = UserSummarySerializer(read_only=True)
     scopes = ScopeSerializer(many=True, read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
     can_accept_submissions = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
@@ -99,6 +124,8 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
     in_scope_count = serializers.SerializerMethodField()
     out_of_scope_count = serializers.SerializerMethodField()
     user_has_access = serializers.SerializerMethodField()   # ← new
+    my_application = serializers.SerializerMethodField()
+    my_invitation = serializers.SerializerMethodField()
 
     class Meta:
         model = Program
@@ -107,15 +134,16 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
             'scope_type', 'scope_type_display',
             'status', 'status_display',
             'company',
-            'bounty_policy', 'min_bounty', 'max_bounty', 'bounty_range',
+            'reward_notes', 'min_points', 'max_points', 'points_range',
             'start_date', 'end_date',
             'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
             'testing_guidelines', 'report_guidelines', 'disclosure_policy',
-            'total_reports', 'total_bounties', 'avg_severity_score',
+            'total_reports', 'total_points', 'avg_severity_score',
             'avg_time_to_triage', 'avg_time_to_resolution',
             'scopes', 'in_scope_count', 'out_of_scope_count',
             'is_active', 'can_accept_submissions',
             'user_has_access',                              # ← new
+            'my_application', 'my_invitation',
             'favorites_count',
             'created_at', 'updated_at', 'published_at',
         ]
@@ -140,12 +168,43 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
         from .permissions import CanAccessProgram
         return CanAccessProgram().has_object_permission(request, None, obj)
 
+    def _mine(self, obj, related):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        # .all() reuses the prefetch cache that ProgramViewSet.get_object() sets up
+        for row in getattr(obj, related).all():
+            if row.researcher_id == request.user.id:
+                return {'id': row.id, 'status': row.status}
+        return None
+
+    def get_my_application(self, obj):
+        return self._mine(obj, 'applications')
+
+    def get_my_invitation(self, obj):
+        return self._mine(obj, 'invitations')
+
+    def to_representation(self, instance):
+        """A private program shows its description to people who may apply, but its targets and
+        guidelines only to people with access (the company, admins, approved/invited researchers)."""
+        data = super().to_representation(instance)
+        if instance.scope_type == 'private' and not data.get('user_has_access'):
+            request = self.context.get('request')
+            if not (request and (_is_manager(request.user, instance))):
+                data['scopes'] = []
+                data['in_scope_count'] = 0
+                data['out_of_scope_count'] = 0
+                data['testing_guidelines'] = ''
+                data['report_guidelines'] = ''
+        return data
+
+
 class ProgramCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Program
         fields = [
             'id', 'name', 'description', 'short_description', 'scope_type',
-            'bounty_policy', 'min_bounty', 'max_bounty',
+            'reward_notes', 'min_points', 'max_points',
             'start_date', 'end_date',
             'allow_anonymous', 'require_ndas', 'invitation_only', 'requires_application',
             'testing_guidelines', 'report_guidelines', 'disclosure_policy',
@@ -153,11 +212,11 @@ class ProgramCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate(self, data):
-        min_b = data.get('min_bounty')
-        max_b = data.get('max_bounty')
+        min_b = data.get('min_points')
+        max_b = data.get('max_points')
         if min_b is not None and max_b is not None and min_b > max_b:
             raise serializers.ValidationError(
-                {'max_bounty': 'Maximum bounty must be greater than or equal to minimum bounty.'}
+                {'max_points': 'Maximum points must be greater than or equal to minimum points.'}
             )
         start = data.get('start_date')
         end = data.get('end_date')
@@ -203,7 +262,7 @@ class ProgramUpdateSerializer(ProgramCreateSerializer):
 
 class PublicProgramSerializer(serializers.ModelSerializer):
     company_username = serializers.CharField(source='company.username', read_only=True)
-    bounty_range = serializers.ReadOnlyField()
+    points_range = serializers.ReadOnlyField()
     scope_type_display = serializers.CharField(source='get_scope_type_display', read_only=True)
 
     class Meta:
@@ -212,7 +271,7 @@ class PublicProgramSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'short_description',
             'scope_type', 'scope_type_display',
             'company_username',
-            'min_bounty', 'max_bounty', 'bounty_range',
+            'min_points', 'max_points', 'points_range',
             'total_reports', 'avg_severity_score',
             'published_at',
         ]
@@ -228,15 +287,17 @@ class ProgramInvitationSerializer(serializers.ModelSerializer):
     invited_by = UserSummarySerializer(read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # Who to invite: by username (what the UI sends) or, for older clients, by user id.
+    username = serializers.CharField(write_only=True, required=False, allow_blank=True)
     researcher_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source='researcher', write_only=True
+        queryset=User.objects.all(), source='researcher', write_only=True, required=False
     )
 
     class Meta:
         model = ProgramInvitation
         fields = [
             'id', 'program', 'program_name',
-            'researcher', 'researcher_id',
+            'researcher', 'researcher_id', 'username',
             'invited_by',
             'status', 'status_display',
             'message',
@@ -249,10 +310,21 @@ class ProgramInvitationSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
 
-    def validate_researcher_id(self, user):
-        if not user.groups.filter(name='Researcher').exists():
-            raise serializers.ValidationError("Invitations can only be sent to Researcher accounts.")
-        return user
+    def validate(self, attrs):
+        username = (attrs.pop('username', '') or '').strip()
+        researcher = attrs.get('researcher')
+        if username:
+            researcher = User.objects.filter(username__iexact=username).first()
+            if researcher is None:
+                raise serializers.ValidationError({'username': 'No researcher with that username.'})
+        if researcher is None:
+            raise serializers.ValidationError({'username': "Enter the researcher's username."})
+        if not researcher.is_active or not researcher.groups.filter(name='Researcher').exists():
+            raise serializers.ValidationError(
+                {'username': 'Invitations can only be sent to active Researcher accounts.'}
+            )
+        attrs['researcher'] = researcher
+        return attrs
 
 
 # ---------------------------------------------------------------------------
@@ -296,8 +368,8 @@ class ProgramStatsSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'program', 'date',
             'total_reports', 'new_reports', 'resolved_reports',
-            'total_bounties', 'avg_bounty',
-            'avg_time_to_triage', 'avg_time_to_resolution', 'avg_time_to_bounty',
+            'total_points', 'avg_points',
+            'avg_time_to_triage', 'avg_time_to_resolution', 'avg_time_to_award',
             'critical_count', 'high_count', 'medium_count', 'low_count', 'info_count',
             'total_vulnerabilities',
             'active_researchers', 'new_researchers',
@@ -365,9 +437,8 @@ class ProgramReportSerializer(serializers.Serializer):
     title = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
     severity = serializers.CharField(read_only=True)
-    bounty_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, allow_null=True, read_only=True
-    )
+    bonus_points = serializers.IntegerField(read_only=True)
+    points_awarded = serializers.IntegerField(read_only=True)
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)

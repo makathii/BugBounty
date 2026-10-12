@@ -111,7 +111,7 @@ const Home = () => {
                     </div>
                     <div className="hero-card hero-card-2">
                         <span className="hero-card-icon hero-card-icon-bounty"></span>
-                        <span className="hero-card-text">Bounty awarded</span>
+                        <span className="hero-card-text">Points awarded</span>
                         <span className="hero-card-badge success">+500 pts</span>
                     </div>
                     <div className="hero-card hero-card-3">

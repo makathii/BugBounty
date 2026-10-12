@@ -5,7 +5,7 @@ from .views import (
     ProgramViewSet, ScopeViewSet, ProgramInvitationViewSet,
     ProgramApplicationViewSet, ProgramFavoriteViewSet,
     ProgramNotificationViewSet, CompanyViewSet,
-    ResearcherProgramListView, CompanyProgramListView,
+    ResearcherProgramListView, CompanyProgramListView, MyInvitationsView,
     PublicProgramListView, ProgramDashboardView, program_api_root
 )
 
@@ -27,6 +27,7 @@ urlpatterns = [
     path('dashboard/', ProgramDashboardView.as_view(), name='program-dashboard'),
     path('company/', CompanyProgramListView.as_view(), name='company-programs'),
     path('researcher/', ResearcherProgramListView.as_view(), name='researcher-programs'),
+    path('my-invitations/', MyInvitationsView.as_view(), name='my-invitations'),
     path('public/', PublicProgramListView.as_view(), name='public-programs'),
 
     # Dynamic routes

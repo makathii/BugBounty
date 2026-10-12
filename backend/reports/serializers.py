@@ -2,23 +2,34 @@ from rest_framework import serializers
 from .models import BugReport, Comment, ActivityLog
 from .models import Attachment
 from core.roles import is_admin_or_triager
+from programs.models import Program
+from programs.permissions import CanAccessProgram
+from store.services import loadouts_for
 from .sanitizers import sanitize_html
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    """Flat comment. Pass ``request`` in the context to get ``can_edit``/``can_delete``."""
+    """Flat comment. Pass ``request`` in the context to get ``can_edit``/``can_delete``.
+
+    ``author_loadout`` (what the author's character is wearing) is read from
+    ``context["loadouts"]`` when the caller prefetched it for many comments
+    (see ``with_author_loadouts``); a lone comment looks its author up itself.
+    """
 
     author = serializers.StringRelatedField(read_only=True)
     text = serializers.CharField(max_length=5000)
     is_deleted = serializers.BooleanField(read_only=True)
     can_edit = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
+    author_id = serializers.IntegerField(read_only=True)
+    author_loadout = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = (
             "id", "author", "text", "created_at", "edited_at", "parent",
             "is_internal", "is_deleted", "can_edit", "can_delete",
+            "author_id", "author_loadout",
         )
         read_only_fields = ("id", "author", "created_at", "edited_at", "parent", "is_internal")
 
@@ -44,6 +55,14 @@ class CommentSerializer(serializers.ModelSerializer):
     def _request(self):
         return self.context.get("request")
 
+    def get_author_loadout(self, obj):
+        if obj.is_deleted or obj.author_id is None:
+            return {}
+        loadouts = self.context.get("loadouts")
+        if loadouts is None:
+            loadouts = loadouts_for([obj.author_id])
+        return loadouts.get(obj.author_id, {})
+
     def get_can_edit(self, obj):
         request = self._request()
         return bool(
@@ -57,6 +76,35 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.author_id == request.user.id or is_admin_or_triager(request)
 
 
+def describe_duplicate(report, score, viewer, request=None):
+    """How a possible duplicate is shown to ``viewer``.
+
+    Researchers must not learn what other researchers have reported (titles, ids, usernames of
+    unresolved reports are exactly what a bug-bounty program keeps private), so only their OWN
+    reports are described in full; staff see everything.
+    """
+    full = bool(
+        viewer is not None and getattr(viewer, "is_authenticated", False)
+        and (report.reporter_id == viewer.pk or (request is not None and is_admin_or_triager(request)))
+    )
+    return {
+        "id": report.id if full else None,
+        "title": report.title if full else "Another researcher's report",
+        "similarity": round(score, 2),
+        "own": bool(viewer is not None and report.reporter_id == getattr(viewer, "pk", None)),
+        "created_at": report.created_at.isoformat() if report.created_at else None,
+        "status": report.status if full else None,
+        "severity": report.severity if full else None,
+        "reporter": report.reporter.username if full and report.reporter_id else None,
+    }
+
+
+def with_author_loadouts(comments, context=None):
+    """``context`` plus every author's outfit, fetched in one query for the whole list."""
+    ids = {c.author_id for c in comments if c.author_id is not None and not c.is_deleted}
+    return {**(context or {}), "loadouts": loadouts_for(ids)}
+
+
 def build_comment_tree(comments, context=None):
     """Nest a flat, chronologically ordered comment list into ``replies`` trees.
 
@@ -65,8 +113,9 @@ def build_comment_tree(comments, context=None):
     this viewer) is promoted to the top level rather than dropped.
     """
     nodes = {}
+    context = with_author_loadouts(comments, context)
     for comment in comments:
-        node = CommentSerializer(comment, context=context or {}).data
+        node = CommentSerializer(comment, context=context).data
         node["replies"] = []
         nodes[comment.id] = node
 
@@ -83,17 +132,24 @@ class AttachmentSerializer(serializers.ModelSerializer):
         fields = ("id","original_name","size","mime","sha256","scan_status","created_at")
         read_only_fields = fields
 
+DUPLICATE_MESSAGE = "Potential duplicate reports found. Please review before submitting."
+
+
 class BugReportSerializer(serializers.ModelSerializer):
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     assigned_to_username = serializers.SerializerMethodField()
     program_name = serializers.SerializerMethodField()
+    points_awarded = serializers.IntegerField(read_only=True)
+    # Required: a report with no program belongs to nobody, so no company would ever see it.
+    program = serializers.PrimaryKeyRelatedField(queryset=Program.objects.all())
 
     class Meta:
         model = BugReport
         fields = '__all__'
         read_only_fields = [
             'severity_score', 'time_to_triage', 'time_to_resolution',
-            'created_at', 'updated_at', 'reporter'  # reporter is set in perform_create
+            'created_at', 'updated_at', 'reporter',  # reporter is set in perform_create
+            'bonus_points',  # only a triager's accept action may award bonus points
         ]
 
     def get_assigned_to_username(self, obj):
@@ -102,6 +158,19 @@ class BugReportSerializer(serializers.ModelSerializer):
     def get_program_name(self, obj):
         return obj.program.name if obj.program_id else None
         
+    def validate_program(self, program):
+        """Where a report may be filed: an open program the reporter can access. Not movable later."""
+        if self.instance is not None:
+            if program.pk != self.instance.program_id:
+                raise serializers.ValidationError("A report cannot be moved to another program.")
+            return program
+        if not program.can_accept_submissions:
+            raise serializers.ValidationError("This program is not accepting submissions.")
+        request = self.context.get("request")
+        if request is not None and not CanAccessProgram().has_object_permission(request, None, program):
+            raise serializers.ValidationError("You do not have access to this program.")
+        return program
+
     def validate_title(self, value):
         if len(value)<10:
             raise serializers.ValidationError("Title is too short, must be at least 10 characters.")
@@ -123,24 +192,25 @@ class BugReportSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        """Check for potential duplicates during validation"""
+        """Refuse likely duplicates, unless the reporter confirms the report is different."""
+        if self.instance is not None or self.initial_data.get("confirm_not_duplicate") in (True, "true", "True", 1, "1"):
+            return data
+
         # Create a temporary instance to check duplicates
         temp_report = BugReport(**data)
         duplicates = temp_report.find_potential_duplicates(threshold=0.8)
 
         if duplicates:
-            duplicate_info = [
-                {
-                    "id": dup.id,
-                    "title": dup.title,
-                    "similarity": round(score, 2),
-                    "created_at": dup.created_at.isoformat() if dup.created_at else None
-                }
-                for dup, score in duplicates
+            request = self.context.get("request")
+            viewer = getattr(request, "user", None)
+            # DRF turns everything inside a ValidationError into strings (own: "False"), so the
+            # structured list is kept here for the view to return as real JSON.
+            self.duplicate_candidates = [
+                describe_duplicate(dup, score, viewer, request) for dup, score in duplicates
             ]
             raise serializers.ValidationError({
-                "potential_duplicates": duplicate_info,
-                "message": "Potential duplicate reports found. Please review before submitting."
+                "potential_duplicates": self.duplicate_candidates,
+                "message": DUPLICATE_MESSAGE,
             })
         return data
 

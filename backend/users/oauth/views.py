@@ -40,6 +40,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from ..jwt_cookies import set_jwt_cookies
 from ..models import Profile, SocialAccount, UserSession
+from ..session_tokens import SESSION_CLAIM, tag_with_new_session
 from .providers import OAuthError, OAuthProvider, PROVIDERS
 from ..throttles import OAuthCallbackThrottle, OAuthInitThrottle
 
@@ -154,7 +155,7 @@ def _record_session(user: User, refresh: RefreshToken, request) -> None:
     """Mirror what TokenObtainPairSerializer does so /api/users/sessions/
     sees this OAuth session like any other."""
     try:
-        jti = refresh.access_token.get("jti")
+        jti = refresh.get(SESSION_CLAIM) or refresh.access_token.get("jti")
         ua = request.META.get("HTTP_USER_AGENT", "")
         ip = request.META.get("REMOTE_ADDR")
         UserSession.objects.create(
@@ -249,7 +250,7 @@ def oauth_callback(request, provider: str):
         )
 
     user = _get_or_create_user(provider, info)
-    refresh = RefreshToken.for_user(user)
+    refresh = tag_with_new_session(RefreshToken.for_user(user))
     _record_session(user, refresh, request)
 
     # Redirect the *browser* back to the frontend. The cookies travel along

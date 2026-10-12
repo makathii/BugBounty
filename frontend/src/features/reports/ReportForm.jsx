@@ -22,6 +22,8 @@ const ReportForm = ({ onSuccess, onCancel, programId, onError }) => {
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    // Possible duplicates the server found (own reports in full, others anonymised).
+    const [duplicates, setDuplicates] = useState(null);
 
     useEffect(() => {
         setFormData(prev => ({ ...prev, program: programId || '' }));
@@ -51,8 +53,12 @@ const ReportForm = ({ onSuccess, onCancel, programId, onError }) => {
         return errs;
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
+        submit({});
+    };
+
+    const submit = async (extra) => {
         const clientErrors = validate();
         if (Object.keys(clientErrors).length) {
             setErrors(clientErrors);
@@ -62,6 +68,7 @@ const ReportForm = ({ onSuccess, onCancel, programId, onError }) => {
 
         setLoading(true);
         setErrors({});
+        setDuplicates(null);
         if (onError) onError(null);
 
         try {
@@ -69,17 +76,27 @@ const ReportForm = ({ onSuccess, onCancel, programId, onError }) => {
             const { is_human_generated, ...apiPayload } = formData;
             const payload = {
                 ...apiPayload,
-                program: programId ? parseInt(programId, 10) : undefined
+                program: programId ? parseInt(programId, 10) : undefined,
+                ...extra,
             };
 
             const response = await reportAPI.createReport(payload);
             if (onSuccess) onSuccess(response.data);
         } catch (error) {
-            if (error.response?.data) {
+            const data = error.response?.data;
+            if (data?.potential_duplicates) {
+                // Not a field error: show what looks similar and let the researcher decide.
+                setDuplicates(data.potential_duplicates);
+                if (onError) onError(data.message || 'Possible duplicates found.');
+            } else if (data && typeof data === 'object') {
                 const apiErrs = {};
-                Object.entries(error.response.data).forEach(([k, v]) => {
+                Object.entries(data).forEach(([k, v]) => {
                     apiErrs[k] = Array.isArray(v) ? v.join(' ') : String(v);
                 });
+                // `detail` (e.g. "verify your email first") and `program` have no field of their
+                // own on this form, so they are shown in the banner at the top.
+                if (apiErrs.detail && !apiErrs.general) apiErrs.general = apiErrs.detail;
+                if (apiErrs.program && !apiErrs.general) apiErrs.general = `Program: ${apiErrs.program}`;
                 setErrors(apiErrs);
                 if (onError) onError(apiErrs.general || 'Please fix the highlighted fields.');
             } else {
@@ -103,7 +120,27 @@ const ReportForm = ({ onSuccess, onCancel, programId, onError }) => {
             </div>
 
             {errors.general && (
-                <div className="error-message">{errors.general}</div>
+                <div className="error-message" role="alert">{errors.general}</div>
+            )}
+
+            {duplicates && (
+                <div className="error-message" role="alert" data-testid="duplicates">
+                    <strong>This looks a lot like a report that already exists.</strong>
+                    <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem' }}>
+                        {duplicates.map((d, i) => (
+                            <li key={i}>
+                                {d.own ? <>Your report <em>{d.title}</em></> : "Another researcher's report"}
+                                {' '}({Math.round(d.similarity * 100)}% similar)
+                            </li>
+                        ))}
+                    </ul>
+                    <p style={{ margin: '0 0 0.5rem' }}>
+                        If yours is genuinely different (another endpoint, another impact), you can submit it anyway.
+                    </p>
+                    <button type="button" className="btn btn-secondary" onClick={() => submit({ confirm_not_duplicate: true })} disabled={loading}>
+                        It&apos;s different: submit anyway
+                    </button>
+                </div>
             )}
 
             <form onSubmit={handleSubmit}>

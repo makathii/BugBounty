@@ -100,3 +100,49 @@ def send_comment_notification(comment_id):
         settings.DEFAULT_FROM_EMAIL,
         emails,
     )
+
+
+@shared_task(
+    autoretry_for=(Exception,), retry_backoff=True, retry_backoff_max=300,
+    max_retries=5, ignore_result=True,
+)
+def send_report_decision_notification(report_id, decision):
+    """Tell the researcher what happened to their report: triaged, accepted (with the points) or
+    rejected (with the reason)."""
+    from .models import BugReport
+
+    try:
+        report = BugReport.objects.select_related("reporter").get(pk=report_id)
+    except BugReport.DoesNotExist:
+        return
+    reporter = report.reporter
+    if reporter is None or not reporter.email:
+        return
+
+    base = getattr(settings, "FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    link = f"{base}/reports/{report.id}"
+    if decision == "accepted":
+        subject = f"Your report was accepted: {report.title}"
+        body = (
+            f"Great news! Your report \"{report.title}\" was accepted "
+            f"(severity: {report.severity}).\n\n"
+            f"You earned {report.points_awarded} points"
+            + (f", including {report.bonus_points} bonus points" if report.bonus_points else "")
+            + f".\n\n{report.verification_notes or ''}\n\nSee it here: {link}\n"
+        )
+    elif decision == "rejected":
+        subject = f"Your report was not accepted: {report.title}"
+        body = (
+            f"Your report \"{report.title}\" was rejected.\n\n"
+            f"Reason: {report.verification_notes or 'no reason given'}\n\n"
+            f"See it here: {link}\n"
+        )
+    elif decision == "triaged":
+        subject = f"Your report is being reviewed: {report.title}"
+        body = (
+            f"A triager has started reviewing your report \"{report.title}\".\n\n"
+            f"Follow along here: {link}\n"
+        )
+    else:
+        return
+    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [reporter.email])

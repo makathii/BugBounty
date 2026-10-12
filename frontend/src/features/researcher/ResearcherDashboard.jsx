@@ -2,8 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import api, { reportAPI } from '../../services/api';
+import api, { reportAPI, walletAPI, storeAPI, invitationAPI } from '../../services/api';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
+import LevelCard from '../../components/levels/LevelCard';
+import BadgeShelf from '../../components/badges/BadgeShelf';
+import Character from '../../components/character/Character';
 
 const ResearcherDashboard = () => {
     const { user } = useAuth();
@@ -12,27 +16,51 @@ const ResearcherDashboard = () => {
     const [submissions, setSubmissions] = useState([]);
     const [programs, setPrograms] = useState([]);
     const [leaderboard, setLeaderboard] = useState([]);
+    const [wallet, setWallet] = useState(null);
+    const [loadout, setLoadout] = useState({});
+    const [invitations, setInvitations] = useState([]);
+    const [inviteMessage, setInviteMessage] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const load = async () => {
             try {
-                const [statsRes, subsRes, programsRes, lbRes] = await Promise.all([
+                const [statsRes, subsRes, programsRes, lbRes, walletRes, loadoutRes, invRes] = await Promise.all([
                     reportAPI.getStats().catch(() => null),
                     reportAPI.getMySubmissions().catch(() => null),
                     api.get('/programs/researcher/').catch(() => null),
                     api.get('/leaderboard/', { params: { limit: 5 } }).catch(() => null),
+                    walletAPI.getWallet().catch(() => null),
+                    storeAPI.getLoadout().catch(() => null),
+                    invitationAPI.mine().catch(() => null),
                 ]);
                 if (statsRes) setStats(statsRes.data);
                 if (subsRes) setSubmissions(subsRes.data.results || subsRes.data || []);
                 if (programsRes) setPrograms(programsRes.data.results || programsRes.data || []);
                 if (lbRes) setLeaderboard(lbRes.data.results || []);
+                if (walletRes) setWallet(walletRes.data);
+                if (loadoutRes) setLoadout(loadoutRes.data);
+                if (invRes) setInvitations(invRes.data.results || invRes.data || []);
             } finally {
                 setLoading(false);
             }
         };
         load();
     }, []);
+
+    const answerInvitation = async (invitation, accept) => {
+        setInviteMessage(null);
+        try {
+            await (accept ? invitationAPI.accept : invitationAPI.decline)(invitation.program, invitation.id);
+            setInvitations((list) => list.filter((i) => i.id !== invitation.id));
+            setInviteMessage({
+                type: 'success',
+                text: accept ? `You joined ${invitation.program_name}.` : `You declined ${invitation.program_name}.`,
+            });
+        } catch (err) {
+            setInviteMessage({ type: 'error', text: err.response?.data?.error || err.response?.data?.detail || 'Could not answer the invitation.' });
+        }
+    };
 
     if (loading) {
         return (
@@ -43,11 +71,9 @@ const ResearcherDashboard = () => {
         );
     }
 
+    const pendingInvitations = invitations.filter((i) => i.status === 'pending');
     const acceptedCount = (stats?.by_status?.accepted || 0) + (stats?.by_status?.resolved || 0);
     const activeCount = (stats?.by_status?.open || 0) + (stats?.by_status?.triaged || 0);
-    const totalEarnings = submissions.reduce(
-        (sum, s) => sum + (s.bounty_amount ? Number(s.bounty_amount) : 0), 0
-    );
     const programsParticipated = new Set(
         submissions.map(s => s.program?.id || s.program).filter(Boolean)
     ).size;
@@ -56,20 +82,27 @@ const ResearcherDashboard = () => {
     const statCards = [
         { label: 'Active Submissions', value: activeCount, tone: 'blue' },
         { label: 'Accepted Reports', value: acceptedCount, tone: 'green' },
-        { label: 'Total Earnings', value: `$${totalEarnings.toLocaleString()}`, tone: 'accent' },
+        { label: 'Points Balance', value: formatPoints(wallet?.balance), tone: 'accent' },
         { label: 'Programs Participated', value: programsParticipated, tone: 'orange' },
     ];
     const rankTone = (rank) => (rank === 1 ? 'tone-yellow' : rank === 2 ? 'tone-gray' : rank === 3 ? 'tone-orange' : 'tone-gray');
 
     return (
         <div className="ui-page">
-            <header className="ui-page-header">
-                <h1 className="ui-title">Researcher Dashboard</h1>
-                <p className="ui-subtitle">
-                    Welcome back, {user?.first_name || user?.username}!
-                    {myRank ? ` You're ranked #${myRank} on the leaderboard.` : ''}
-                </p>
+            <header className="ui-page-header ui-row" style={{ gap: '1.25rem' }}>
+                <Link to="/store" title="Dress up your character in the store">
+                    <Character loadout={loadout} size={84} label="Your character" />
+                </Link>
+                <div>
+                    <h1 className="ui-title">Researcher Dashboard</h1>
+                    <p className="ui-subtitle">
+                        Welcome back, {user?.first_name || user?.username}!
+                        {myRank ? ` You're ranked #${myRank} on the leaderboard.` : ''}
+                    </p>
+                </div>
             </header>
+
+            <LevelCard level={wallet?.level} />
 
             <div className="ui-grid ui-grid--stats">
                 {statCards.map(({ label, value, tone }) => (
@@ -79,6 +112,35 @@ const ResearcherDashboard = () => {
                     </div>
                 ))}
             </div>
+
+            {(pendingInvitations.length > 0 || inviteMessage) && (
+                <section className="ui-card ui-mb-lg" data-testid="invitations-card">
+                    <h3 className="ui-section-title">Program invitations</h3>
+                    {inviteMessage && (
+                        <div className={`ui-alert ${inviteMessage.type === 'success' ? 'tone-green' : 'tone-red'}`} role="status">
+                            {inviteMessage.text}
+                        </div>
+                    )}
+                    <div className="ui-stack">
+                        {pendingInvitations.map((inv) => (
+                            <div key={inv.id} className="ui-row ui-row--between" data-testid={`my-invitation-${inv.program_name}`}>
+                                <div>
+                                    <Link to={`/programs/${inv.program}`} className="ui-strong">{inv.program_name}</Link>
+                                    <div className="ui-muted ui-small">
+                                        Invited by {inv.invited_by?.username || 'the company'}{inv.message ? `: ${inv.message}` : ''}
+                                    </div>
+                                </div>
+                                <div className="ui-row">
+                                    <button className="ui-btn ui-btn--green ui-btn--sm" onClick={() => answerInvitation(inv, true)}>Accept</button>
+                                    <button className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => answerInvitation(inv, false)}>Decline</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            <BadgeShelf />
 
             <div className="ui-card ui-mb-lg">
                 <h3 className="ui-section-title">Quick Actions</h3>
@@ -103,7 +165,7 @@ const ResearcherDashboard = () => {
                             <div className="ui-empty">
                                 <div className="ui-empty-icon">🎯</div>
                                 <h3>No Programs Available</h3>
-                                <p>There are currently no active bug bounty programs. Check back soon!</p>
+                                <p>There are currently no active programs. Check back soon!</p>
                             </div>
                         ) : (
                             <div className="ui-list">
@@ -116,7 +178,7 @@ const ResearcherDashboard = () => {
                                             </div>
                                         </div>
                                         <div className="ui-tone-text tone-green ui-strong ui-small" style={{ flexShrink: 0 }}>
-                                            {program.bounty_range || ''}
+                                            {program.points_range || ''}
                                         </div>
                                     </Link>
                                 ))}
@@ -138,7 +200,7 @@ const ResearcherDashboard = () => {
                                             </div>
                                             <div className="ui-muted ui-small">
                                                 {new Date(sub.created_at).toLocaleDateString()}
-                                                {sub.bounty_amount ? ` • $${Number(sub.bounty_amount).toLocaleString()}` : ''}
+                                                {sub.points_awarded ? ` • +${sub.points_awarded} pts` : ''}
                                             </div>
                                         </div>
                                         <div className="ui-row" style={{ flexShrink: 0, gap: '0.4rem' }}>

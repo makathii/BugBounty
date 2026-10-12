@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import api from '../../services/api';
+import api, { invitationAPI } from '../../services/api';
 import { statusTone, scopeTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 
 const TextBlock = ({ children }) => <div className="ui-pre" style={{ marginBottom: '1.5rem' }}>{children}</div>;
@@ -26,7 +27,7 @@ const ProgramDetail = () => {
 
     useEffect(() => {
         loadProgram();
-    }, [id]);
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadProgram = async () => {
         setLoading(true);
@@ -44,6 +45,34 @@ const ProgramDetail = () => {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDecline = async () => {
+        setJoining(true);
+        setJoinMessage(null);
+        try {
+            await invitationAPI.decline(id, program.my_invitation.id);
+            setJoinMessage({ type: 'success', text: 'You declined the invitation.' });
+            loadProgram();
+        } catch (err) {
+            setJoinMessage({ type: 'error', text: err.response?.data?.error || 'Could not decline the invitation.' });
+        } finally {
+            setJoining(false);
+        }
+    };
+
+    const handleAcceptInvitation = async () => {
+        setJoining(true);
+        setJoinMessage(null);
+        try {
+            await invitationAPI.accept(id, program.my_invitation.id);
+            setJoinMessage({ type: 'success', text: 'Invitation accepted. You can now submit reports to this program.' });
+            loadProgram();
+        } catch (err) {
+            setJoinMessage({ type: 'error', text: err.response?.data?.error || 'Could not accept the invitation.' });
+        } finally {
+            setJoining(false);
         }
     };
 
@@ -89,6 +118,17 @@ const ProgramDetail = () => {
         const { scope_type, can_accept_submissions, invitation_only, requires_application } = program;
 
         if (!can_accept_submissions) return null;
+
+        // Where this researcher already stands on a private program.
+        if (program.my_invitation?.status === 'pending' && !program.user_has_access) {
+            return { label: joining ? 'Accepting...' : 'Accept Invitation', cls: '', onClick: handleAcceptInvitation, disabled: joining };
+        }
+
+        if (scope_type === 'private' && !program.user_has_access) {
+            const state = program.my_application?.status;
+            if (state === 'pending') return { label: 'Application pending', cls: 'ui-btn--ghost', onClick: () => {}, disabled: true };
+            if (state === 'rejected') return { label: 'Application not accepted', cls: 'ui-btn--ghost', onClick: () => {}, disabled: true };
+        }
 
         if (scope_type === 'public' || scope_type === 'vdp') {
             return {
@@ -155,10 +195,12 @@ const ProgramDetail = () => {
     }
 
     const joinBtn = joinButtonProps();
+    // A private program only takes reports from people it has let in.
+    const canSubmit = program.can_accept_submissions && (program.scope_type !== 'private' || program.user_has_access);
     const tabs = ['overview', 'scope', 'policy', 'guidelines'];
     const statCards = [
         { label: 'Total Reports', value: program.total_reports ?? 0, tone: 'accent' },
-        { label: 'Total Bounties', value: `$${parseFloat(program.total_bounties || 0).toLocaleString()}`, tone: 'blue' },
+        { label: 'Points Awarded', value: formatPoints(program.total_points), tone: 'blue' },
         { label: 'Avg Severity', value: program.avg_severity_score?.toFixed(1) ?? '—', tone: 'orange' },
         { label: 'In-Scope Targets', value: program.in_scope_count ?? program.scopes?.filter(s => s.is_in_scope).length ?? 0, tone: 'green' },
     ];
@@ -228,8 +270,8 @@ const ProgramDetail = () => {
                         <span className={`ui-badge ${statusTone(program.status)}`}>
                             {program.status_display || program.status}
                         </span>
-                        {program.bounty_range && program.bounty_range !== 'Not specified' && (
-                            <span className="ui-badge ui-badge--plain tone-green">{program.bounty_range}</span>
+                        {program.points_range && program.points_range !== 'Not specified' && (
+                            <span className="ui-badge ui-badge--plain tone-green">{program.points_range}</span>
                         )}
                     </div>
                 </div>
@@ -240,7 +282,10 @@ const ProgramDetail = () => {
                             {joinBtn.label}
                         </button>
                     )}
-                    {program.can_accept_submissions && (
+                    {program.my_invitation?.status === 'pending' && !program.user_has_access && (
+                        <button className="ui-btn ui-btn--ghost" onClick={handleDecline} disabled={joining}>Decline</button>
+                    )}
+                    {canSubmit && (
                         <button className="ui-btn" onClick={() => navigate(`/submit?program=${id}`)}>Submit Report</button>
                     )}
                 </div>
@@ -262,7 +307,7 @@ const ProgramDetail = () => {
                         className={`ui-tab${activeTab === tab ? ' is-active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                     >
-                        {tab === 'policy' ? 'Bounty Policy' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        {tab === 'policy' ? 'Rewards' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
                 ))}
             </div>
@@ -310,6 +355,13 @@ const ProgramDetail = () => {
                     <div>
                         <h3 className="ui-section-title">Program Scope</h3>
 
+                        {program.scope_type === 'private' && !program.user_has_access && (
+                            <p className="ui-muted" data-testid="scope-hidden">
+                                The targets and testing guidelines of this private program are shown once you have been
+                                accepted.
+                            </p>
+                        )}
+
                         {[true, false].map(inScope => {
                             const items = program.scopes?.filter(s => s.is_in_scope === inScope) || [];
                             if (items.length === 0 && inScope) return (
@@ -344,21 +396,21 @@ const ProgramDetail = () => {
 
                 {activeTab === 'policy' && (
                     <div>
-                        <h3 className="ui-section-title">Bounty Policy</h3>
-                        {program.bounty_policy ? (
-                            <TextBlock>{program.bounty_policy}</TextBlock>
+                        <h3 className="ui-section-title">Rewards</h3>
+                        {program.reward_notes ? (
+                            <TextBlock>{program.reward_notes}</TextBlock>
                         ) : (
-                            <p className="ui-muted">No bounty policy specified.</p>
+                            <p className="ui-muted">No reward notes yet. Points are awarded by severity: low 10, medium 30, high 70, critical 150.</p>
                         )}
                         <div className="ui-card--inset" style={{ padding: '1.5rem' }}>
-                            <h4 className="ui-eyebrow">Bounty Range</h4>
+                            <h4 className="ui-eyebrow">Points Range</h4>
                             <div className="ui-grid ui-grid--2">
                                 {[
-                                    ['Minimum', program.min_bounty ? `$${program.min_bounty}` : 'Not specified'],
-                                    ['Maximum', program.max_bounty ? `$${program.max_bounty}` : 'Not specified'],
+                                    ['Minimum', program.min_points ? formatPoints(program.min_points) : 'Not specified'],
+                                    ['Maximum', program.max_points ? formatPoints(program.max_points) : 'Not specified'],
                                 ].map(([k, v]) => (
                                     <div key={k}>
-                                        <div className="ui-kv-label">{k} Bounty</div>
+                                        <div className="ui-kv-label">{k} Points</div>
                                         <div className="ui-stat-value tone-green" style={{ fontSize: '1.5rem' }}>{v}</div>
                                     </div>
                                 ))}
@@ -393,7 +445,7 @@ const ProgramDetail = () => {
                 )}
             </div>
 
-            {program.can_accept_submissions && (
+            {canSubmit && (
                 <div className="ui-card ui-card--center">
                     <h3 className="ui-section-title">Ready to submit a report?</h3>
                     <p className="ui-muted" style={{ margin: '0 0 1.5rem' }}>

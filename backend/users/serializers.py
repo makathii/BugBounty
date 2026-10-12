@@ -4,7 +4,16 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.mail import send_mail
 from .emails import send_verification_email
+from .session_tokens import revoke_all_sessions
 from .models import PasswordResetToken
+
+def _ensure_email_unused(value, exclude_pk=None):
+    """Two accounts must never share an email (password resets and verification are keyed on it).
+    Compared case-insensitively; ``exclude_pk`` lets a user keep their own address."""
+    if User.objects.filter(email__iexact=value).exclude(pk=exclude_pk).exists():
+        raise serializers.ValidationError("A user with this email already exists.")
+    return value
+
 
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SlugRelatedField(
@@ -18,9 +27,14 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'first_name', 'last_name', 'groups')
         read_only_fields = ('id', 'groups')
 
+    def validate_email(self, value):
+        return _ensure_email_unused(value, exclude_pk=getattr(self.instance, 'pk', None))
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(required=True)  # the account is unusable without the emailed link
     role = serializers.ChoiceField(
         choices=[('researcher', 'Researcher'), ('company', 'Company')],
         default='researcher',
@@ -30,6 +44,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'password', 'password2', 'first_name', 'last_name', 'role')
+
+    def validate_email(self, value):
+        return _ensure_email_unused(value)
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -61,6 +78,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
 
+    def validate_email(self, value):
+        return _ensure_email_unused(value)
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Passwords do not match."})
@@ -87,6 +107,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
         user.set_password(self.validated_data['password'])
         user.save()
+
+        # Whoever was signed in with the old password (possibly an attacker) is signed out.
+        revoke_all_sessions(user)
 
         # Invalidate all other pending reset tokens for this user
         PasswordResetToken.objects.filter(user=user, used=False).delete()

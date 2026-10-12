@@ -20,7 +20,7 @@ from .companies import CompanyViewSet
 from .dashboard import ProgramDashboardView
 from .favorites import ProgramFavoriteViewSet
 from .invitations import ProgramInvitationViewSet
-from .lists import CompanyProgramListView, PublicProgramListView, ResearcherProgramListView
+from .lists import CompanyProgramListView, MyInvitationsView, PublicProgramListView, ResearcherProgramListView
 from .notifications import ProgramNotificationViewSet
 from .programs import ProgramViewSet, with_favorites_total
 from .root import program_api_root
@@ -30,7 +30,7 @@ from .scopes import ScopeViewSet
 __all__ = [
     'ProgramApplicationViewSet', 'CompanyViewSet', 'ProgramDashboardView',
     'ProgramFavoriteViewSet', 'ProgramInvitationViewSet',
-    'CompanyProgramListView', 'PublicProgramListView', 'ResearcherProgramListView',
+    'CompanyProgramListView', 'MyInvitationsView', 'PublicProgramListView', 'ResearcherProgramListView',
     'ProgramNotificationViewSet', 'ProgramViewSet', 'with_favorites_total',
     'program_api_root', 'ScopeViewSet',
 ]

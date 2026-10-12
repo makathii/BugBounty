@@ -21,6 +21,11 @@ from leaderboard import services
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def small_point_table(settings):
+    """These tests are about ledger mechanics, not tuning: pin a simple point table."""
+    settings.LEADERBOARD_SEVERITY_POINTS = {"low": 1, "medium": 3, "high": 7, "critical": 15}
+
 
 def make_report(reporter, program, severity="medium", status="accepted"):
     return BugReport.objects.create(
@@ -359,3 +364,45 @@ class TestRecomputeAtomic:
         with pytest.raises(RuntimeError):
             services.recompute_all()
         assert ScoreEvent.objects.count() == 1  # old ledger intact
+
+
+# ---------------------------------------------------------------------------
+# Points economy
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestPointsEconomy:
+    def test_default_point_table(self, settings, verified_user, program):
+        del settings.LEADERBOARD_SEVERITY_POINTS  # fall back to the shipped economy
+        from leaderboard.models import DEFAULT_SEVERITY_POINTS
+        assert DEFAULT_SEVERITY_POINTS == {"low": 10, "medium": 30, "high": 70, "critical": 150}
+        report = make_report(verified_user, program, severity="high")
+        assert ScoreEvent.objects.get(report=report).points == 70
+
+    def test_bonus_points_add_to_the_award(self, verified_user, program):
+        report = make_report(verified_user, program, severity="high", status="triaged")
+        assert not ScoreEvent.objects.filter(report=report).exists()
+        report.status = "accepted"
+        report.bonus_points = 20
+        report.save()
+        assert ScoreEvent.objects.get(report=report).points == 27  # 7 + 20
+        assert report.points_awarded == 27
+
+    def test_changing_the_bonus_updates_the_ledger(self, verified_user, program):
+        report = make_report(verified_user, program, severity="low")
+        report.bonus_points = 5
+        report.save()
+        assert ScoreEvent.objects.get(report=report).points == 6
+        report.bonus_points = 0
+        report.save()
+        assert ScoreEvent.objects.get(report=report).points == 1
+
+    def test_recompute_includes_bonus(self, verified_user, program):
+        report = make_report(verified_user, program, severity="medium")
+        BugReport.objects.filter(pk=report.pk).update(bonus_points=10)
+        services.recompute_all()
+        assert ScoreEvent.objects.get(report=report).points == 13
+
+    def test_points_awarded_is_zero_until_accepted(self, verified_user, program):
+        report = make_report(verified_user, program, status="open")
+        assert BugReport.objects.get(pk=report.pk).points_awarded == 0

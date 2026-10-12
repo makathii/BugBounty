@@ -3,7 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { reportAPI } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { statusTone, severityTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 import CommentThread from './CommentThread';
+
+const SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
 const ReportDetail = () => {
     const { id } = useParams();
@@ -18,7 +21,11 @@ const ReportDetail = () => {
     const [showAcceptModal, setShowAcceptModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [verificationNotes, setVerificationNotes] = useState('');
-    const [bountyAmount, setBountyAmount] = useState('');
+    const [bonusPoints, setBonusPoints] = useState('');
+    const [acceptError, setAcceptError] = useState('');
+    const [showTriageModal, setShowTriageModal] = useState(false);
+    const [severityChoice, setSeverityChoice] = useState('low');
+    const [triageError, setTriageError] = useState('');
 
     useEffect(() => {
         loadReport();
@@ -49,14 +56,44 @@ const ReportDetail = () => {
         try {
             await reportAPI.acceptReport(id, {
                 verification_notes: verificationNotes,
-                bounty_amount: bountyAmount
+                bonus_points: bonusPoints || 0,
+                severity: severityChoice,
             });
             setShowAcceptModal(false);
             setVerificationNotes('');
-            setBountyAmount('');
+            setBonusPoints('');
+            setAcceptError('');
             loadReport(); // Refresh report
+            loadActivityLogs();
         } catch (error) {
             console.error('Failed to accept report:', error);
+            setAcceptError(error.response?.data?.error || 'Could not accept the report.');
+        }
+    };
+
+    const openAccept = () => {
+        setSeverityChoice(report.severity || 'low');
+        setAcceptError('');
+        setShowAcceptModal(true);
+    };
+
+    // Severity decides the base points, so it is chosen when triage starts and can be changed on accept.
+    const openTriage = () => {
+        setSeverityChoice(report.severity || 'low');
+        setTriageError('');
+        setShowTriageModal(true);
+    };
+
+    const handleStartTriage = async () => {
+        try {
+            await reportAPI.triageReport(id, { severity: severityChoice });
+            setShowTriageModal(false);
+            setTriageError('');
+            loadReport();
+            loadActivityLogs();
+        } catch (error) {
+            console.error('Failed to start triage:', error);
+            setTriageError(error.response?.data?.error || 'Could not start triage.');
         }
     };
 
@@ -113,8 +150,8 @@ const ReportDetail = () => {
                     <div className="ui-row">
                         <span className={`ui-badge ${statusTone(report.status)}`}>{report.status}</span>
                         <span className={`ui-badge ${severityTone(report.severity)}`}>{report.severity} severity</span>
-                        {report.bounty_amount && (
-                            <span className="ui-badge tone-green">Bounty: ${report.bounty_amount}</span>
+                        {report.points_awarded > 0 && (
+                            <span className="ui-badge tone-green">+{formatPoints(report.points_awarded)}</span>
                         )}
                     </div>
                 </div>
@@ -122,9 +159,13 @@ const ReportDetail = () => {
                 <div className="ui-row">
                     <button className="ui-btn ui-btn--ghost" onClick={() => navigate('/reports')}>Back</button>
 
+                    {canTriage && report.status === 'open' && (
+                        <button className="ui-btn" onClick={openTriage}>Start Triage</button>
+                    )}
+
                     {canTriage && report.status === 'triaged' && (
                         <>
-                            <button className="ui-btn ui-btn--green" onClick={() => setShowAcceptModal(true)}>Accept</button>
+                            <button className="ui-btn ui-btn--green" onClick={openAccept}>Accept</button>
                             <button className="ui-btn ui-btn--danger" onClick={() => setShowRejectModal(true)}>Reject</button>
                         </>
                     )}
@@ -213,9 +254,12 @@ const ReportDetail = () => {
                             <div className="ui-stack">
                                 {canTriage ? (
                                     <>
+                                        {report.status === 'open' && (
+                                            <button className="ui-btn ui-btn--block" onClick={openTriage}>Start Triage</button>
+                                        )}
                                         {report.status === 'triaged' && (
                                             <>
-                                                <button className="ui-btn ui-btn--green ui-btn--block" onClick={() => setShowAcceptModal(true)}>
+                                                <button className="ui-btn ui-btn--green ui-btn--block" onClick={openAccept}>
                                                     Accept Report
                                                 </button>
                                                 <button className="ui-btn ui-btn--danger ui-btn--block" onClick={() => setShowRejectModal(true)}>
@@ -228,7 +272,7 @@ const ReportDetail = () => {
                                         )}
                                     </>
                                 ) : isCompany() && (
-                                    <button className="ui-btn ui-btn--ghost ui-btn--block" onClick={() => alert('Company-specific action here')}>
+                                    <button className="ui-btn ui-btn--ghost ui-btn--block" onClick={() => navigate(`/programs/${report.program}`)}>
                                         View Program Details
                                     </button>
                                 )}
@@ -238,19 +282,67 @@ const ReportDetail = () => {
                 </div>
             </div>
 
+            {showTriageModal && (
+                <div className="ui-overlay">
+                    <div className="ui-modal">
+                        <h3 className="ui-section-title">Start Triage</h3>
+                        <p className="ui-muted">
+                            The report moves to <strong>triaged</strong> and is assigned to you if nobody has it yet.
+                            Choose how severe you judge it to be (you can still change this when accepting).
+                        </p>
+                        <div className="ui-field">
+                            <label className="ui-label" htmlFor="triage-severity">Severity</label>
+                            <select
+                                id="triage-severity"
+                                className="ui-select ui-select--block"
+                                value={severityChoice}
+                                onChange={(e) => setSeverityChoice(e.target.value)}
+                            >
+                                {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        {triageError && <div className="ui-muted ui-small" role="alert" style={{ color: '#f87171', marginBottom: '0.75rem' }}>{triageError}</div>}
+                        <div className="ui-row" style={{ justifyContent: 'flex-end' }}>
+                            <button className="ui-btn ui-btn--ghost" onClick={() => { setShowTriageModal(false); setTriageError(''); }}>Cancel</button>
+                            <button className="ui-btn" onClick={handleStartTriage}>Start Triage</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showAcceptModal && (
                 <div className="ui-overlay">
                     <div className="ui-modal">
                         <h3 className="ui-section-title">Accept Report</h3>
                         <div className="ui-field">
-                            <label className="ui-label">Bounty Amount ($)</label>
+                            <label className="ui-label" htmlFor="accept-severity">Severity</label>
+                            <select
+                                id="accept-severity"
+                                className="ui-select ui-select--block"
+                                value={severityChoice}
+                                onChange={(e) => setSeverityChoice(e.target.value)}
+                            >
+                                {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <div className="ui-muted ui-small" style={{ marginTop: '0.35rem' }}>
+                                Sets the base points: low 10, medium 30, high 70, critical 150.
+                            </div>
+                        </div>
+                        <div className="ui-field">
+                            <label className="ui-label">Bonus Points (optional)</label>
                             <input
                                 type="number"
+                                min="0"
+                                max="1000"
+                                step="1"
                                 className="ui-input ui-input--block"
-                                value={bountyAmount}
-                                onChange={(e) => setBountyAmount(e.target.value)}
-                                placeholder="Enter bounty amount"
+                                value={bonusPoints}
+                                onChange={(e) => setBonusPoints(e.target.value)}
+                                placeholder="0"
                             />
+                            <div className="ui-muted ui-small" style={{ marginTop: '0.35rem' }}>
+                                Added on top of the points for the report's severity. Max 1,000.
+                            </div>
                         </div>
                         <div className="ui-field">
                             <label className="ui-label">Verification Notes</label>
@@ -262,13 +354,15 @@ const ReportDetail = () => {
                                 placeholder="Add verification notes..."
                             />
                         </div>
+                        {acceptError && <div className="ui-muted ui-small" style={{ color: '#f87171', marginBottom: '0.75rem' }}>{acceptError}</div>}
                         <div className="ui-row" style={{ justifyContent: 'flex-end' }}>
                             <button
                                 className="ui-btn ui-btn--ghost"
                                 onClick={() => {
                                     setShowAcceptModal(false);
                                     setVerificationNotes('');
-                                    setBountyAmount('');
+                                    setBonusPoints('');
+                                    setAcceptError('');
                                 }}
                             >
                                 Cancel

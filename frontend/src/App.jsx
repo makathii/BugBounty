@@ -35,6 +35,8 @@ import ReportDetail from './features/reports/ReportDetail';
 import CompanyRegistration from './features/company/CompanyRegistration';
 import CompanyDashboard from './features/company/CompanyDashboard';
 import CompanyPrograms from './features/company/CompanyPrograms';
+import ProgramApplications from './features/company/ProgramApplications';
+import ProgramInvitations from './features/company/ProgramInvitations';
 import CompanyReports from './features/company/CompanyReports';
 import CreateProgram from './features/company/CreateProgram';
 import './App.css';
@@ -43,6 +45,9 @@ import TwoFactorVerify from './features/auth/TwoFactorVerify';
 import TwoFactorSetup from './features/auth/TwoFactorSetup';
 import TwoFactorSettings from './features/auth/TwoFactorSettings';
 import Leaderboard from './features/leaderboard/Leaderboard';
+import Wallet from './features/wallet/Wallet';
+import Badges from './features/badges/Badges';
+import Store from './features/store/Store';
 
 
 /* =========================
@@ -84,8 +89,25 @@ function AppContent() {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password/:token" element={<ResetPassword />} />
 
+                    {/* Points wallet — researchers */}
+                    <Route path="/wallet" element={
+                        <ResearcherRoute><Wallet /></ResearcherRoute>
+                    } />
+
+                    {/* Store — researchers */}
+                    <Route path="/store" element={
+                        <ResearcherRoute><Store /></ResearcherRoute>
+                    } />
+
+                    {/* Badges — researchers */}
+                    <Route path="/badges" element={
+                        <ResearcherRoute><Badges /></ResearcherRoute>
+                    } />
+
                     {/*Leaderboard */}
-                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/leaderboard" element={
+                        <ProtectedRoute><Leaderboard /></ProtectedRoute>
+                    } />
 
                     {/* OAuth */}
                     <Route path="/oauth/success" element={<OAuthSuccess />} />
@@ -116,6 +138,12 @@ function AppContent() {
                     } />
                     <Route path="/company/programs" element={
                         <CompanyRoute><CompanyPrograms /></CompanyRoute>
+                    } />
+                    <Route path="/company/programs/:id/applications" element={
+                        <CompanyRoute><ProgramApplications /></CompanyRoute>
+                    } />
+                    <Route path="/company/programs/:id/invitations" element={
+                        <CompanyRoute><ProgramInvitations /></CompanyRoute>
                     } />
                     <Route path="/company/programs/create" element={
                         <CompanyRoute><CreateProgram /></CompanyRoute>

@@ -400,3 +400,92 @@ class TestMarkAsDuplicateEndpoint:
         )
 
         assert response.status_code == 404
+
+
+@pytest.fixture
+def outsider(db):
+    """A different, verified researcher (so `existing_report` is someone else's)."""
+    from users.models import Profile
+    user = User.objects.create_user(username='outsider', password='testpass123', email='outsider@test.com')
+    user.groups.add(Group.objects.get_or_create(name='Researcher')[0])
+    profile = Profile.objects.get_or_create(user=user)[0]
+    profile.email_verified = True
+    profile.save()
+    user.profile = profile  # the user object may hold a stale, unverified cached profile
+    return user
+
+
+@pytest.mark.django_db
+class TestDuplicatesDoNotLeakOtherResearchersReports:
+    """Researchers must not learn what others reported: found by the full-program test.
+    (`existing_report` belongs to `regular_user`; `outsider` is a different researcher.)"""
+
+    def check(self, client, user, existing_report):
+        client.force_authenticate(user=user)
+        return client.post('/api/reports/check_duplicates/', {
+            'title': 'SQL Injection on Login Page',
+            'description': 'SQL injection vulnerability found',
+            'affected_url': 'https://example.com/login',
+            'program': existing_report.program.id,
+        }, format='json')
+
+    def test_someone_elses_report_is_anonymised(self, client, outsider, existing_report):
+        dup = self.check(client, outsider, existing_report).data['potential_duplicates'][0]
+        assert dup['own'] is False
+        assert dup['id'] is None and dup['reporter'] is None and dup['status'] is None
+        assert existing_report.title not in str(dup)
+        assert existing_report.reporter.username not in [v for v in dup.values() if isinstance(v, str)]
+        assert dup['similarity'] > 0
+
+    def test_your_own_report_is_shown_in_full(self, client, regular_user, existing_report):
+        dup = self.check(client, regular_user, existing_report).data['potential_duplicates'][0]
+        assert dup['own'] is True
+        assert dup['id'] == existing_report.id and dup['title'] == existing_report.title
+
+    def test_staff_see_everything(self, client, existing_report, triager_user):
+        dup = self.check(client, triager_user, existing_report).data['potential_duplicates'][0]
+        assert dup['id'] == existing_report.id and dup['reporter'] == existing_report.reporter.username
+
+    def test_submission_refusal_does_not_leak_either(self, client, outsider, existing_report):
+        client.force_authenticate(user=outsider)
+        resp = client.post('/api/reports/', {
+            'title': 'SQL Injection on Login Page',
+            'description': existing_report.description,   # a near-copy: this is a real duplicate
+            'affected_url': 'https://example.com/login',
+            'program': existing_report.program.id,
+        }, format='json')
+        assert resp.status_code == 400
+        body = str(resp.data)
+        assert existing_report.title not in body
+        assert existing_report.reporter.username not in [
+            v for d in resp.data['potential_duplicates'] for v in d.values() if isinstance(v, str)
+        ]
+        # real JSON types, not DRF's stringified errors
+        dup = resp.data['potential_duplicates'][0]
+        assert dup['own'] is False and dup['id'] is None and isinstance(dup['similarity'], float)
+
+
+@pytest.mark.django_db
+class TestConfirmNotDuplicate:
+    def payload(self, existing_report, **extra):
+        return {
+            'title': 'SQL Injection on Login Page',
+            'description': 'Found a SQL injection vulnerability in the login form',  # reads like the existing one
+            'affected_url': 'https://example.com/login',
+            'program': existing_report.program.id,
+            **extra,
+        }
+
+    def test_blocked_by_default(self, client, outsider, existing_report):
+        client.force_authenticate(user=outsider)
+        assert client.post('/api/reports/', self.payload(existing_report), format='json').status_code == 400
+
+    def test_the_reporter_can_confirm_it_is_different(self, client, outsider, existing_report):
+        client.force_authenticate(user=outsider)
+        resp = client.post('/api/reports/', self.payload(existing_report, confirm_not_duplicate=True), format='json')
+        assert resp.status_code == 201, resp.data
+
+    def test_the_flag_does_not_become_a_stored_field(self, client, outsider, existing_report):
+        client.force_authenticate(user=outsider)
+        resp = client.post('/api/reports/', self.payload(existing_report, confirm_not_duplicate=True), format='json')
+        assert 'confirm_not_duplicate' not in resp.data

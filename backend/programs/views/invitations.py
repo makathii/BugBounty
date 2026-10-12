@@ -4,8 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from ..models import Program, ProgramInvitation
-from ..permissions import _can_manage
+from core.tasks import enqueue_after_commit
+
+from ..permissions import _can_manage, _researcher_has_private_access
 from ..serializers import ProgramInvitationSerializer
+from ..tasks import send_program_invitation_notification
 
 
 class ProgramInvitationViewSet(viewsets.ModelViewSet):
@@ -35,7 +38,31 @@ class ProgramInvitationViewSet(viewsets.ModelViewSet):
             raise drf_serializers.ValidationError(
                 {"program": "Only the program owner or an admin can send invitations."}
             )
-        serializer.save(program=program, invited_by=self.request.user)
+        researcher = serializer.validated_data['researcher']
+        if _researcher_has_private_access(researcher, program):
+            raise drf_serializers.ValidationError(
+                {"username": f"{researcher.username} already has access to this program."}
+            )
+
+        existing = ProgramInvitation.objects.filter(program=program, researcher=researcher).first()
+        if existing is not None and existing.status == 'pending':
+            raise drf_serializers.ValidationError(
+                {"username": f"{researcher.username} has already been invited."}
+            )
+        if existing is not None:
+            # declined or withdrawn earlier: the same row is invited again
+            existing.status = 'pending'
+            existing.message = serializer.validated_data.get('message', '')
+            existing.invited_by = self.request.user
+            existing.save(update_fields=['status', 'message', 'invited_by', 'updated_at'])
+            serializer.instance = existing
+        else:
+            serializer.save(program=program, invited_by=self.request.user)
+
+        try:
+            enqueue_after_commit(send_program_invitation_notification, serializer.instance.id)
+        except Exception:  # mail trouble must not undo the invitation
+            pass
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None, program_pk=None):

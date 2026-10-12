@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { statusTone, scopeTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const LEGEND = [
     { scope: 'public', label: 'Public', desc: 'Open to all researchers' },
     { scope: 'private', label: 'Private', desc: 'Invitation or application required' },
-    { scope: 'vdp', label: 'VDP', desc: 'Vulnerability Disclosure — no bounties' },
+    { scope: 'vdp', label: 'VDP', desc: 'Vulnerability Disclosure — no points' },
 ];
 
 const JOIN_LABEL = { public: 'Join', private: 'Request Access', vdp: 'Participate' };
@@ -62,8 +63,8 @@ const ProgramBrowser = () => {
         { label: 'Total Programs', value: programs.length, tone: 'accent' },
         { label: 'Public Programs', value: programs.filter(p => p.scope_type === 'public').length, tone: 'green' },
         {
-            label: 'Total Paid Out',
-            value: `$${programs.reduce((sum, p) => sum + (parseFloat(p.total_bounties) || 0), 0).toLocaleString()}`,
+            label: 'Points Awarded',
+            value: formatPoints(programs.reduce((sum, p) => sum + (p.total_points || 0), 0)),
             tone: 'blue',
         },
         { label: 'Total Reports', value: programs.reduce((sum, p) => sum + (p.total_reports || 0), 0), tone: 'orange' },
@@ -163,9 +164,9 @@ const ProgramBrowser = () => {
 
                                 <div className="ui-card--inset ui-kv">
                                     <div>
-                                        <div className="ui-kv-label">Bounty Range</div>
+                                        <div className="ui-kv-label">Points Range</div>
                                         <div className="ui-kv-value tone-green ui-tone-text">
-                                            {program.bounty_range || 'Not specified'}
+                                            {program.points_range || 'Not specified'}
                                         </div>
                                     </div>
                                     <div>
@@ -173,9 +174,9 @@ const ProgramBrowser = () => {
                                         <div className="ui-kv-value">{program.total_reports ?? 0}</div>
                                     </div>
                                     <div>
-                                        <div className="ui-kv-label">Total Bounties</div>
+                                        <div className="ui-kv-label">Points Awarded</div>
                                         <div className="ui-kv-value">
-                                            ${parseFloat(program.total_bounties || 0).toLocaleString()}
+                                            {formatPoints(program.total_points)}
                                         </div>
                                     </div>
                                     <div>

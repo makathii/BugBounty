@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { companyAPI } from '../../services/api';
 import { statusTone, scopeTone } from '../../utils/tones';
+import { formatPoints } from '../../utils/points';
 
 const CompanyPrograms = () => {
     const navigate = useNavigate();
@@ -87,15 +88,25 @@ const CompanyPrograms = () => {
                                         </p>
                                         <div className="ui-row ui-muted ui-small" style={{ gap: '1.5rem' }}>
                                             <span>📋 {program.total_reports} reports</span>
-                                            <span>💰 ${parseFloat(program.total_bounties || 0).toLocaleString()} paid</span>
-                                            {program.bounty_range && program.bounty_range !== 'Not specified' && (
-                                                <span>🎯 {program.bounty_range}</span>
+                                            <span>💰 {formatPoints(program.total_points)} awarded</span>
+                                            {program.points_range && program.points_range !== 'Not specified' && (
+                                                <span>🎯 {program.points_range}</span>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="ui-row">
                                         <Link to={`/programs/${program.id}`} className="ui-btn ui-btn--ghost ui-btn--sm">View</Link>
+                                        {(program.requires_application || program.invitation_only || program.scope_type === 'private') && (
+                                            <Link to={`/company/programs/${program.id}/applications`} className="ui-btn ui-btn--ghost ui-btn--sm">
+                                                Applications
+                                            </Link>
+                                        )}
+                                        {program.scope_type === 'private' && (
+                                            <Link to={`/company/programs/${program.id}/invitations`} className="ui-btn ui-btn--ghost ui-btn--sm">
+                                                Invitations
+                                            </Link>
+                                        )}
 
                                         {program.status === 'draft' && (
                                             <button className="ui-btn ui-btn--green ui-btn--sm" disabled={isActioning}

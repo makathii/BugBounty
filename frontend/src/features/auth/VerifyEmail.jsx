@@ -22,15 +22,18 @@ const VerifyEmail = () => {
                 setStatus('success');
                 setMessage(response.data.detail || 'Email verified successfully!');
             } catch (error) {
-                // Check if it's a "token already used" error vs actually invalid
-                const errorDetail = error.response?.data?.detail || '';
-                if (errorDetail.toLowerCase().includes('invalid')) {
+                // Only a real success may say "verified". A rejected token says so (the link is
+                // single-use, so a second click lands here too); anything else is not the
+                // user's fault and must not be reported as success.
+                if (error.response?.status === 400) {
                     setStatus('error');
-                    setMessage(errorDetail);
+                    setMessage(
+                        (error.response.data?.detail || 'Invalid or expired token') +
+                        '. If you already verified your email, you can simply log in.'
+                    );
                 } else {
-                    // If not specifically "invalid", assume already verified
-                    setStatus('success');
-                    setMessage('Email already verified. You can now log in.');
+                    setStatus('error');
+                    setMessage("We couldn't verify your email right now. Please try the link again in a moment.");
                 }
             }
         };

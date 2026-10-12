@@ -21,10 +21,16 @@ from ..mfa_challenge import (
 )
 from ..mfa_enrollment import MfaEnrollmentRequired, make_enrollment_token
 from ..models import AccountLockout, BackupCode, UserMFA, UserSession
+from ..session_tokens import SESSION_CLAIM, is_session_revoked, session_id_of, tag_with_new_session
 from ..throttles import LoginThrottle, TokenRefreshThrottle
 
 
 class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        # The session id rides on both the refresh and the access token (see session_tokens).
+        return tag_with_new_session(super().get_token(user))
+
     """
     Login serializer. Two shapes of request:
 
@@ -145,7 +151,7 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
     def _finish_login(self, user, result):
         """Clear lockout state and record the session (best-effort) after a successful login."""
         AccountLockout.get_or_create_for_user(user).reset()
-        # Record the session using the access token's JTI
+        # Record the session under the id carried by both tokens
         try:
             import jwt as pyjwt
             decoded = pyjwt.decode(
@@ -159,7 +165,7 @@ class EmailVerificationTokenSerializer(TokenObtainPairSerializer):
             ip = request.META.get('REMOTE_ADDR') if request else None
             UserSession.objects.create(
                 user=user,
-                jti=decoded.get('jti', ''),
+                jti=decoded.get(SESSION_CLAIM) or decoded.get('jti', ''),
                 device_name=ua[:100] or 'Unknown device',
                 ip_address=ip,
                 user_agent=ua,
@@ -208,6 +214,17 @@ class CookieTokenRefreshView(TokenRefreshView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # A refresh token whose session was revoked (logout / sign out everywhere / password
+        # reset) must not mint new tokens.
+        try:
+            presented = RefreshToken(data['refresh'])
+        except TokenError:
+            presented = None  # the serializer below produces the standard error
+        if presented is not None and is_session_revoked(presented):
+            return clear_jwt_cookies(Response(
+                {"detail": "This session has been signed out."}, status=status.HTTP_401_UNAUTHORIZED,
+            ))
+
         serializer = self.get_serializer(data=data)
         try:
             serializer.is_valid(raise_exception=True)
@@ -254,9 +271,10 @@ def logout(request):
     # token carries a different JTI and would never match.
     try:
         access = getattr(request, 'auth', None)
-        jti = access.get('jti') if access is not None else None
-        if jti:
-            UserSession.objects.filter(user=request.user, jti=jti).update(is_active=False)
+        sid = session_id_of(access) if access is not None else None
+        legacy_jti = access.get('jti') if access is not None else None  # tokens from before sid
+        for key in filter(None, (sid, legacy_jti)):
+            UserSession.objects.filter(user=request.user, jti=key).update(is_active=False)
     except Exception:
         pass
 
