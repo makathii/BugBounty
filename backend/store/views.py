@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
+from badges.models import UserBadge
 from wallet import services as wallet
 
 from . import services
@@ -18,6 +19,7 @@ def _context(user):
     )
     summary = wallet.summary(user)
     return {
+        "badge_keys": set(UserBadge.objects.filter(user=user).values_list("key", flat=True)),
         "owned_ids": owned,
         "equipped_ids": worn,
         "level": summary["level"]["level"],
@@ -50,6 +52,7 @@ class StoreViewSet(viewsets.ViewSet):
         return get_object_or_404(qs, slug=slug)
 
     def items(self, request):
+        services.grant_badge_rewards(request.user)  # catches up badges earned before an item existed
         qs = Item.objects.filter(is_active=True)
         slot = request.query_params.get("slot")
         rarity = request.query_params.get("rarity")
@@ -65,6 +68,7 @@ class StoreViewSet(viewsets.ViewSet):
         })
 
     def inventory(self, request):
+        services.grant_badge_rewards(request.user)
         owned = UserItem.objects.filter(user=request.user).select_related("item")
         context = _context(request.user)
         return Response([
@@ -88,6 +92,11 @@ class StoreViewSet(viewsets.ViewSet):
             return _error(
                 exc.code, str(exc), status.HTTP_403_FORBIDDEN,
                 required_level=exc.required, level=exc.current,
+            )
+        except services.BadgeRequired as exc:
+            return _error(
+                exc.code, str(exc), status.HTTP_403_FORBIDDEN,
+                badge=exc.badge_key, badge_name=exc.badge_name,
             )
         except services.InsufficientPoints as exc:
             return _error(

@@ -148,6 +148,7 @@ const ResearcherDashboard = () => {
                     <button className="ui-btn" onClick={() => navigate('/programs')}>🔍 Find Programs</button>
                     <button className="ui-btn ui-btn--green" onClick={() => navigate('/submit')}>📝 Submit Report</button>
                     <button className="ui-btn ui-btn--ghost" onClick={() => navigate('/reports')}>📋 My Reports</button>
+                    <button className="ui-btn ui-btn--ghost" onClick={() => navigate(`/researchers/${user?.username}`)}>👤 My Profile</button>
                 </div>
             </div>
 

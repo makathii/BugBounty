@@ -19,10 +19,13 @@ if os.environ.get("E2E_RESET") != "1":
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from django.core.management import call_command
 from reports.models import ActivityLog, BugReport, Comment
 from store.models import EquippedItem, UserItem
 from store import services as store_services
 from wallet.models import WalletTransaction
+
+call_command("seed_store", verbosity=0)  # idempotent: picks up catalogue items added since the demo data was seeded
 
 # Start from a known state, regardless of earlier runs.
 Comment.objects.all().delete()

@@ -55,6 +55,22 @@ describe('Store: the shop', () => {
         expect(within(card('Mine')).queryByRole('button', { name: 'Buy' })).toBeNull();
     });
 
+    test('badge-gated items live under Badge rewards and say which badge they need', async () => {
+        setup({ items: [
+            item('plain', 'Plain Hat'),
+            item('halo', 'Clean Halo', { price: 0, unlock_badge: 'clean_streak', unlock_badge_name: 'Clean Streak', badge_locked: true }),
+            item('beetle', 'Beetle Buddy', { price: 0, unlock_badge: 'collector', unlock_badge_name: 'Bug Collector', owned: true }),
+        ] });
+        render(<Store />);
+        await screen.findByText('Plain Hat');
+        expect(screen.queryByText('Clean Halo')).toBeNull(); // not in the shop until it is unlocked
+        await userEvent.click(screen.getByRole('button', { name: 'Badge rewards (1/2)' }));
+        const locked = card('Clean Halo');
+        expect(within(locked).getByRole('button', { name: 'Earn the Clean Streak badge' })).toBeDisabled();
+        expect(within(locked).getByText(/Reward for the Clean Streak badge/)).toBeInTheDocument();
+        expect(within(card('Beetle Buddy')).getByRole('button', { name: 'Wear' })).toBeEnabled();
+    });
+
     test('a free item says so on its button', async () => {
         setup({ items: [item('starter', 'Starter Cap', { price: 0 })] });
         render(<Store />);

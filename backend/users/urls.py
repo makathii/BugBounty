@@ -10,6 +10,7 @@ from .views import (
     mfa_setup, mfa_confirm, mfa_disable, mfa_status, mfa_regenerate_backup_codes,
     mfa_enroll_setup, mfa_enroll_confirm,
     CSRFTokenView,
+    own_profile_settings, researcher_profile,
 )
 from .oauth import oauth_start, oauth_callback
 from programs.views import CompanyViewSet
@@ -29,6 +30,8 @@ urlpatterns = [
     path('', users_api_root, name='users-api-root'),
     path('register/', UserRegistrationView.as_view(), name='user-register'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
+    path('profile/public/', own_profile_settings, name='user-profile-public'),
+    path('researchers/<str:username>/', researcher_profile, name='researcher-profile'),
     path('groups/', user_groups, name='user-groups'),
     path('logout/', logout, name='logout'),
     path('verify-email/<str:token>/', verify_email, name='verify-email'),

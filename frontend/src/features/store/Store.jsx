@@ -21,6 +21,8 @@ const purchaseMessage = (error) => {
             return `Not enough points: you have ${data.balance}, this costs ${data.needed}.`;
         case 'level_too_low':
             return `You need to be level ${data.required_level} for this (you are level ${data.level}).`;
+        case 'badge_required':
+            return `Earn the ${data.badge_name} badge to unlock this.`;
         case 'already_owned':
             return 'You already own this item.';
         case 'item_unavailable':
@@ -134,7 +136,10 @@ const Store = () => {
     }
 
     const wornSlugs = new Set(Object.values(loadout).map((i) => i.slug));
-    const list = (tab === 'shop' ? shop.items : inventory).filter((i) => !slot || i.slot === slot);
+    const rewards = shop.items.filter((i) => i.unlock_badge);
+    const source = tab === 'shop' ? shop.items.filter((i) => !i.unlock_badge || i.owned || !i.badge_locked)
+        : tab === 'rewards' ? rewards : inventory;
+    const list = source.filter((i) => !slot || i.slot === slot);
     const previewing = Object.keys(preview).length > 0;
 
     const actions = (item) => {
@@ -150,6 +155,9 @@ const Store = () => {
                     {worn ? 'Take off' : 'Wear'}
                 </button>
             );
+        }
+        if (item.badge_locked) {
+            return <button className="ui-btn ui-btn--sm ui-btn--ghost" disabled>Earn the {item.unlock_badge_name} badge</button>;
         }
         if (item.locked) {
             return <button className="ui-btn ui-btn--sm ui-btn--ghost" disabled>Level {item.min_level} needed</button>;
@@ -194,7 +202,7 @@ const Store = () => {
 
                 <section>
                     <div className="ui-tabs">
-                        {[['shop', 'Shop'], ['mine', `My items (${inventory.length})`]].map(([value, label]) => (
+                        {[['shop', 'Shop'], ['rewards', `Badge rewards (${rewards.filter((i) => i.owned).length}/${rewards.length})`], ['mine', `My items (${inventory.length})`]].map(([value, label]) => (
                             <button
                                 key={value}
                                 className={`ui-tab${tab === value ? ' is-active' : ''}`}
@@ -219,11 +227,13 @@ const Store = () => {
 
                     {list.length === 0 ? (
                         <div className="ui-card ui-empty">
-                            <div className="ui-empty-icon">{tab === 'shop' ? '🛍️' : '🎒'}</div>
+                            <div className="ui-empty-icon">{tab === 'mine' ? '🎒' : '🛍️'}</div>
                             <p>
                                 {tab === 'shop'
                                     ? 'Nothing for sale here right now.'
-                                    : 'You do not own anything here yet. Visit the shop!'}
+                                    : tab === 'rewards'
+                                        ? 'No badge rewards here.'
+                                        : 'You do not own anything here yet. Visit the shop!'}
                             </p>
                         </div>
                     ) : (
@@ -232,7 +242,7 @@ const Store = () => {
                                 <div
                                     key={item.slug}
                                     className={
-                                        `ui-card ui-item-card${item.locked && !item.owned ? ' is-locked' : ''}` +
+                                        `ui-card ui-item-card${(item.locked || item.badge_locked) && !item.owned ? ' is-locked' : ''}` +
                                         `${preview[item.slot]?.slug === item.slug ? ' is-previewing' : ''}`
                                     }
                                 >
@@ -244,6 +254,11 @@ const Store = () => {
                                         </span>
                                     </div>
                                     <div className="ui-muted ui-small" style={{ minHeight: '2.4em' }}>{item.description}</div>
+                                    {item.unlock_badge && (
+                                        <div className="ui-small ui-tone-text tone-yellow">
+                                            🏅 {item.price === 0 ? 'Reward for' : 'Needs'} the {item.unlock_badge_name} badge
+                                        </div>
+                                    )}
                                     <div className="ui-row ui-row--between">
                                         <span className="ui-item-price">
                                             {item.owned && tab === 'mine'

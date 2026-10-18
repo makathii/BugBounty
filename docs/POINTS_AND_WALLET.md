@@ -111,6 +111,31 @@ API (all need login): `GET /api/store/items/` (`?slot=`, `?rarity=`; each item s
 `GET /api/store/loadout/{user_id}/`. Purchase errors carry a `code`: `insufficient_points` (400),
 `level_too_low` (403), `already_owned` (409), `item_unavailable` (404).
 
+### Badge-gated items (rewards)
+
+An item can name a badge in `unlock_badge`:
+
+- **Free item + badge = a reward.** It lands in the inventory the moment the badge is earned
+  (`store.services.grant_badge_rewards`, called from `badges.evaluate`). Opening the shop, the
+  inventory or the badges page also delivers rewards for badges earned before the item existed,
+  so adding a reward later reaches everyone who already qualifies. Rewards are never for sale.
+- **Priced item + badge** can only be bought once the badge is earned (`badge_required`, 403).
+- Item rows in the API carry `unlock_badge`, `unlock_badge_name` and `badge_locked`; each badge in
+  `GET /api/badges/` lists its `rewards`. In the app: a "Badge rewards" tab in the store and a
+  "Unlocks: ..." line on every badge.
+
+`seed_store` ships about 40 items, including one reward for each of the eight badges. Re-run it to
+add new catalogue items to an existing database (it only creates missing ones).
+
+## Public profiles
+
+`/researchers/<username>` (login required) shows a researcher's character, level, rank, lifetime
+points, accepted / critical / program counts, earned badges, a bio (up to 160 characters) and the
+month they joined. It never shows an email, real name or report contents. Researchers can edit the
+bio and hide the page from their own profile page (`GET/PATCH /api/users/profile/public/`); a hidden
+page answers 404 for everyone except its owner and staff. The leaderboard (which lists usernames and
+points) links to the pages. API: `GET /api/users/researchers/<username>/`.
+
 Note: if an accepted report is revoked *after* its points were spent, the balance can go negative.
 That is intentional (it is honest bookkeeping); purchases are simply blocked until it recovers.
 

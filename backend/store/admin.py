@@ -6,7 +6,7 @@ from .models import EquippedItem, Item, UserItem
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ("name", "slot", "rarity", "price", "min_level", "is_active", "sort_order")
+    list_display = ("name", "slot", "rarity", "price", "min_level", "unlock_badge", "is_active", "sort_order")
     list_filter = ("slot", "rarity", "is_active")
     list_editable = ("price", "is_active", "sort_order")
     search_fields = ("name", "slug")

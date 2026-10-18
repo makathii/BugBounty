@@ -27,4 +27,15 @@ describe('Badges page', () => {
         render(<Badges />);
         expect(await screen.findByText(/Could not load your badges/)).toBeInTheDocument();
     });
+
+    test('shows which items a badge unlocks, and whether they are unlocked yet', async () => {
+        const reward = { slug: 'halo', name: 'Clean Halo', art: '😇', slot: 'hat', rarity: 'legendary', price: 0, owned: true };
+        badgeAPI.getBadges.mockResolvedValue({ data: { earned_count: 1, total: 2, badges: [
+            { ...earned, rewards: [reward] },
+            { ...locked, rewards: [{ ...reward, slug: 'beetle', name: 'Beetle Buddy', art: '🪲', owned: false }] },
+        ] } });
+        render(<Badges />);
+        expect(await screen.findByTestId('rewards-a')).toHaveTextContent('Unlocked: 😇 Clean Halo');
+        expect(screen.getByTestId('rewards-b')).toHaveTextContent('Unlocks: 🪲 Beetle Buddy');
+    });
 });

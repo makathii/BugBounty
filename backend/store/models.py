@@ -23,6 +23,10 @@ class Item(models.Model):
     price = models.PositiveIntegerField(default=0)
     # Researchers below this level see the item but cannot buy it yet.
     min_level = models.PositiveSmallIntegerField(default=1)
+    # Key of a badge (see badges.definitions) the researcher must have earned first. A free item
+    # with a badge is a *reward*: it is added to the inventory the moment the badge is earned.
+    # A priced one can only be bought once the badge is earned.
+    unlock_badge = models.CharField(max_length=40, blank=True, default="")
     # Placeholder art until real artwork exists: an emoji. ``image_url`` overrides it later.
     art = models.CharField(max_length=16, blank=True, default="")
     image_url = models.URLField(blank=True, default="")

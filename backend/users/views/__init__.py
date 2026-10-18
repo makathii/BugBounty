@@ -11,6 +11,7 @@ users API views, grouped by concern:
 Everything is re-exported here so ``from users.views import ...`` keeps working.
 """
 
+from .public_profile import own_profile_settings, researcher_profile
 from .accounts import UserProfileView, UserRegistrationView, user_groups
 from .auth import (
     CSRFTokenView,
@@ -34,6 +35,7 @@ from .verification import resend_verification_email, verify_email
 
 
 __all__ = [
+    'own_profile_settings', 'researcher_profile',
     'UserRegistrationView', 'UserProfileView', 'user_groups',
     'EmailVerificationTokenSerializer', 'ThrottledTokenObtainPairView',
     'CookieTokenRefreshView', 'logout', 'CSRFTokenView',

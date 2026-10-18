@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from badges.definitions import BADGES_BY_KEY
+
 from .models import Item
 
 
@@ -12,12 +14,15 @@ class ItemSerializer(serializers.ModelSerializer):
     equipped = serializers.SerializerMethodField()
     locked = serializers.SerializerMethodField()
     can_afford = serializers.SerializerMethodField()
+    unlock_badge_name = serializers.SerializerMethodField()
+    badge_locked = serializers.SerializerMethodField()
 
     class Meta:
         model = Item
         fields = (
             "id", "slug", "name", "description", "slot", "slot_display", "rarity",
             "rarity_display", "price", "min_level", "art", "image_url",
+            "unlock_badge", "unlock_badge_name", "badge_locked",
             "owned", "equipped", "locked", "can_afford",
         )
         read_only_fields = fields
@@ -31,6 +36,14 @@ class ItemSerializer(serializers.ModelSerializer):
     def get_locked(self, obj):
         """True when the researcher's level is below the item's requirement."""
         return self.context.get("level", 1) < obj.min_level
+
+    def get_unlock_badge_name(self, obj):
+        badge = BADGES_BY_KEY.get(obj.unlock_badge)
+        return badge.name if badge else ""
+
+    def get_badge_locked(self, obj):
+        """True when a badge the researcher has not earned yet is needed first."""
+        return bool(obj.unlock_badge) and obj.unlock_badge not in self.context.get("badge_keys", ())
 
     def get_can_afford(self, obj):
         return self.context.get("balance", 0) >= obj.price

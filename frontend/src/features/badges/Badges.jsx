@@ -49,6 +49,12 @@ const Badges = () => {
                             <div className="ui-badge-art" aria-hidden="true">{badge.icon}</div>
                             <div className="ui-strong">{badge.name}</div>
                             <p className="ui-muted ui-small" style={{ margin: 0 }}>{badge.description}</p>
+                            {badge.rewards?.length > 0 && (
+                                <div className="ui-small ui-tone-text tone-yellow" data-testid={`rewards-${badge.key}`}>
+                                    🎁 {badge.earned ? 'Unlocked' : 'Unlocks'}:{' '}
+                                    {badge.rewards.map((r) => `${r.art} ${r.name}`).join(', ')}
+                                </div>
+                            )}
                             {badge.earned ? (
                                 <div className="ui-tone-text tone-green ui-small ui-strong">
                                     Earned {new Date(badge.awarded_at).toLocaleDateString()}

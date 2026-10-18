@@ -259,6 +259,12 @@ export const badgeAPI = {
     getBadges: () => api.get('/badges/'),
 };
 
+export const profileAPI = {
+    getResearcher:  (username) => api.get(`/users/researchers/${encodeURIComponent(username)}/`),
+    getMySettings:  ()         => api.get('/users/profile/public/'),
+    updateMySettings: (data)   => api.patch('/users/profile/public/', data),
+};
+
 export const levelAPI = {
     getLadder: () => api.get('/levels/'),
     getMine:   () => api.get('/levels/me/'),

@@ -16,7 +16,9 @@ test.describe('the store', () => {
         await page.getByRole('link', { name: 'Store', exact: true }).click();
         const card = (name) => page.locator('.ui-item-card', { has: page.locator('strong', { hasText: new RegExp(`^${name}$`) }) });
 
-        await expect(page.locator('.ui-item-card')).toHaveCount(before.items.length);
+        // (badge-gated items that are still locked live under the "Badge rewards" tab)
+        const inShop = before.items.filter((i) => !i.unlock_badge || i.owned || !i.badge_locked);
+        await expect(page.locator('.ui-item-card')).toHaveCount(inShop.length);
         await expect(page.getByText(pts(before.balance), { exact: true }).first()).toBeVisible();
         // A level-gated item explains itself and cannot be bought.
         const gated = before.items.find((i) => i.locked);

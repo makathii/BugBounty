@@ -10,6 +10,9 @@ from django.db import transaction
 from leaderboard.levels import level_for
 from wallet import services as wallet
 
+from badges.definitions import BADGES_BY_KEY
+from badges.models import UserBadge
+
 from .models import EquippedItem, Item, UserItem
 
 
@@ -32,6 +35,14 @@ class LevelTooLow(StoreError):
     def __init__(self, required, current):
         self.required, self.current = required, current
         super().__init__(f"Requires level {required} (you are level {current}).")
+
+
+class BadgeRequired(StoreError):
+    code = "badge_required"
+
+    def __init__(self, badge_key, badge_name):
+        self.badge_key, self.badge_name = badge_key, badge_name
+        super().__init__(f"Earn the {badge_name} badge to unlock this.")
 
 
 class NotOwned(StoreError):
@@ -61,11 +72,33 @@ def purchase(user, item):
         level = level_for(wallet.lifetime_earned(user))["level"]
         if level < item.min_level:
             raise LevelTooLow(item.min_level, level)
+        if item.unlock_badge and not UserBadge.objects.filter(user=user, key=item.unlock_badge).exists():
+            badge = BADGES_BY_KEY.get(item.unlock_badge)
+            raise BadgeRequired(item.unlock_badge, badge.name if badge else item.unlock_badge)
 
         tx = None
         if item.price > 0:
             tx = wallet.spend(user, item.price, f"Bought {item.name}", reference=f"item:{item.pk}")
         return UserItem.objects.create(user=user, item=item, price_paid=item.price, transaction=tx)
+
+
+def grant_badge_rewards(user):
+    """
+    Give ``user`` every free, badge-gated item for the badges they have earned and don't yet own.
+    Idempotent, and it also catches up researchers who earned a badge before the item existed.
+    Returns the new ``UserItem`` rows.
+    """
+    earned = list(UserBadge.objects.filter(user=user).values_list("key", flat=True))
+    if not earned:
+        return []
+    owned = UserItem.objects.filter(user=user).values_list("item_id", flat=True)
+    rewards = Item.objects.filter(is_active=True, price=0, unlock_badge__in=earned).exclude(pk__in=owned)
+    granted = []
+    for item in rewards:
+        row, created = UserItem.objects.get_or_create(user=user, item=item, defaults={"price_paid": 0})
+        if created:
+            granted.append(row)
+    return granted
 
 
 def refund(user_item, reason=None):

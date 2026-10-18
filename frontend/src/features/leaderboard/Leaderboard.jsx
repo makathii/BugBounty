@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import './leaderboard.css';
 import { leaderboardAPI } from '../../services/api';
 import LevelChip from '../../components/levels/LevelChip';
@@ -70,7 +71,7 @@ function Podium({ rows }) {
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <Character loadout={row.loadout} size={52} label={`${row.username}'s character`} />
                     </div>
-                    <div className="lb-pod-name">{row.username}</div>
+                    <div className="lb-pod-name"><Link to={`/researchers/${row.username}`} className="lb-link">{row.username}</Link></div>
                     <LevelChip level={row.level} title={row.level_title} />
                     <div className="lb-pod-pts">{row.total_points.toLocaleString()}</div>
                     <div className="lb-pod-sub">{row.report_count} reports</div>
@@ -87,7 +88,7 @@ function EntryRow({ row, rank, isMe }) {
 
             <div className="lb-user-cell">
                 <Character loadout={row.loadout} size={34} label={`${row.username}'s character`} />
-                <span className="lb-username">{row.username}</span>
+                <Link to={`/researchers/${row.username}`} className="lb-username lb-link">{row.username}</Link>
                 <LevelChip level={row.level} title={row.level_title} />
                 {isMe && <span className="lb-you-tag">you</span>}
             </div>
